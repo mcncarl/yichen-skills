@@ -136,3 +136,23 @@ yichen-skills/
 
 MIT
 
+
+## 致谢与来源
+
+本仓库中的 X 发布流程设计与部分工程实践，参考了以下开源项目：
+
+- `wshuyi/x-article-publisher-skill`
+  - 仓库：<https://github.com/wshuyi/x-article-publisher-skill>
+  - 文档：<https://github.com/wshuyi/x-article-publisher-skill/blob/main/README_CN.md>
+  - 许可：MIT（见其仓库 LICENSE）
+- `JimLiu/baoyu-skills`
+  - 仓库：<https://github.com/JimLiu/baoyu-skills>
+  - 许可声明：其 `README.md` 的 `## License` 小节标注为 MIT
+
+更详细的第三方说明见：`THIRD_PARTY_NOTICES.md`。
+
+## 合规与边界声明
+
+- 本项目与 X (Twitter) 官方无隶属、合作或背书关系。
+- 使用者需自行遵守 X 平台条款、自动化政策及当地法律法规。
+- 请勿将任何真实账号凭据（如 `cookies.json`）提交到公开仓库。

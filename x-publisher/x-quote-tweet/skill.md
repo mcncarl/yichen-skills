@@ -8,6 +8,15 @@ description: |
 
 引用现有推文并添加评论，支持 X Premium 长评论。
 
+## 来源与致谢
+
+本技能的整体思路与部分流程参考了以下项目，并在此基础上做了适配与扩展：
+
+- https://github.com/wshuyi/x-article-publisher-skill
+- https://github.com/JimLiu/baoyu-skills
+
+第三方许可与说明见仓库根目录 `THIRD_PARTY_NOTICES.md`。
+
 ## 参数
 
 - `TWEET_URL`：要引用的推文 URL（必需）

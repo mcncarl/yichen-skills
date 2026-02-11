@@ -8,6 +8,15 @@ description: |
 
 发布带视频的 X 推文（文本 + 视频），支持 X Premium 长推文。
 
+## 来源与致谢
+
+本技能的整体思路与部分流程参考了以下项目，并在此基础上做了适配与扩展：
+
+- https://github.com/wshuyi/x-article-publisher-skill
+- https://github.com/JimLiu/baoyu-skills
+
+第三方许可与说明见仓库根目录 `THIRD_PARTY_NOTICES.md`。
+
 ## 参数
 
 - `POST_TEXT`：推文文本（必需，无字符限制）

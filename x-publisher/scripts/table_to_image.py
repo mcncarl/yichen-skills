@@ -2,6 +2,10 @@
 """
 Convert Markdown table to PNG image.
 
+Attribution:
+- Adapted with references to wshuyi/x-article-publisher-skill and JimLiu/baoyu-skills.
+- See repository THIRD_PARTY_NOTICES.md for details.
+
 For X Articles publishing when native table rendering is not supported
 (X Premium tier) or when you want consistent visual styling.
 

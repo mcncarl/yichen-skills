@@ -2,6 +2,10 @@
 """
 Copy image or HTML to system clipboard for X Articles publishing.
 
+Attribution:
+- Adapted with references to wshuyi/x-article-publisher-skill and JimLiu/baoyu-skills.
+- See repository THIRD_PARTY_NOTICES.md for details.
+
 Supports:
 - Image files (jpg, png, gif, webp) - copies as image data
 - HTML content - copies as rich text for paste

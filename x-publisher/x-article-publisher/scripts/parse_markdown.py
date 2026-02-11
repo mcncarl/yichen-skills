@@ -2,6 +2,10 @@
 """
 Parse Markdown for X Articles publishing.
 
+Attribution:
+- Adapted with references to wshuyi/x-article-publisher-skill and JimLiu/baoyu-skills.
+- See repository THIRD_PARTY_NOTICES.md for details.
+
 Extracts:
 - Title (from filename or first H1/H2)
 - Cover image (first image)
