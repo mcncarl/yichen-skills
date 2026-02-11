@@ -5,8 +5,6 @@
 1. 把 Claude Code 对话自动沉淀到 Obsidian（`summary`）
 2. 把 Obsidian/Markdown 内容高效发布到 X（`x-publisher`）
 
-这个仓库已经做过脱敏处理，适合直接公开分享和二次复用。
-
 ## 仓库包含什么
 
 ### 1) `summary`
@@ -137,3 +135,4 @@ yichen-skills/
 ## License
 
 MIT
+
