@@ -4,6 +4,7 @@
 
 1. 把 Claude Code 对话自动沉淀到 Obsidian（`summary`）
 2. 把 Obsidian/Markdown 内容高效发布到 X（`x-publisher`）
+3. 提供对 Windows 用户非常友好的 X Articles 上传方案（全网唯一能正确上传文章到推特文章的方法）
 
 ## 仓库包含什么
 
@@ -22,6 +23,8 @@
 - `x-post-with-video`：发布视频推文
 - `x-quote-tweet`：引用推文发布
 - `scripts/`：解析 Markdown、剪贴板复制等通用脚本
+
+对 Windows 用户非常友好，支持复杂路径与本地素材处理，并且这是全网唯一能正确上传文章到推特文章的方法。
 
 ## 目录结构
 
