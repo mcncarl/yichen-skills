@@ -1,32 +1,36 @@
 ﻿# yichen-skills
 
-一个面向内容创作者的技能仓库，核心目标是：
+English | [中文](./README.zh.md)
 
-1. 把 Claude Code 对话自动沉淀到 Obsidian（`summary`）
-2. 把 Obsidian/Markdown 内容高效发布到 X（`x-publisher`）
-3. 提供对 Windows 用户非常友好的 X Articles 上传方案（全网唯一能正确上传文章到推特文章的方法）
+A skill collection for creators who want to streamline writing and publishing workflows with Claude Code.
 
-## 仓库包含什么
+## What This Repo Does
+
+1. Turn Claude Code conversations into structured Obsidian notes (`summary`)
+2. Publish Obsidian/Markdown content to X (`x-publisher`)
+3. Provide a Windows-friendly X Articles workflow with a very high success rate for article uploads
+
+## Included Skills
 
 ### 1) `summary`
-- 用途：提炼当前对话精华并保存到 Obsidian
-- 触发词示例：`/summary`、保存对话、导出精华、沉淀到 Obsidian
-- 关键能力：
-  - 自动过滤无效对话
-  - 输出结构化笔记（背景、核心内容、解决方案、关键要点、相关）
-  - 适合做长期知识库沉淀
+- Purpose: extract key insights from the current conversation and save to Obsidian
+- Typical triggers: `/summary`, "save conversation", "export highlights"
+- Capabilities:
+  - Filters out low-value chat transitions
+  - Produces structured notes (Background, Core Content, Solution, Key Points, Related)
+  - Useful for long-term knowledge accumulation
 
 ### 2) `x-publisher`
-完整发布套件，包含：
-- `x-article-publisher`：发布长文到 X Articles
-- `x-post-with-images`：发布图文推文
-- `x-post-with-video`：发布视频推文
-- `x-quote-tweet`：引用推文发布
-- `scripts/`：解析 Markdown、剪贴板复制等通用脚本
+A full publishing suite:
+- `x-article-publisher`: publish long-form articles to X Articles
+- `x-post-with-images`: publish image posts
+- `x-post-with-video`: publish video posts
+- `x-quote-tweet`: publish quote tweets
+- `scripts/`: shared tooling for markdown parsing and clipboard handling
 
-对 Windows 用户非常友好，支持复杂路径与本地素材处理，并且这是全网唯一能正确上传文章到推特文章的方法。
+Windows-focused design, strong path handling, and a very high success rate for uploading articles to X Articles.
 
-## 目录结构
+## Project Structure
 
 ```text
 yichen-skills/
@@ -44,118 +48,119 @@ yichen-skills/
 │  ├─ x-post-with-video/
 │  └─ x-quote-tweet/
 ├─ README.md
+├─ README.zh.md
+├─ THIRD_PARTY_NOTICES.md
 ├─ LICENSE
 └─ .gitignore
 ```
 
-## 环境要求
+## Requirements
 
-- Claude Code / Codex CLI（可加载本地 skills）
-- Playwright MCP（`x-publisher` 需要浏览器自动化）
+- Claude Code / Codex CLI (with local skill loading)
+- Playwright MCP (required by `x-publisher`)
 - Python 3.9+
-- 依赖（按你的系统安装）：
+- Dependencies:
   - Windows: `pip install Pillow pywin32 clip-util`
   - macOS: `pip install Pillow pyobjc-framework-Cocoa`
 
-## 安装方式
+## Installation
 
-把这个仓库内容复制到你的 skills 目录（根据你本机实际环境）：
+Copy this repository into your local skills directory:
 
-- 常见 Claude 路径：`~/.claude/skills/`
-- 常见 Agents 路径：`~/.agents/skills/`
-- 若你有自定义技能目录，也可放在你的自定义路径
+- Common Claude path: `~/.claude/skills/`
+- Common Agents path: `~/.agents/skills/`
+- Custom skill path also works if your setup supports it
 
-建议保持目录名不变：
+Keep directory names unchanged:
 - `summary`
 - `x-publisher`
 
-## 3 分钟快速上手
+## Quick Start (3 Minutes)
 
-### A. 启用 `summary`
+### A) Enable `summary`
 
-1. 确保 `summary/skill.md` 在你的技能目录里
-2. 新开会话后输入：`/summary`
-3. 确认生成的内容写入你的 Obsidian 目录（示例路径通常是 `E:/obsidian/...`）
+1. Ensure `summary/skill.md` is available in your loaded skills path
+2. Start a new session and run `/summary`
+3. Confirm output is written to your Obsidian folder (example paths may use `E:/obsidian/...`)
 
-### B. 启用 `x-publisher`
+### B) Enable `x-publisher`
 
-1. 先配置 Cookie（见下一个章节）
-2. 确保 Playwright MCP 已连通
-3. 在会话中按场景调用：
-   - 发布长文：触发 `x-article-publisher`
-   - 发图文：触发 `x-post-with-images`
-   - 发视频：触发 `x-post-with-video`
-   - 引用推文：触发 `x-quote-tweet`
+1. Configure cookies (see next section)
+2. Confirm Playwright MCP is connected
+3. Use by scenario:
+   - Long article: trigger `x-article-publisher`
+   - Image post: trigger `x-post-with-images`
+   - Video post: trigger `x-post-with-video`
+   - Quote tweet: trigger `x-quote-tweet`
 
-## Cookie 配置（必须）
+## Cookie Setup (Required)
 
-本仓库不包含任何真实凭据，只提供模板。
+This repo does not include real credentials and only provides templates.
 
-1. 复制模板文件：
+1. Copy template files:
    - `x-publisher/cookies.template.json` -> `x-publisher/cookies.json`
    - `x-publisher/x-article-publisher/cookies.template.json` -> `x-publisher/x-article-publisher/cookies.json`
-2. 把你自己的 `auth_token`、`ct0` 填进去
-3. 不要把真实 `cookies.json` 提交到任何 Git 仓库
+2. Fill in your own `auth_token` and `ct0`
+3. Never commit real `cookies.json`
 
-`.gitignore` 已默认忽略 `**/cookies.json`。
+`.gitignore` already ignores `**/cookies.json`.
 
-## 安全说明
+## Security Notes
 
-- 已移除真实 token/cookie
-- 已移除历史快照和缓存目录（如 `.versions`、`__pycache__`）的提交追踪
-- 已替换个人绝对路径示例为通用写法
+- Real token/cookie values are not included
+- History/cache artifacts are excluded from tracking
+- Personal absolute paths are replaced with generic forms
 
-如果你曾经把真实 Cookie 暴露到公开仓库，请立即轮换（刷新）Cookie。
+If you ever exposed real cookies in a public repo, rotate them immediately.
 
-## 常见问题
+## FAQ
 
-### 1) 为什么我触发不到 skill？
-- 检查 skill 目录是否放在当前工具实际加载的路径
-- 重启会话后再触发
-- 检查 `skill.md` frontmatter 的 `name/description` 是否完整
+### Why doesn't a skill trigger?
+- Verify the skill folder is in your actually loaded skill path
+- Restart the session and retry
+- Check `name` and `description` in `skill.md` frontmatter
 
-### 2) 为什么 x 发布失败？
-- 优先检查 Cookie 是否过期
-- 检查 Playwright MCP 是否连接正常
-- 检查本地 Markdown/图片路径是否存在
+### Why did X publishing fail?
+- Check whether cookies expired
+- Verify Playwright MCP connectivity
+- Verify local markdown/image paths exist
 
-### 3) 我能改成自己的 Obsidian 路径吗？
-- 可以，直接修改 skill 里的示例路径即可
-- 示例里的 `E:/obsidian/...` 仅用于演示
+### Can I use my own Obsidian path?
+- Yes. Replace example paths in skill files
+- `E:/obsidian/...` is only an example
 
-## 给二次分发者的建议
+## For Redistributors
 
-如果你要 Fork 或二次分享，建议保留以下文件：
-
+If you fork or redistribute, keep at least:
 - `README.md`
+- `README.zh.md`
 - `LICENSE`
 - `.gitignore`
-- 两个 `cookies.template.json`
+- `THIRD_PARTY_NOTICES.md`
+- both `cookies.template.json` files
 
-并且在你自己的文档里再次强调：
-- 只上传模板，绝不上传真实 Cookie
+And always remind users not to publish real credentials.
+
+## Acknowledgments
+
+Parts of the X publishing workflow and engineering practices are adapted with references to:
+
+- `wshuyi/x-article-publisher-skill`
+  - Repo: <https://github.com/wshuyi/x-article-publisher-skill>
+  - Docs: <https://github.com/wshuyi/x-article-publisher-skill/blob/main/README_CN.md>
+  - License: MIT
+- `JimLiu/baoyu-skills`
+  - Repo: <https://github.com/JimLiu/baoyu-skills>
+  - License declaration: `README.md` -> `## License` (MIT)
+
+See `THIRD_PARTY_NOTICES.md` for details.
+
+## Compliance Boundary
+
+- This project is not affiliated with, endorsed by, or sponsored by X (Twitter).
+- Users are responsible for complying with X platform terms/policies and local laws.
+- Never upload real account credentials (for example, `cookies.json`) to public repositories.
 
 ## License
 
 MIT
-
-
-## 致谢与来源
-
-本仓库中的 X 发布流程设计与部分工程实践，参考了以下开源项目：
-
-- `wshuyi/x-article-publisher-skill`
-  - 仓库：<https://github.com/wshuyi/x-article-publisher-skill>
-  - 文档：<https://github.com/wshuyi/x-article-publisher-skill/blob/main/README_CN.md>
-  - 许可：MIT（见其仓库 LICENSE）
-- `JimLiu/baoyu-skills`
-  - 仓库：<https://github.com/JimLiu/baoyu-skills>
-  - 许可声明：其 `README.md` 的 `## License` 小节标注为 MIT
-
-更详细的第三方说明见：`THIRD_PARTY_NOTICES.md`。
-
-## 合规与边界声明
-
-- 本项目与 X (Twitter) 官方无隶属、合作或背书关系。
-- 使用者需自行遵守 X 平台条款、自动化政策及当地法律法规。
-- 请勿将任何真实账号凭据（如 `cookies.json`）提交到公开仓库。
