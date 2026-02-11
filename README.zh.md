@@ -21,11 +21,8 @@
   - 适合长期知识沉淀
 
 ### 2) `x-publisher`
-完整发布套件，包含：
+聚焦“长文发布”的发布套件，包含：
 - `x-article-publisher`：发布长文到 X Articles
-- `x-post-with-images`：发布图文推文
-- `x-post-with-video`：发布视频推文
-- `x-quote-tweet`：发布引用推文
 - `scripts/`：Markdown 解析和剪贴板处理等通用工具
 
 专门针对 Windows 体验做了优化，路径兼容性强，上传推特文章有极高正确率。
@@ -44,9 +41,7 @@ yichen-skills/
 │  │  ├─ skill.md
 │  │  ├─ scripts/
 │  │  └─ references/
-│  ├─ x-post-with-images/
-│  ├─ x-post-with-video/
-│  └─ x-quote-tweet/
+│  └─ （仅保留长文发布能力）
 ├─ README.md
 ├─ README.zh.md
 ├─ THIRD_PARTY_NOTICES.md
@@ -89,9 +84,6 @@ yichen-skills/
 2. 确认 Playwright MCP 已连接
 3. 按场景调用：
    - 发布长文：触发 `x-article-publisher`
-   - 发布图文：触发 `x-post-with-images`
-   - 发布视频：触发 `x-post-with-video`
-   - 引用推文：触发 `x-quote-tweet`
 
 ## Cookie 配置（必需）
 

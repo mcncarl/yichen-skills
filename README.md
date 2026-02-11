@@ -21,11 +21,8 @@ A skill collection for creators who want to streamline writing and publishing wo
   - Useful for long-term knowledge accumulation
 
 ### 2) `x-publisher`
-A full publishing suite:
+A focused publishing suite for long-form article publishing:
 - `x-article-publisher`: publish long-form articles to X Articles
-- `x-post-with-images`: publish image posts
-- `x-post-with-video`: publish video posts
-- `x-quote-tweet`: publish quote tweets
 - `scripts/`: shared tooling for markdown parsing and clipboard handling
 
 Windows-focused design, strong path handling, and a very high success rate for uploading articles to X Articles.
@@ -44,9 +41,7 @@ yichen-skills/
 │  │  ├─ skill.md
 │  │  ├─ scripts/
 │  │  └─ references/
-│  ├─ x-post-with-images/
-│  ├─ x-post-with-video/
-│  └─ x-quote-tweet/
+│  └─ (article-focused only)
 ├─ README.md
 ├─ README.zh.md
 ├─ THIRD_PARTY_NOTICES.md
@@ -89,9 +84,6 @@ Keep directory names unchanged:
 2. Confirm Playwright MCP is connected
 3. Use by scenario:
    - Long article: trigger `x-article-publisher`
-   - Image post: trigger `x-post-with-images`
-   - Video post: trigger `x-post-with-video`
-   - Quote tweet: trigger `x-quote-tweet`
 
 ## Cookie Setup (Required)
 
