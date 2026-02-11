@@ -141,9 +141,6 @@ Parts of the X publishing workflow and engineering practices are adapted with re
   - Repo: <https://github.com/wshuyi/x-article-publisher-skill>
   - Docs: <https://github.com/wshuyi/x-article-publisher-skill/blob/main/README_CN.md>
   - License: MIT
-- `JimLiu/baoyu-skills`
-  - Repo: <https://github.com/JimLiu/baoyu-skills>
-  - License declaration: `README.md` -> `## License` (MIT)
 
 See `THIRD_PARTY_NOTICES.md` for details.
 

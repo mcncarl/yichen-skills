@@ -13,7 +13,6 @@ description: |
 本技能的整体思路与部分流程参考了以下项目，并在此基础上做了适配与扩展：
 
 - https://github.com/wshuyi/x-article-publisher-skill
-- https://github.com/JimLiu/baoyu-skills
 
 第三方许可与说明见仓库根目录 `THIRD_PARTY_NOTICES.md`。
 

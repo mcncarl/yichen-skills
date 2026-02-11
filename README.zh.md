@@ -141,9 +141,6 @@ yichen-skills/
   - 仓库：<https://github.com/wshuyi/x-article-publisher-skill>
   - 文档：<https://github.com/wshuyi/x-article-publisher-skill/blob/main/README_CN.md>
   - 许可：MIT
-- `JimLiu/baoyu-skills`
-  - 仓库：<https://github.com/JimLiu/baoyu-skills>
-  - 许可声明位置：`README.md` 的 `## License`（MIT）
 
 详细说明见 `THIRD_PARTY_NOTICES.md`。
 
