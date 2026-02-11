@@ -1,0 +1,11 @@
+﻿# Secrets
+**/cookies.json
+
+# Local caches/history
+**/.versions/
+**/__pycache__/
+*.pyc
+
+# Local notes and extras
+.write_test.txt
+x-publisher/OPTIMIZATION_SUGGESTIONS.md
