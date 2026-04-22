@@ -1,5 +1,11 @@
 ﻿# Secrets
 **/cookies.json
+**/wechat-keys.json
+**/wechat-daily.json
+**/wechat-daily-state.json
+
+# WeChat temp data
+**/tmp/wechat_daily/
 
 # Local caches/history
 **/.versions/
