@@ -2,13 +2,13 @@
 
 English | [中文](./README.zh.md)
 
-A skill collection for creators who want to streamline writing and publishing workflows with Claude Code.
+A skill collection for creators who want to streamline writing, publishing, and daily workflows with Claude Code.
 
 ## What This Repo Does
 
 1. Turn Claude Code conversations into structured Obsidian notes (`summary`)
 2. Publish Obsidian/Markdown content to X (`x-publisher`)
-3. Provide a Windows-friendly X Articles workflow with a very high success rate for article uploads
+3. Generate AI-powered daily chat digests from WeChat local databases (`wechat-daily`)
 
 ## Included Skills
 
@@ -27,6 +27,16 @@ A focused publishing suite for long-form article publishing:
 
 Windows-focused design, strong path handling, and a very high success rate for uploading articles to X Articles.
 
+### 3) `wechat-daily`
+WeChat chat daily report generator for macOS:
+- Decrypts WeChat Mac 4.x local SQLCipher databases (AES-256-CBC)
+- Extracts chat records and generates AI-powered daily digests
+- Configurable monitoring for specific groups and contacts
+- First-time setup guided via frida key extraction
+- Typical triggers: "日报", "微信日报", "wechat-daily"
+- Requirements: macOS, WeChat Mac 4.x, Python 3.9+, `pycryptodome`, `zstandard`
+- See [wechat-daily/README.md](./wechat-daily/README.md) for full documentation
+
 ## Project Structure
 
 ```text
@@ -42,6 +52,13 @@ yichen-skills/
 │  │  ├─ scripts/
 │  │  └─ references/
 │  └─ (article-focused only)
+├─ wechat-daily/
+│  ├─ SKILL.md
+│  ├─ README.md
+│  └─ scripts/
+│     ├─ extract_keys.py
+│     ├─ wechat_daily.py
+│     └─ list_contacts.py
 ├─ README.md
 ├─ README.zh.md
 ├─ THIRD_PARTY_NOTICES.md
@@ -69,6 +86,7 @@ Copy this repository into your local skills directory:
 Keep directory names unchanged:
 - `summary`
 - `x-publisher`
+- `wechat-daily`
 
 ## Quick Start (3 Minutes)
 
@@ -84,6 +102,13 @@ Keep directory names unchanged:
 2. Confirm Playwright MCP is connected
 3. Use by scenario:
    - Long article: trigger `x-article-publisher`
+
+### C) Enable `wechat-daily`
+
+1. Install Python dependencies: `pip3 install pycryptodome zstandard`
+2. In Claude Code, say "日报" — first run will guide you through key extraction and group selection
+3. Subsequent runs auto-generate daily digests
+4. See [wechat-daily/README.md](./wechat-daily/README.md) for details
 
 ## Cookie Setup (Required)
 
@@ -142,13 +167,22 @@ Parts of the X publishing workflow and engineering practices are adapted with re
   - Docs: <https://github.com/wshuyi/x-article-publisher-skill/blob/main/README_CN.md>
   - License: MIT
 
+The WeChat database decryption approach in `wechat-daily` is adapted from:
+
+- `zhuyansen/wx-favorites-report`
+  - Repo: <https://github.com/zhuyansen/wx-favorites-report>
+  - Author: zhuyansen
+  - License: MIT
+  - Specifically: the frida hook method for `CCKeyDerivationPBKDF` key extraction and SQLCipher 4 page-level decryption logic
+
 See `THIRD_PARTY_NOTICES.md` for details.
 
 ## Compliance Boundary
 
-- This project is not affiliated with, endorsed by, or sponsored by X (Twitter).
+- This project is not affiliated with, endorsed by, or sponsored by X (Twitter) or WeChat (Tencent).
 - Users are responsible for complying with X platform terms/policies and local laws.
-- Never upload real account credentials (for example, `cookies.json`) to public repositories.
+- `wechat-daily` is for personal use only — only decrypt and read your own chat data.
+- Never upload real account credentials (for example, `cookies.json`, `wechat-keys.json`) to public repositories.
 
 ## License
 

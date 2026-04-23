@@ -2,13 +2,13 @@
 
 [English](./README.md) | 中文
 
-一个面向内容创作者的技能仓库，帮助你用 Claude Code 打通“沉淀知识 + 发布内容”的完整流程。
+一个面向内容创作者的技能仓库，帮助你用 Claude Code 打通”沉淀知识 + 发布内容 + 日报生成”的完整流程。
 
 ## 这个仓库能做什么
 
 1. 把 Claude Code 对话沉淀为结构化 Obsidian 笔记（`summary`）
 2. 把 Obsidian/Markdown 内容发布到 X（`x-publisher`）
-3. 提供对 Windows 用户非常友好的 X Articles 上传流程，并具备极高正确率
+3. 从微信本地数据库提取聊天记录，生成 AI 精华日报（`wechat-daily`）
 
 ## 包含的技能
 
@@ -21,11 +21,21 @@
   - 适合长期知识沉淀
 
 ### 2) `x-publisher`
-聚焦“长文发布”的发布套件，包含：
+聚焦”长文发布”的发布套件，包含：
 - `x-article-publisher`：发布长文到 X Articles
 - `scripts/`：Markdown 解析和剪贴板处理等通用工具
 
 专门针对 Windows 体验做了优化，路径兼容性强，上传推特文章有极高正确率。
+
+### 3) `wechat-daily`
+微信聊天日报生成器（macOS 专属）：
+- 解密微信 Mac 4.x 本地 SQLCipher 数据库（AES-256-CBC）
+- 提取聊天记录并生成 AI 精华日报
+- 可配置监控指定群聊和联系人
+- 首次使用通过 frida 引导密钥提取
+- 常见触发词：”日报”、”微信日报”、”wechat-daily”
+- 依赖：macOS、微信 Mac 4.x、Python 3.9+、`pycryptodome`、`zstandard`
+- 详细文档见 [wechat-daily/README.md](./wechat-daily/README.md)
 
 ## 目录结构
 
@@ -42,6 +52,13 @@ yichen-skills/
 │  │  ├─ scripts/
 │  │  └─ references/
 │  └─ （仅保留长文发布能力）
+├─ wechat-daily/
+│  ├─ SKILL.md
+│  ├─ README.md
+│  └─ scripts/
+│     ├─ extract_keys.py
+│     ├─ wechat_daily.py
+│     └─ list_contacts.py
 ├─ README.md
 ├─ README.zh.md
 ├─ THIRD_PARTY_NOTICES.md
@@ -69,6 +86,7 @@ yichen-skills/
 建议保持目录名不变：
 - `summary`
 - `x-publisher`
+- `wechat-daily`
 
 ## 3 分钟快速上手
 
@@ -84,6 +102,13 @@ yichen-skills/
 2. 确认 Playwright MCP 已连接
 3. 按场景调用：
    - 发布长文：触发 `x-article-publisher`
+
+### C）启用 `wechat-daily`
+
+1. 安装 Python 依赖：`pip3 install pycryptodome zstandard`
+2. 在 Claude Code 中说"日报"——首次运行会引导你完成密钥提取和群聊选择
+3. 后续使用自动生成每日精华日报
+4. 详细说明见 [wechat-daily/README.md](./wechat-daily/README.md)
 
 ## Cookie 配置（必需）
 
@@ -142,13 +167,22 @@ yichen-skills/
   - 文档：<https://github.com/wshuyi/x-article-publisher-skill/blob/main/README_CN.md>
   - 许可：MIT
 
+`wechat-daily` 的微信数据库解密方法参考了以下项目：
+
+- `zhuyansen/wx-favorites-report`
+  - 仓库：<https://github.com/zhuyansen/wx-favorites-report>
+  - 作者：zhuyansen
+  - 许可：MIT
+  - 具体参考：frida hook `CCKeyDerivationPBKDF` 密钥提取方法和 SQLCipher 4 分页解密逻辑
+
 详细说明见 `THIRD_PARTY_NOTICES.md`。
 
 ## 合规边界
 
-- 本项目与 X（Twitter）官方无隶属、背书或合作关系。
+- 本项目与 X（Twitter）、微信（腾讯）官方无隶属、背书或合作关系。
 - 使用者需自行遵守 X 平台条款、自动化政策及当地法律法规。
-- 请勿把真实账号凭据（如 `cookies.json`）上传到公开仓库。
+- `wechat-daily` 仅限个人使用——仅可解密和读取本人的聊天数据，不得用于侵犯他人隐私。
+- 请勿把真实账号凭据（如 `cookies.json`、`wechat-keys.json`）上传到公开仓库。
 
 ## License
 

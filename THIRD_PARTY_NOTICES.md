@@ -1,6 +1,6 @@
 ﻿# THIRD_PARTY_NOTICES
 
-Last updated: 2026-02-11
+Last updated: 2026-04-22
 
 This repository references and adapts ideas/workflows from external projects.
 
@@ -25,7 +25,22 @@ This repository references and adapts ideas/workflows from external projects.
 - Usage in this repo:
   - Referenced workflow/experience for Claude skills packaging and usage patterns
 
+## 3) zhuyansen/wx-favorites-report
+
+- Upstream: https://github.com/zhuyansen/wx-favorites-report
+- Author: zhuyansen
+- License: MIT
+- Usage in this repo (`wechat-daily`):
+  - Frida hook method for intercepting `CCKeyDerivationPBKDF` (Apple CommonCrypto PBKDF2) to extract SQLCipher encryption keys at runtime
+  - SQLCipher 4 page-level decryption logic (AES-256-CBC, page_size=4096, reserve=80)
+  - The approach of codesign-bypass to remove Hardened Runtime for frida injection
+- What was adapted:
+  - The frida JS hook script structure was adapted from the original project's key extraction methodology
+  - The database decryption function was implemented based on the documented decryption parameters
+  - The overall workflow (codesign → frida spawn → hook → capture keys → match to DB files) follows the same approach
+
 ## Notes
 
 - This repository maintains its own license (`LICENSE`) for original contributions.
 - Upstream licenses and notices should be preserved when redistributing derived works.
+- `wechat-daily` is an independent implementation that adapts specific technical approaches from `wx-favorites-report`. It does not contain any code directly copied from the upstream project.
