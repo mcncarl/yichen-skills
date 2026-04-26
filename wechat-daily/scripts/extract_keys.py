@@ -42,36 +42,55 @@ Process.enumerateModules().forEach(function(mod) {
 
 if (!CCKeyDerivationPBKDF) {
     send({type: 'error', msg: 'CCKeyDerivationPBKDF not found'});
-    return;
-}
+} else {
+    send({type: 'status', msg: 'Hooked CCKeyDerivationPBKDF at ' + CCKeyDerivationPBKDF});
 
-send({type: 'status', msg: 'Hooked CCKeyDerivationPBKDF at ' + CCKeyDerivationPBKDF});
-
-Interceptor.attach(CCKeyDerivationPBKDF, {
+    Interceptor.attach(CCKeyDerivationPBKDF, {
     onEnter: function(args) {
-        this.password = args[0];
-        this.passwordLen = args[1].toInt32();
-        this.salt = args[2];
-        this.saltLen = args[3].toInt32();
-        this.prf = args[4].toInt32();
-        this.rounds = args[5].toInt32();
-        this.derivedKey = args[6];
-        this.derivedKeyLen = args[7].toInt32();
+        // CCKeyDerivationPBKDF signature:
+        // (algorithm, password, passwordLen, salt, saltLen, prf, rounds, derivedKey, derivedKeyLen)
+        // Coerce each pointer arg to NativePointer (args[n] may be stale by onLeave)
+        this.algorithm = args[0].toInt32();
+        this.password = ptr(args[1].toString());
+        this.passwordLen = args[2].toInt32();
+        this.salt = ptr(args[3].toString());
+        this.saltLen = args[4].toInt32();
+        this.prf = args[5].toInt32();
+        this.rounds = args[6].toInt32();
+        this.derivedKey = ptr(args[7].toString());
+        this.derivedKeyLen = args[8].toInt32();
     },
     onLeave: function(retval) {
+        var step = 'init';
         try {
-            var pw = hexdump(this.password, {length: Math.min(this.passwordLen, 256)});
-            var saltHex = Array.from(new Uint8Array(
-                Memory.readByteArray(this.salt, Math.min(this.saltLen, 32))
-            )).map(function(b){ return ('0' + b.toString(16)).slice(-2); }).join('');
+            var HEX = '0123456789abcdef';
 
-            var dkBytes = new Uint8Array(
-                Memory.readByteArray(this.derivedKey, Math.min(this.derivedKeyLen, 64))
-            );
-            var dkHex = Array.from(dkBytes).map(function(b){
-                return ('0' + b.toString(16)).slice(-2);
-            }).join('');
+            var saltLen = this.saltLen;
+            if (typeof saltLen !== 'number' || saltLen < 0 || saltLen > 128) saltLen = 16;
+            var dkLen = this.derivedKeyLen;
+            if (typeof dkLen !== 'number' || dkLen < 0 || dkLen > 256) dkLen = 32;
 
+            step = 'read-salt';
+            var saltBuf = this.salt.readByteArray(saltLen);
+            step = 'hex-salt';
+            var saltArr = new Uint8Array(saltBuf);
+            var saltHex = '';
+            for (var i = 0; i < saltArr.length; i++) {
+                var b = saltArr[i];
+                saltHex += HEX.charAt((b >>> 4) & 0xf) + HEX.charAt(b & 0xf);
+            }
+
+            step = 'read-dk';
+            var dkBuf = this.derivedKey.readByteArray(dkLen);
+            step = 'hex-dk';
+            var dkArr = new Uint8Array(dkBuf);
+            var dkHex = '';
+            for (var j = 0; j < dkArr.length; j++) {
+                var c = dkArr[j];
+                dkHex += HEX.charAt((c >>> 4) & 0xf) + HEX.charAt(c & 0xf);
+            }
+
+            step = 'send';
             var entry = {
                 rounds: this.rounds,
                 salt: saltHex,
@@ -80,10 +99,11 @@ Interceptor.attach(CCKeyDerivationPBKDF, {
             };
             send({type: 'key', data: entry});
         } catch(e) {
-            send({type: 'error', msg: e.toString()});
+            send({type: 'error', msg: '[' + step + '] ' + e.toString() + ' saltLen=' + this.saltLen + ' dkLen=' + this.derivedKeyLen + ' rounds=' + this.rounds});
         }
     }
-});
+    });
+}
 """
 
 # Python frida host script
@@ -93,8 +113,12 @@ import json
 import sys
 import time
 
+# Force unbuffered stdout so we can see progress in real time
+sys.stdout.reconfigure(line_buffering=True)
+
 LOG_FILE = "/tmp/wechat_frida_keys.log"
 WECHAT_PATH = "{wechat_path}"
+WAIT_SECONDS = 180
 
 keys = []
 
@@ -105,35 +129,63 @@ def on_message(message, data):
             keys.append(payload['data'])
             with open(LOG_FILE, 'a') as f:
                 f.write(json.dumps(payload['data']) + '\n')
-            print(f"  [KEY] rounds={payload['data']['rounds']} salt={payload['data']['salt'][:16]}... dk={payload['data']['dk'][:16]}...")
+            print(f"  [KEY #{len(keys)}] rounds={payload['data']['rounds']} salt={payload['data']['salt'][:16]}... dk={payload['data']['dk'][:16]}...", flush=True)
         elif payload.get('type') == 'status':
-            print(f"  {payload['msg']}")
+            print(f"  [STATUS] {payload['msg']}", flush=True)
         elif payload.get('type') == 'error':
-            print(f"  [ERROR] {payload['msg']}")
+            print(f"  [JS-ERROR] {payload['msg']}", flush=True)
     elif message['type'] == 'error':
-        print(f"  [FRIDA ERROR] {message.get('description', message)}")
+        print(f"  [FRIDA-ERROR] {message.get('description', message)}", flush=True)
 
 JS_CODE = '''{js_code}'''
 
-print("  正在启动微信...")
+print("  正在启动微信...", flush=True)
 device = frida.get_local_device()
 pid = device.spawn([WECHAT_PATH])
-session = device.attach(pid)
+print(f"  已 spawn pid={pid}", flush=True)
+
+# Retry attach — macOS frida has a race between spawn and attach
+session = None
+last_err = None
+for attempt in range(5):
+    try:
+        if attempt > 0:
+            print(f"  attach 重试 {attempt}/5...", flush=True)
+            time.sleep(1)
+        session = device.attach(pid)
+        break
+    except frida.TimedOutError as e:
+        last_err = e
+        continue
+if session is None:
+    print(f"  [FATAL] attach 失败: {last_err}", flush=True)
+    try:
+        device.kill(pid)
+    except:
+        pass
+    sys.exit(1)
+print("  已 attach", flush=True)
 script = session.create_script(JS_CODE)
 script.on('message', on_message)
 script.load()
+print("  hook 已加载", flush=True)
 device.resume(pid)
+print("  微信已恢复运行", flush=True)
 
-print("  微信已启动，请登录微信。")
-print("  登录后等待30秒，密钥会在启动时自动捕获...")
-print(f"  密钥日志: {LOG_FILE}")
+print("  === 请在桌面 WeChat 窗口上扫码登录 ===", flush=True)
+print(f"  等待 {WAIT_SECONDS} 秒捕获密钥...", flush=True)
+print(f"  密钥日志: {LOG_FILE}", flush=True)
 
-for i in range(90, 0, -1):
+for i in range(WAIT_SECONDS, 0, -1):
     time.sleep(1)
-    if i % 15 == 0:
-        print(f"  剩余 {i} 秒... (已捕获 {len(keys)} 个密钥)")
+    if i % 10 == 0 or len(keys) > 0 and i % 2 == 0:
+        print(f"  剩余 {i} 秒... (已捕获 {len(keys)} 个密钥)", flush=True)
+    # Early exit if we've got enough keys (3 dbs)
+    if len(keys) >= 3 and i < WAIT_SECONDS - 10:
+        print(f"  已捕获 {len(keys)} 个密钥，提前退出", flush=True)
+        break
 
-print(f"\\n  共捕获 {len(keys)} 个密钥")
+print(f"\\n  共捕获 {len(keys)} 个密钥", flush=True)
 session.detach()
 """
 
@@ -171,6 +223,26 @@ def check_env():
     return True
 
 
+ENTITLEMENTS_PLIST = "/tmp/wechat_entitlements.plist"
+ENTITLEMENTS_XML = """<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.get-task-allow</key>
+    <true/>
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+    <true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+</dict>
+</plist>
+"""
+
+
 def prepare_wechat():
     """Step 2: Copy and codesign WeChat"""
     print("\n[2/5] 准备微信签名副本...")
@@ -182,8 +254,12 @@ def prepare_wechat():
         print(f"  复制微信到 {WECHAT_COPY}...")
         shutil.copytree(WECHAT_APP, WECHAT_COPY, symlinks=True)
 
-    print("  重新签名（去掉 Hardened Runtime）...")
-    run_cmd(f"codesign --force --deep --sign - {WECHAT_COPY}")
+    # Write entitlements so frida can attach (get-task-allow)
+    with open(ENTITLEMENTS_PLIST, "w") as f:
+        f.write(ENTITLEMENTS_XML)
+
+    print("  重新签名（带 get-task-allow entitlement）...")
+    run_cmd(f"codesign --force --deep --sign - --entitlements {ENTITLEMENTS_PLIST} {WECHAT_COPY}")
     print("  ✓ 签名完成")
 
 
@@ -218,10 +294,8 @@ def extract_keys():
 
     # Write frida host script
     wechat_binary = os.path.join(WECHAT_COPY, "Contents", "MacOS", "WeChat")
-    host_script = FRIDA_HOST.format(
-        wechat_path=wechat_binary,
-        js_code=FRIDA_JS.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
-    )
+    js_escaped = FRIDA_JS.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
+    host_script = FRIDA_HOST.replace("{wechat_path}", wechat_binary).replace("{js_code}", js_escaped)
 
     host_path = "/tmp/wechat_frida_host.py"
     with open(host_path, "w") as f:
@@ -299,27 +373,31 @@ def detect_databases():
         with open(db_path, "rb") as f:
             header = f.read(4096)
 
-        # The salt is in the reserve area: page[4096-80:4096-80+16] = page[4016:4032]
-        # But for SQLCipher, the salt is actually at the very end of page 0's reserve
-        # More precisely, salt = first 16 bytes of the file (for SQLCipher 4)
+        # SQLCipher 4: salt = first 16 bytes of the file (page 0 starts with salt)
         file_salt = header[:16].hex()
 
-        # Try to match: for each key, check if its derived key can decrypt page 0
-        # Simpler approach: try each captured key against each DB
+        # Match by salt first — most reliable
         matched = False
         for key_entry in keys:
-            if key_entry.get("rounds") == 256000 and key_entry.get("dkLen") in (48, 64):
+            if key_entry.get("rounds") == 256000 and key_entry.get("salt") == file_salt:
                 dk = key_entry["dk"]
-                # Store the first 32 bytes (256 bits) as the AES key
                 if len(dk) >= 64:
                     result[db_name] = dk[:64]
                     matched = True
+                    print(f"  ✓ {db_name}.db → 密钥已匹配 (salt={file_salt[:16]}...)")
                     break
 
-        if matched:
-            print(f"  ✓ {db_name}.db → 密钥已匹配")
-        else:
-            print(f"  [WARN] {db_name}.db 未匹配到密钥")
+        # Fallback: any 256000-round key
+        if not matched:
+            for key_entry in keys:
+                if key_entry.get("rounds") == 256000 and len(key_entry.get("dk", "")) >= 64:
+                    result[db_name] = key_entry["dk"][:64]
+                    matched = True
+                    print(f"  ⚠ {db_name}.db → 使用未按 salt 匹配的密钥")
+                    break
+
+        if not matched:
+            print(f"  [WARN] {db_name}.db 未匹配到密钥 (file_salt={file_salt[:16]}...)")
 
     if not result:
         print("\n  [ERROR] 未能匹配任何密钥到数据库")
