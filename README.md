@@ -9,6 +9,7 @@ A skill collection for creators who want to streamline writing, publishing, and 
 1. Turn Claude Code conversations into structured Obsidian notes (`summary`)
 2. Publish Obsidian/Markdown content to X (`x-publisher`)
 3. Generate AI-powered daily chat digests from WeChat local databases (`wechat-daily`)
+4. Run two WeChat accounts on one Mac with a distinct blue icon (`mac-wechat-dual-open`)
 
 ## Included Skills
 
@@ -27,7 +28,18 @@ A focused publishing suite for long-form article publishing:
 
 Windows-focused design, strong path handling, and a very high success rate for uploading articles to X Articles.
 
-### 3) `wechat-daily`
+### 3) `mac-wechat-dual-open`
+Run two WeChat accounts simultaneously on macOS — no third-party tools:
+- Copies WeChat, changes the bundle identifier, and re-signs locally
+- Recolors the second app's icon from green to blue for visual distinction
+- Handles both outer and embedded icon files, Finder custom icon, and cache refresh
+- One-command workflow: `create` → `recolor-icon` → `launch`
+- Typical triggers: "微信双开", "WeChat dual open", "double WeChat"
+- Requirements: macOS 12+, WeChat at `/Applications/WeChat.app`, Python 3.10+, Pillow
+- Limitations: breaks after WeChat updates (re-run `repair`), push notifications may be unreliable
+- Based on the well-known copy + bundle-id + ad-hoc signing method documented by [@koffuxu](https://x.com/koffuxu/status/2043110831584690427)
+
+### 4) `wechat-daily`
 WeChat chat daily report generator for macOS:
 - Decrypts WeChat Mac 4.x local SQLCipher databases (AES-256-CBC)
 - Extracts chat records and generates AI-powered daily digests
@@ -59,6 +71,12 @@ yichen-skills/
 │     ├─ extract_keys.py
 │     ├─ wechat_daily.py
 │     └─ list_contacts.py
+├─ mac-wechat-dual-open/
+│  ├─ SKILL.md
+│  ├─ scripts/
+│  │  └─ wechat_dual_open.py
+│  └─ references/
+│     └─ reliability-and-risks.md
 ├─ README.md
 ├─ README.zh.md
 ├─ THIRD_PARTY_NOTICES.md
@@ -87,6 +105,7 @@ Keep directory names unchanged:
 - `summary`
 - `x-publisher`
 - `wechat-daily`
+- `mac-wechat-dual-open`
 
 ## Quick Start (3 Minutes)
 
@@ -103,7 +122,14 @@ Keep directory names unchanged:
 3. Use by scenario:
    - Long article: trigger `x-article-publisher`
 
-### C) Enable `wechat-daily`
+### C) Enable `mac-wechat-dual-open`
+
+1. Install Python dependency: `pip3 install Pillow`
+2. In Claude Code, say "帮我微信双开" or "WeChat dual open"
+3. The skill will create a second WeChat at `~/Applications/WeChat-2.app` with a blue icon
+4. See `mac-wechat-dual-open/SKILL.md` for all commands
+
+### D) Enable `wechat-daily`
 
 1. Install Python dependencies: `pip3 install pycryptodome zstandard`
 2. In Claude Code, say "日报" — first run will guide you through key extraction and group selection
@@ -174,6 +200,11 @@ The WeChat database decryption approach in `wechat-daily` is adapted from:
   - Author: zhuyansen
   - License: MIT
   - Specifically: the frida hook method for `CCKeyDerivationPBKDF` key extraction and SQLCipher 4 page-level decryption logic
+
+The WeChat dual-open method in `mac-wechat-dual-open` is based on:
+
+- [@koffuxu](https://x.com/koffuxu) — original tutorial (2026-04): [Mac 微信双开最完美方案](https://x.com/koffuxu/status/2043110831584690427)
+- [@MinLiBuilds](https://x.com/MinLiBuilds) — independent confirmation (2026-04)
 
 See `THIRD_PARTY_NOTICES.md` for details.
 

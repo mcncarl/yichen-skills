@@ -9,6 +9,7 @@
 1. 把 Claude Code 对话沉淀为结构化 Obsidian 笔记（`summary`）
 2. 把 Obsidian/Markdown 内容发布到 X（`x-publisher`）
 3. 从微信本地数据库提取聊天记录，生成 AI 精华日报（`wechat-daily`）
+4. Mac 微信双开，第二个微信带蓝色图标（`mac-wechat-dual-open`）
 
 ## 包含的技能
 
@@ -27,7 +28,18 @@
 
 专门针对 Windows 体验做了优化，路径兼容性强，上传推特文章有极高正确率。
 
-### 3) `wechat-daily`
+### 3) `mac-wechat-dual-open`
+Mac 微信双开——无需第三方工具，一条命令搞定：
+- 复制微信、改 Bundle Identifier、本地重签名
+- 第二个微信图标自动改为蓝色，视觉上一眼区分
+- 同时处理外层和内嵌图标文件、Finder 自定义图标和缓存刷新
+- 命令行工作流：`create` → `recolor-icon` → `launch`
+- 常见触发词："微信双开"、"WeChat dual open"
+- 依赖：macOS 12+、微信（`/Applications/WeChat.app`）、Python 3.10+、Pillow
+- 限制：微信更新后需要重新运行（用 `repair`）；推送通知可能不稳定
+- 方法来源：[@koffuxu](https://x.com/koffuxu/status/2043110831584690427) 的公开教程
+
+### 4) `wechat-daily`
 微信聊天日报生成器（macOS 专属）：
 - 解密微信 Mac 4.x 本地 SQLCipher 数据库（AES-256-CBC）
 - 提取聊天记录并生成 AI 精华日报
@@ -59,6 +71,12 @@ yichen-skills/
 │     ├─ extract_keys.py
 │     ├─ wechat_daily.py
 │     └─ list_contacts.py
+├─ mac-wechat-dual-open/
+│  ├─ SKILL.md
+│  ├─ scripts/
+│  │  └─ wechat_dual_open.py
+│  └─ references/
+│     └─ reliability-and-risks.md
 ├─ README.md
 ├─ README.zh.md
 ├─ THIRD_PARTY_NOTICES.md
@@ -87,6 +105,7 @@ yichen-skills/
 - `summary`
 - `x-publisher`
 - `wechat-daily`
+- `mac-wechat-dual-open`
 
 ## 3 分钟快速上手
 
@@ -103,7 +122,14 @@ yichen-skills/
 3. 按场景调用：
    - 发布长文：触发 `x-article-publisher`
 
-### C）启用 `wechat-daily`
+### C）启用 `mac-wechat-dual-open`
+
+1. 安装 Python 依赖：`pip3 install Pillow`
+2. 在 Claude Code 中说"帮我微信双开"或 "WeChat dual open"
+3. 脚本会自动创建第二个微信（`~/Applications/WeChat-2.app`）并改蓝色图标
+4. 详细命令见 `mac-wechat-dual-open/SKILL.md`
+
+### D）启用 `wechat-daily`
 
 1. 安装 Python 依赖：`pip3 install pycryptodome zstandard`
 2. 在 Claude Code 中说"日报"——首次运行会引导你完成密钥提取和群聊选择
@@ -174,6 +200,11 @@ yichen-skills/
   - 作者：zhuyansen
   - 许可：MIT
   - 具体参考：frida hook `CCKeyDerivationPBKDF` 密钥提取方法和 SQLCipher 4 分页解密逻辑
+
+`mac-wechat-dual-open` 的微信双开方法参考了：
+
+- [@koffuxu](https://x.com/koffuxu) — 原始教程 (2026-04)：[Mac 微信双开最完美方案](https://x.com/koffuxu/status/2043110831584690427)
+- [@MinLiBuilds](https://x.com/MinLiBuilds) — 独立验证 (2026-04)
 
 详细说明见 `THIRD_PARTY_NOTICES.md`。
 
