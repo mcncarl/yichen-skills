@@ -56,13 +56,13 @@ WeChat digital-asset assistant for macOS:
 ```text
 yichen-skills/
 ├─ summary/
-│  └─ skill.md
+│  └─ SKILL.md
 ├─ x-publisher/
 │  ├─ cookies.template.json
 │  ├─ scripts/
 │  ├─ x-article-publisher/
 │  │  ├─ cookies.template.json
-│  │  ├─ skill.md
+│  │  ├─ SKILL.md
 │  │  ├─ scripts/
 │  │  └─ references/
 │  └─ (article-focused only)
@@ -113,7 +113,7 @@ Keep directory names unchanged:
 
 ### A) Enable `summary`
 
-1. Ensure `summary/skill.md` is available in your loaded skills path
+1. Ensure `summary/SKILL.md` is available in your loaded skills path
 2. Start a new session and run `/summary`
 3. Confirm output is written to your Obsidian folder (example paths may use `<OBSIDIAN_VAULT>/...`)
 
@@ -165,7 +165,7 @@ If you ever exposed real cookies in a public repo, rotate them immediately.
 ### Why doesn't a skill trigger?
 - Verify the skill folder is in your actually loaded skill path
 - Restart the session and retry
-- Check `name` and `description` in `skill.md` frontmatter
+- Check `name` and `description` in `SKILL.md` frontmatter
 
 ### Why did X publishing fail?
 - Check whether cookies expired

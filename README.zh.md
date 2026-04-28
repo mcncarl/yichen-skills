@@ -56,13 +56,13 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 ```text
 yichen-skills/
 ├─ summary/
-│  └─ skill.md
+│  └─ SKILL.md
 ├─ x-publisher/
 │  ├─ cookies.template.json
 │  ├─ scripts/
 │  ├─ x-article-publisher/
 │  │  ├─ cookies.template.json
-│  │  ├─ skill.md
+│  │  ├─ SKILL.md
 │  │  ├─ scripts/
 │  │  └─ references/
 │  └─ （仅保留长文发布能力）
@@ -113,7 +113,7 @@ yichen-skills/
 
 ### A）启用 `summary`
 
-1. 确保 `summary/skill.md` 在已加载的 skills 路径里
+1. 确保 `summary/SKILL.md` 在已加载的 skills 路径里
 2. 新开会话后输入 `/summary`
 3. 确认输出写入 Obsidian 目录（示例路径通常是 `<OBSIDIAN_VAULT>/...`）
 
@@ -165,7 +165,7 @@ yichen-skills/
 ### 为什么 skill 没触发？
 - 检查 skill 是否放在“当前真实加载路径”
 - 重启会话再试
-- 检查 `skill.md` 里的 frontmatter（`name` / `description`）
+- 检查 `SKILL.md` 里的 frontmatter（`name` / `description`）
 
 ### 为什么发布到 X 失败？
 - 优先检查 Cookie 是否过期
