@@ -1,0 +1,33 @@
+Personal Learning and Non-Commercial Use License
+
+Copyright (c) 2026 repository owner
+
+This repository is source-available for personal learning, research, and
+non-commercial personal workflow use only.
+
+Permission is granted to view, clone, study, and modify this repository for
+personal non-commercial purposes, subject to all of the following conditions:
+
+1. No commercial use. You may not sell, rent, sublicense, provide paid access
+   to, include in a paid product or service, use for client delivery, or use
+   for any revenue-generating or business-operational purpose without prior
+   written permission from the copyright holder.
+2. No public redistribution as a competing or packaged product. You may fork
+   for personal study, but you may not republish, mirror, package, or market
+   this repository or a derivative work as a public skill collection, template
+   bundle, marketplace item, SaaS component, agency deliverable, course asset,
+   or commercial/internal company toolkit without prior written permission.
+3. Preserve attribution. Any permitted private fork or excerpt must keep this
+   license notice and the third-party notices in THIRD_PARTY_NOTICES.md.
+4. Respect third-party licenses. Parts of this repository reference or adapt
+   ideas/workflows from third-party projects. Their original licenses and
+   notices remain in effect for those upstream materials.
+5. Privacy and compliance are your responsibility. Do not commit real cookies,
+   tokens, WeChat keys, personal databases, chat records, customer data, or
+   other private information. Use only on data you are authorized to access.
+
+THE REPOSITORY IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, SECURITY, OR FITNESS FOR
+A PARTICULAR WORKFLOW. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM,
+DAMAGE, LOSS, OR OTHER LIABILITY ARISING FROM USE OF THIS REPOSITORY.

@@ -1,0 +1,39 @@
+﻿{
+  "cookies": [
+    {
+      "name": "auth_token",
+      "value": "YOUR_AUTH_TOKEN",
+      "domain": ".x.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "ct0",
+      "value": "YOUR_CT0_TOKEN",
+      "domain": ".x.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "twid",
+      "value": "u%3DYOUR_USER_ID",
+      "domain": ".x.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    }
+  ],
+  "_comment": {
+    "auth_token": "Required X auth cookie",
+    "ct0": "Recommended CSRF cookie",
+    "twid": "Optional user id cookie"
+  }
+}

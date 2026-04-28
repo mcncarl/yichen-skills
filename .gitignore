@@ -1,0 +1,28 @@
+﻿# Secrets
+**/cookies.json
+**/wechat-keys.json
+**/wechat-daily.json
+**/wechat-daily-state.json
+**/.env
+**/.env.*
+**/*secret*
+**/*token*
+
+# WeChat temp data
+**/tmp/wechat_daily/
+**/*.db
+**/*.db-wal
+**/*.db-shm
+**/*.sqlite
+**/*.sqlite3
+**/wechat_frida_keys.log
+
+# Local caches/history
+**/.versions/
+**/__pycache__/
+*.pyc
+*.log
+
+# Local notes and extras
+.write_test.txt
+x-publisher/OPTIMIZATION_SUGGESTIONS.md
