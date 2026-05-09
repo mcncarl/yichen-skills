@@ -3,7 +3,7 @@
 Export one WeChat conversation from the decrypted local vault.
 
 This script never reads WeChat UI. It only reads decrypted SQLite files under:
-  ~/Library/Application Support/wechat-daily/decrypted/current
+  ~/Library/Application Support/wechat-local-vault/decrypted/current
 
 Examples:
   python3 export_chat.py --contact "联系人备注"
@@ -23,10 +23,10 @@ import re
 import sqlite3
 import zstandard as zstd
 
-CONFIG_FILE = Path("~/.config/wechat-daily.json").expanduser()
-DEFAULT_VAULT_DIR = Path("~/Library/Application Support/wechat-daily").expanduser()
+CONFIG_FILE = Path("~/.config/wechat-local-vault.json").expanduser()
+DEFAULT_VAULT_DIR = Path("~/Library/Application Support/wechat-local-vault").expanduser()
 DEFAULT_DECRYPTED_DIR = DEFAULT_VAULT_DIR / "decrypted/current"
-DEFAULT_EXPORTS_DIR = Path("~/Documents/wechat-daily/exports").expanduser()
+DEFAULT_EXPORTS_DIR = Path("~/Documents/wechat-local-vault/exports").expanduser()
 EXPORT_STATE_FILE = DEFAULT_VAULT_DIR / "state/export_chat_state.json"
 
 MESSAGE_DBS = [
@@ -59,6 +59,10 @@ def load_json(path: Path) -> dict:
         return json.load(f)
 
 
+def load_config() -> dict:
+    return load_json(CONFIG_FILE)
+
+
 def save_json(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as f:
@@ -75,7 +79,7 @@ def save_json(path: Path, data: dict) -> None:
 
 
 def resolve_dirs(args: argparse.Namespace) -> tuple[Path, Path]:
-    config = load_json(CONFIG_FILE)
+    config = load_config()
     decrypted = Path(args.decrypted_dir or config.get("decrypted_dir") or DEFAULT_DECRYPTED_DIR).expanduser()
     exports = Path(args.exports_dir or config.get("exports_dir") or DEFAULT_EXPORTS_DIR).expanduser()
     return decrypted, exports

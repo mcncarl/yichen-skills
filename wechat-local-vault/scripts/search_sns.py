@@ -23,13 +23,20 @@ PAGE_SIZE = 4096
 RESERVE = 80
 IV_SIZE = 16
 KEYS_FILE = os.path.expanduser("~/.config/wechat-keys.json")
-CONFIG_FILE = os.path.expanduser("~/.config/wechat-daily.json")
-TMP_DIR = os.path.expanduser("~/Library/Application Support/wechat-daily/tmp")
+CONFIG_FILE = os.path.expanduser("~/.config/wechat-local-vault.json")
+TMP_DIR = os.path.expanduser("~/Library/Application Support/wechat-local-vault/tmp")
 
 
 def load_json(path):
     with open(os.path.expanduser(path), encoding="utf-8") as f:
         return json.load(f)
+
+
+def load_config(config_path=None):
+    path = config_path or CONFIG_FILE
+    if os.path.exists(path):
+        return load_json(path)
+    return {}
 
 
 def get_db_base(config):
@@ -270,10 +277,10 @@ def main():
     parser.add_argument("--keyword", help="按正文或链接关键词过滤")
     parser.add_argument("--limit", type=int, default=50, help="最多输出条数，默认 50")
     parser.add_argument("--json", action="store_true", help="以 JSON 输出")
-    parser.add_argument("--config", default=CONFIG_FILE, help="配置文件路径")
+    parser.add_argument("--config", default=None, help="配置文件路径")
     args = parser.parse_args()
 
-    config = load_json(args.config)
+    config = load_config(args.config)
     contact_db, sns_db = ensure_decrypted(config)
 
     if args.list_query:

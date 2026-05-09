@@ -1,15 +1,15 @@
 ﻿# Secrets
 **/cookies.json
 **/wechat-keys.json
-**/wechat-daily.json
-**/wechat-daily-state.json
+**/wechat-*.json
+**/wechat-*-state.json
 **/.env
 **/.env.*
 **/*secret*
 **/*token*
 
 # WeChat temp data
-**/tmp/wechat_daily/
+**/tmp/wechat-local-vault/
 **/*.db
 **/*.db-wal
 **/*.db-shm

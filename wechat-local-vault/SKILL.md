@@ -1,12 +1,12 @@
 ---
 name: wechat-local-vault
 description: |
-  微信 Mac 4.x 本地数据库全量/增量解析与数字资产库。用于本机微信聊天记录、联系人、群聊、朋友圈、收藏夹、语音/附件索引的密钥提取、全量解密、增量刷新、指定联系人/群聊导出、关系复盘、客户跟进和内容沉淀。触发词：微信解析、微信全量、微信增量、聊天记录、导出聊天、朋友圈解析、收藏夹解析、客户跟进、wechat-daily、wechat-local-vault。
+  微信 Mac 4.x 本地数据库全量/增量解析与数字资产库。用于本机微信聊天记录、联系人、群聊、朋友圈、收藏夹、语音/附件索引的密钥提取、全量解密、增量刷新、指定联系人/群聊导出、关系复盘、客户跟进和内容沉淀。触发词：微信解析、微信全量、微信增量、聊天记录、导出聊天、朋友圈解析、收藏夹解析、客户跟进、wechat-local-vault。
 ---
 
 # 微信本地解析 Vault
 
-这个 skill 的定位是“微信本地数字资产库”，不是日报工具。默认只读取本机数据库和本地进程，不点击微信界面；除非用户明确允许，不操作微信 UI。默认只处理官方第一个微信容器 `com.tencent.xinWeChat`，不要处理双开/第二微信容器。
+这个 skill 的定位是“微信本地数字资产库”。默认只读取本机数据库和本地进程，不点击微信界面；除非用户明确允许，不操作微信 UI。默认只处理官方第一个微信容器 `com.tencent.xinWeChat`，不要处理双开/第二微信容器。
 
 ## 隐私边界
 
@@ -24,7 +24,7 @@ description: |
 3. 用户点名联系人/群聊/会话 ID：只导出这一条会话；必要时先增量解密消息库。
 4. 用户给时间范围：只按该时间范围导出或分析。
 5. 用户问朋友圈/收藏夹：只读取对应已解密库；缺 key 再补抓。
-6. 用户明确说“日报”时，可以生成日报类报告，但不要把整个 skill 解释成日报工具。
+6. 用户明确说“按天摘要/复盘”时，可以生成摘要类报告，但不要把整个 skill 解释成摘要工具。
 7. 用户要求不操作微信界面时，只能使用 `--match-only`、已保存 key、已解密库或本地数据库文件；不要启动 Computer Use。
 
 ## 常用命令
@@ -109,7 +109,7 @@ python3 {{SKILL_DIR}}/scripts/export_chat.py --chat-id "contact_username" --sinc
 
 ### 朋友圈/收藏夹解析
 
-优先使用已解密的 `sns/sns.db`、`favorite/favorite.db`、`message_resource.db`。缺 key 时只补相关库，不全量抓取。输出到 `~/Documents/wechat-daily/exports/sns` 或 `~/Documents/wechat-daily/exports/favorites`。
+优先使用已解密的 `sns/sns.db`、`favorite/favorite.db`、`message_resource.db`。缺 key 时只补相关库，不全量抓取。输出到用户配置的导出目录。
 
 ## 输出原则
 
@@ -124,5 +124,5 @@ python3 {{SKILL_DIR}}/scripts/export_chat.py --chat-id "contact_username" --sinc
 - `scripts/decrypt_all_dbs.py`：全量/增量解密，写入私密 vault，并生成 manifest。
 - `scripts/export_chat.py`：按联系人、群聊或会话 ID 导出完整/增量聊天记录。
 - `scripts/list_contacts.py`：列出联系人和群聊。
-- `scripts/wechat_daily.py`：旧日报脚本，仅在用户明确要日报时使用。
+- `scripts/wechat_digest.py`：按天摘要脚本，仅在用户明确要摘要时使用。
 - `scripts/search_sns.py`：朋友圈搜索辅助。

@@ -2,13 +2,13 @@
 
 English | [中文](./README.zh.md)
 
-A skill collection for creators who want to streamline writing, X Articles draft publishing, WeChat digital-asset capture, and daily workflows with Claude Code and Codex.
+A skill collection for creators who want to streamline writing, X Articles draft publishing, WeChat digital-asset capture, and local workflows with Claude Code and Codex.
 
 ## What This Repo Does
 
 1. Turn Claude Code conversations into structured Obsidian notes (`summary`)
 2. Upload Obsidian/Markdown articles to X Articles drafts (`x-article-draft-uploader`)
-3. Turn WeChat chats, Moments, and Favorites into AI-powered digital assets (`wechat-daily`)
+3. Turn WeChat chats, Moments, and Favorites into AI-powered digital assets (`wechat-local-vault`)
 4. Run two WeChat accounts on one Mac with a distinct blue icon (`mac-wechat-dual-open`)
 
 ## Included Skills
@@ -43,7 +43,7 @@ Run two WeChat accounts simultaneously on macOS — no third-party tools:
 - Limitations: breaks after WeChat updates (re-run `repair`), push notifications may be unreliable
 - Based on the well-known copy + bundle-id + ad-hoc signing method documented by [@koffuxu](https://x.com/koffuxu/status/2043110831584690427)
 
-### 4) `wechat-daily`
+### 4) `wechat-local-vault`
 WeChat digital-asset assistant for macOS:
 - Decrypts WeChat Mac 4.x local SQLCipher databases (AES-256-CBC)
 - Extracts chats, Moments (`sns.db`), and Favorites (`favorite.db`)
@@ -51,9 +51,9 @@ WeChat digital-asset assistant for macOS:
 - First-time onboarding introduces 3 categories and 9 playbooks: chat records, Moments, and Favorites
 - Configurable monitoring for groups, contacts, Moments targets, and Favorites cleanup preferences
 - First-time setup guided via frida key extraction
-- Typical triggers: "日报", "微信日报", "朋友圈日报", "收藏夹整理", "客户跟进", "数字资产沉淀", "wechat-daily"
+- Typical triggers: "微信解析", "微信全量", "微信增量", "导出聊天", "朋友圈解析", "收藏夹整理", "客户跟进", "wechat-local-vault"
 - Requirements: macOS, WeChat Mac 4.x, Python 3.9+, `pycryptodome`, `zstandard`
-- See [wechat-daily/README.md](./wechat-daily/README.md) for full documentation
+- See [wechat-local-vault/README.md](./wechat-local-vault/README.md) for full documentation
 
 ## Project Structure
 
@@ -69,13 +69,16 @@ yichen-skills/
 │     ├─ export_x_cookies_from_chrome.py
 │     ├─ parse_markdown.py
 │     └─ upload_markdown_to_x_article.py
-├─ wechat-daily/
+├─ wechat-local-vault/
 │  ├─ SKILL.md
 │  ├─ README.md
 │  └─ scripts/
+│     ├─ decrypt_all_dbs.py
+│     ├─ export_chat.py
 │     ├─ extract_keys.py
-│     ├─ wechat_daily.py
-│     └─ list_contacts.py
+│     ├─ list_contacts.py
+│     ├─ search_sns.py
+│     └─ wechat_digest.py
 ├─ mac-wechat-dual-open/
 │  ├─ SKILL.md
 │  ├─ scripts/
@@ -96,7 +99,7 @@ yichen-skills/
 - Python 3.9+
 - Dependencies:
   - X article drafts: `pip install playwright pycryptodome && python3 -m playwright install chromium`
-  - WeChat daily: `pip install pycryptodome zstandard`
+  - WeChat local vault: `pip install pycryptodome zstandard`
   - WeChat dual open: `pip install Pillow`
 
 ## Installation
@@ -110,7 +113,7 @@ Copy this repository into your local skills directory:
 Keep directory names unchanged:
 - `summary`
 - `x-article-draft-uploader`
-- `wechat-daily`
+- `wechat-local-vault`
 - `mac-wechat-dual-open`
 
 ## Quick Start (3 Minutes)
@@ -136,14 +139,14 @@ Keep directory names unchanged:
 3. The skill will create a second WeChat at `~/Applications/WeChat-2.app` with a blue icon
 4. See `mac-wechat-dual-open/SKILL.md` for all commands
 
-### D) Enable `wechat-daily`
+### D) Enable `wechat-local-vault`
 
 1. Install Python dependencies: `pip3 install pycryptodome zstandard`
-2. In Claude Code or Codex, say "日报", "朋友圈日报", or "收藏夹整理"
+2. In Claude Code or Codex, say "微信解析", "导出聊天", or "收藏夹整理"
 3. First run will guide you through key extraction and choosing among the 9 playbooks
 4. If unsure, start with the recommended trio: group chat digest + Moments report + Favorites cleanup
 5. Subsequent runs generate the selected digest, report, or draft workflow
-6. See [wechat-daily/README.md](./wechat-daily/README.md) for details
+6. See [wechat-local-vault/README.md](./wechat-local-vault/README.md) for details
 
 ## X Cookie Handling
 
@@ -211,7 +214,7 @@ Parts of the X Articles draft workflow and Markdown parsing approach are adapted
   - Docs: <https://github.com/wshuyi/x-article-publisher-skill/blob/main/README_CN.md>
   - License: MIT
 
-The WeChat database decryption approach in `wechat-daily` is adapted from:
+The WeChat database decryption approach in `wechat-local-vault` is adapted from:
 
 - `zhuyansen/wx-favorites-report`
   - Repo: <https://github.com/zhuyansen/wx-favorites-report>
@@ -232,7 +235,7 @@ See `THIRD_PARTY_NOTICES.md` for details.
 - This repository is for personal learning and non-commercial personal workflow use only.
 - Commercial use, client delivery, resale, paid redistribution, marketplace packaging, course bundling, and internal company deployment are prohibited without prior written permission.
 - Users are responsible for complying with X platform terms/policies and local laws.
-- `wechat-daily` is for personal use only — only decrypt and read your own chat data.
+- `wechat-local-vault` is for personal use only — only decrypt and read your own chat data.
 - Never upload real account credentials (for example, `cookies.json`, `wechat-keys.json`) to public repositories.
 - Never upload real chat records, WeChat databases, customer data, private notes, API keys, local paths, or other personal data.
 

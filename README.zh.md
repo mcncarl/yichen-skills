@@ -2,13 +2,13 @@
 
 [English](./README.md) | 中文
 
-一个面向内容创作者的技能仓库，帮助你用 Claude Code / Codex 打通”沉淀知识 + X 文章草稿上传 + 微信数字资产 + 日报生成”的完整流程。
+一个面向内容创作者的技能仓库，帮助你用 Claude Code / Codex 打通”沉淀知识 + X 文章草稿上传 + 微信数字资产 + 本地解析”的完整流程。
 
 ## 这个仓库能做什么
 
 1. 把 Claude Code 对话沉淀为结构化 Obsidian 笔记（`summary`）
 2. 把 Obsidian/Markdown 长文上传为 X Articles 草稿（`x-article-draft-uploader`）
-3. 从微信聊天、朋友圈、收藏夹沉淀 AI 数字资产（`wechat-daily`）
+3. 从微信聊天、朋友圈、收藏夹沉淀 AI 数字资产（`wechat-local-vault`）
 4. Mac 微信双开，第二个微信带蓝色图标（`mac-wechat-dual-open`）
 
 ## 包含的技能
@@ -43,17 +43,17 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 限制：微信更新后需要重新运行（用 `repair`）；推送通知可能不稳定
 - 方法来源：[@koffuxu](https://x.com/koffuxu/status/2043110831584690427) 的公开教程
 
-### 4) `wechat-daily`
+### 4) `wechat-local-vault`
 微信数字资产沉淀助手（macOS 专属）：
 - 解密微信 Mac 4.x 本地 SQLCipher 数据库（AES-256-CBC）
 - 提取聊天记录、朋友圈（`sns.db`）和收藏夹（`favorite.db`）
-- 生成群聊日报、朋友圈日报、收藏夹整理、客户跟进和大佬对话复盘草案
+- 生成群聊解析、朋友圈解析、收藏夹整理、客户跟进和大佬对话复盘草案
 - 首次引导展示三大类九种玩法：聊天记录、朋友圈、收藏夹
 - 可配置监控指定群聊、联系人、朋友圈对象和收藏夹整理偏好
 - 首次使用通过 frida 引导密钥提取
-- 常见触发词：”日报”、”微信日报”、”朋友圈日报”、”收藏夹整理”、”客户跟进”、”数字资产沉淀”、”wechat-daily”
+- 常见触发词：”微信解析”、”微信全量”、”微信增量”、”导出聊天”、”朋友圈解析”、”收藏夹整理”、”客户跟进”、”wechat-local-vault”
 - 依赖：macOS、微信 Mac 4.x、Python 3.9+、`pycryptodome`、`zstandard`
-- 详细文档见 [wechat-daily/README.md](./wechat-daily/README.md)
+- 详细文档见 [wechat-local-vault/README.md](./wechat-local-vault/README.md)
 
 ## 目录结构
 
@@ -69,13 +69,16 @@ yichen-skills/
 │     ├─ export_x_cookies_from_chrome.py
 │     ├─ parse_markdown.py
 │     └─ upload_markdown_to_x_article.py
-├─ wechat-daily/
+├─ wechat-local-vault/
 │  ├─ SKILL.md
 │  ├─ README.md
 │  └─ scripts/
+│     ├─ decrypt_all_dbs.py
+│     ├─ export_chat.py
 │     ├─ extract_keys.py
-│     ├─ wechat_daily.py
-│     └─ list_contacts.py
+│     ├─ list_contacts.py
+│     ├─ search_sns.py
+│     └─ wechat_digest.py
 ├─ mac-wechat-dual-open/
 │  ├─ SKILL.md
 │  ├─ scripts/
@@ -96,7 +99,7 @@ yichen-skills/
 - Python 3.9+
 - 依赖：
   - X 文章草稿：`pip install playwright pycryptodome && python3 -m playwright install chromium`
-  - 微信日报：`pip install pycryptodome zstandard`
+  - 微信本地解析：`pip install pycryptodome zstandard`
   - 微信双开：`pip install Pillow`
 
 ## 安装方式
@@ -110,7 +113,7 @@ yichen-skills/
 建议保持目录名不变：
 - `summary`
 - `x-article-draft-uploader`
-- `wechat-daily`
+- `wechat-local-vault`
 - `mac-wechat-dual-open`
 
 ## 3 分钟快速上手
@@ -136,14 +139,14 @@ yichen-skills/
 3. 脚本会自动创建第二个微信（`~/Applications/WeChat-2.app`）并改蓝色图标
 4. 详细命令见 `mac-wechat-dual-open/SKILL.md`
 
-### D）启用 `wechat-daily`
+### D）启用 `wechat-local-vault`
 
 1. 安装 Python 依赖：`pip3 install pycryptodome zstandard`
-2. 在 Claude Code 或 Codex 中说"日报"、"朋友圈日报"或"收藏夹整理"
+2. 在 Claude Code 或 Codex 中说"微信解析"、"导出聊天"或"收藏夹整理"
 3. 首次运行会引导你完成密钥提取，并从九种玩法里选择当前要启用的工作流
-4. 如果不确定，默认从"微信群聊日报 + 朋友圈日报 + 收藏夹大扫除"开始
-5. 后续使用自动生成对应的日报、报告或草案
-6. 详细说明见 [wechat-daily/README.md](./wechat-daily/README.md)
+4. 如果不确定，默认从"聊天记录解析 + 朋友圈解析 + 收藏夹整理"开始
+5. 后续使用自动生成对应的解析报告或草案
+6. 详细说明见 [wechat-local-vault/README.md](./wechat-local-vault/README.md)
 
 ## X Cookie 处理
 
@@ -211,7 +214,7 @@ rm -f /tmp/x_current_cookies.json
   - 文档：<https://github.com/wshuyi/x-article-publisher-skill/blob/main/README_CN.md>
   - 许可：MIT
 
-`wechat-daily` 的微信数据库解密方法参考了以下项目：
+`wechat-local-vault` 的微信数据库解密方法参考了以下项目：
 
 - `zhuyansen/wx-favorites-report`
   - 仓库：<https://github.com/zhuyansen/wx-favorites-report>
@@ -232,7 +235,7 @@ rm -f /tmp/x_current_cookies.json
 - 本仓库仅限个人学习和非商业个人工作流使用。
 - 未经作者书面许可，禁止商用、客户交付、转售、付费分发、市场打包、课程打包或公司内部部署。
 - 使用者需自行遵守 X 平台条款、自动化政策及当地法律法规。
-- `wechat-daily` 仅限个人使用——仅可解密和读取本人的聊天数据，不得用于侵犯他人隐私。
+- `wechat-local-vault` 仅限个人使用——仅可解密和读取本人的聊天数据，不得用于侵犯他人隐私。
 - 请勿把真实账号凭据（如 `cookies.json`、`wechat-keys.json`）上传到公开仓库。
 - 请勿上传真实聊天记录、微信数据库、客户数据、私人笔记、API key、本机路径或其他个人隐私数据。
 

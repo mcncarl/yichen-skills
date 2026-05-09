@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-微信日报生成器 - 从加密数据库提取聊天记录生成日报
+微信本地解析摘要生成器 - 从加密数据库提取聊天记录生成摘要
 支持配置文件驱动，适配不同用户
 """
 import sqlite3, struct, os, json, hashlib, argparse
@@ -13,8 +13,8 @@ PAGE_SIZE = 4096
 RESERVE = 80
 IV_SIZE = 16
 KEYS_FILE = os.path.expanduser("~/.config/wechat-keys.json")
-CONFIG_FILE = os.path.expanduser("~/.config/wechat-daily.json")
-TMP_DIR = os.path.expanduser("~/Library/Application Support/wechat-daily/tmp")
+CONFIG_FILE = os.path.expanduser("~/.config/wechat-local-vault.json")
+TMP_DIR = os.path.expanduser("~/Library/Application Support/wechat-local-vault/tmp")
 
 MSG_TYPE_LABELS = {
     1: None,           # 文本
@@ -34,18 +34,17 @@ _zstd_decompressor = zstd.ZstdDecompressor()
 # === 配置加载 ===
 
 def load_config(config_path=None):
-    """加载用户配置，兼容旧版硬编码路径"""
+    """加载用户配置。"""
     path = config_path or CONFIG_FILE
     if os.path.exists(path):
         with open(path) as f:
             return json.load(f)
-    # Fallback: 尝试从现有脚本路径推断
     return {
         "wxid": None,
         "db_base_path": None,
         "monitor_groups": [],
         "monitor_contacts": [],
-        "report_dir": os.path.expanduser("~/Documents/wechat-daily"),
+        "report_dir": os.path.expanduser("~/Documents/wechat-local-vault"),
         "time_mode": "8am_to_8am",
     }
 
@@ -59,13 +58,13 @@ def get_db_base(config):
             f"~/Library/Containers/com.tencent.xinWeChat/Data/Documents/"
             f"xwechat_files/{config['wxid']}/db_storage"
         )
-    print("[ERROR] 未配置 wxid 或 db_base_path，请先运行 extract_keys.py 或配置 ~/.config/wechat-daily.json")
+    print("[ERROR] 未配置 wxid 或 db_base_path，请先运行 extract_keys.py 或配置 ~/.config/wechat-local-vault.json")
     return None
 
 
 def get_report_dir(config):
     """获取报告输出目录"""
-    return os.path.expanduser(config.get("report_dir", "~/Documents/wechat-daily"))
+    return os.path.expanduser(config.get("report_dir", "~/Documents/wechat-local-vault"))
 
 
 # === 基础工具 ===
@@ -309,7 +308,7 @@ def generate_report(chat_stats, config, target_date=None):
         chat_stats = filtered
 
     date_display = target_date.strftime("%Y-%m-%d %A")
-    report = f"# 微信日报 {date_display}\n\n"
+    report = f"# 微信摘要 {date_display}\n\n"
     report += f"> 生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M')}\n\n"
 
     total_msgs = sum(v["text_count"] for v in chat_stats.values())
@@ -358,7 +357,7 @@ def decrypt_databases(db_base, tmp_dir):
 
 # === 主入口 ===
 
-def run_daily(config_path=None):
+def run_digest(config_path=None):
     """默认模式：昨天 08:00 到今天 08:00"""
     config = load_config(config_path)
     db_base = get_db_base(config)
@@ -378,7 +377,7 @@ def run_daily(config_path=None):
     start_ts = int(start.timestamp())
     end_ts = int(end.timestamp())
 
-    print(f"日报模式：{start.strftime('%Y-%m-%d %H:%M')} → {end.strftime('%Y-%m-%d %H:%M')}")
+    print(f"摘要模式：{start.strftime('%Y-%m-%d %H:%M')} → {end.strftime('%Y-%m-%d %H:%M')}")
 
     chat_stats, _ = collect_messages(db, contacts, hash_map, start_ts=start_ts, end_ts=end_ts)
     db.close()
@@ -397,7 +396,7 @@ def run_daily(config_path=None):
 
     total_msgs = sum(v["text_count"] for v in chat_stats.values())
     total_chats = len(chat_stats)
-    print(f"日报已生成: {report_path}")
+    print(f"摘要已生成: {report_path}")
     print(f"  {total_chats} 个活跃会话, {total_msgs} 条文字消息")
     return report_path
 
@@ -433,13 +432,13 @@ def run_date(date_str, config_path=None):
 
     total_msgs = sum(v["text_count"] for v in chat_stats.values())
     total_chats = len(chat_stats)
-    print(f"日报已生成: {report_path}")
+    print(f"摘要已生成: {report_path}")
     print(f"  {total_chats} 个活跃会话, {total_msgs} 条文字消息")
     return report_path
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="微信日报生成器")
+    parser = argparse.ArgumentParser(description="微信本地解析摘要生成器")
     parser.add_argument("date", nargs="?", help="指定日期 (YYYY-MM-DD)，默认昨天8点到今天8点")
     parser.add_argument("--config", help="配置文件路径", default=None)
     parser.add_argument("--list", action="store_true", help="列出所有群聊和联系人")
@@ -452,4 +451,4 @@ if __name__ == "__main__":
     elif args.date:
         run_date(args.date, args.config)
     else:
-        run_daily(args.config)
+        run_digest(args.config)

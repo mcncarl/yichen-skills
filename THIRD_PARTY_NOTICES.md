@@ -30,7 +30,7 @@ This repository references and adapts ideas/workflows from external projects.
 - Upstream: https://github.com/zhuyansen/wx-favorites-report
 - Author: zhuyansen
 - License: MIT
-- Usage in this repo (`wechat-daily`):
+- Usage in this repo (`wechat-local-vault`):
   - Frida hook method for intercepting `CCKeyDerivationPBKDF` (Apple CommonCrypto PBKDF2) to extract SQLCipher encryption keys at runtime
   - SQLCipher 4 page-level decryption logic (AES-256-CBC, page_size=4096, reserve=80)
   - The approach of codesign-bypass to remove Hardened Runtime for frida injection
@@ -44,7 +44,7 @@ This repository references and adapts ideas/workflows from external projects.
 - This repository maintains its own license (`LICENSE`) for original contributions. It is personal-learning and non-commercial only.
 - The upstream projects listed above retain their original licenses and copyrights.
 - Upstream licenses and notices should be preserved when redistributing derived works.
-- `wechat-daily` is an independent implementation that adapts specific technical approaches from `wx-favorites-report`. It does not contain any code directly copied from the upstream project.
+- `wechat-local-vault` is an independent implementation that adapts specific technical approaches from `wx-favorites-report`. It does not contain any code directly copied from the upstream project.
 - `x-article-draft-uploader` references workflow and Markdown parsing ideas from `wshuyi/x-article-publisher-skill`; it stores no real credentials and writes cookies only to temporary runtime files.
 - `summary` and the broader skill packaging conventions reference public Claude skill community practices, including JimLiu/baoyu-skills.
 - `mac-wechat-dual-open` references public X/Twitter discussion and implements the copy + bundle-id + ad-hoc signing workflow locally.

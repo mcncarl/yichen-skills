@@ -22,11 +22,11 @@ import time
 from pathlib import Path
 
 KEYS_FILE = Path("~/.config/wechat-keys.json").expanduser()
-CONFIG_FILE = Path("~/.config/wechat-daily.json").expanduser()
+CONFIG_FILE = Path("~/.config/wechat-local-vault.json").expanduser()
 WECHAT_APP = Path("/Applications/WeChat.app")
 WECHAT_COPY = Path("~/Desktop/WeChat.app").expanduser()
 FRIDA_LOG = Path("/tmp/wechat_frida_keys.log")
-DEFAULT_VAULT_DIR = Path("~/Library/Application Support/wechat-daily").expanduser()
+DEFAULT_VAULT_DIR = Path("~/Library/Application Support/wechat-local-vault").expanduser()
 WECHAT_BASE = Path(
     "~/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files"
 ).expanduser()
@@ -271,6 +271,10 @@ def load_json(path: Path) -> dict:
         return json.load(f)
 
 
+def load_config() -> dict:
+    return load_json(CONFIG_FILE)
+
+
 def save_json(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as f:
@@ -326,7 +330,7 @@ def find_db_base(preferred: str | None = None) -> tuple[str, Path]:
         wxid = db_base.parts[-2] if db_base.name == "db_storage" else db_base.name
         return wxid, db_base
 
-    config = load_json(CONFIG_FILE)
+    config = load_config()
     if config.get("db_base_path"):
         db_base = Path(config["db_base_path"]).expanduser()
         wxid = config.get("wxid") or db_base.parts[-2]
@@ -598,12 +602,12 @@ def match_keys(
 
 
 def update_config(wxid: str, db_base: Path) -> None:
-    config = load_json(CONFIG_FILE)
+    config = load_config()
     config["wxid"] = wxid
     config["db_base_path"] = str(db_base)
     config.setdefault("vault_dir", str(DEFAULT_VAULT_DIR))
     config.setdefault("decrypted_dir", str(DEFAULT_VAULT_DIR / "decrypted/current"))
-    config.setdefault("exports_dir", "~/Documents/wechat-daily/exports")
+    config.setdefault("exports_dir", "~/Documents/wechat-local-vault/exports")
     save_json(CONFIG_FILE, config)
     print(f"  Updated config: {CONFIG_FILE}")
 

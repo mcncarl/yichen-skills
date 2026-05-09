@@ -3,12 +3,12 @@
 Decrypt all WeChat Mac 4.x SQLCipher databases that have captured keys.
 
 Input:
-  ~/.config/wechat-daily.json
+  ~/.config/wechat-local-vault.json
   ~/.config/wechat-keys.json
 
 Output:
-  ~/Library/Application Support/wechat-daily/decrypted/current/<relative db path>
-  ~/Library/Application Support/wechat-daily/manifests/decrypt-*.json
+  ~/Library/Application Support/wechat-local-vault/decrypted/current/<relative db path>
+  ~/Library/Application Support/wechat-local-vault/manifests/decrypt-*.json
 """
 
 from __future__ import annotations
@@ -29,9 +29,9 @@ PAGE_SIZE = 4096
 RESERVE = 80
 IV_SIZE = 16
 
-CONFIG_FILE = Path("~/.config/wechat-daily.json").expanduser()
+CONFIG_FILE = Path("~/.config/wechat-local-vault.json").expanduser()
 KEYS_FILE = Path("~/.config/wechat-keys.json").expanduser()
-DEFAULT_VAULT_DIR = Path("~/Library/Application Support/wechat-daily").expanduser()
+DEFAULT_VAULT_DIR = Path("~/Library/Application Support/wechat-local-vault").expanduser()
 DEFAULT_OUTPUT_DIR = DEFAULT_VAULT_DIR / "decrypted/current"
 DECRYPT_STATE_FILE = DEFAULT_VAULT_DIR / "state/decrypt_state.json"
 
@@ -54,6 +54,10 @@ def load_json(path: Path) -> dict:
         return {}
     with path.open() as f:
         return json.load(f)
+
+
+def load_config() -> dict:
+    return load_json(CONFIG_FILE)
 
 
 def save_json(path: Path, data: dict) -> None:
@@ -85,7 +89,7 @@ def ensure_private_dir(path: Path) -> None:
 
 
 def resolve_db_base() -> Path:
-    config = load_json(CONFIG_FILE)
+    config = load_config()
     if config.get("db_base_path"):
         return Path(config["db_base_path"]).expanduser()
     wxid = config.get("wxid")
@@ -167,10 +171,10 @@ def write_manifest(out_base: Path, records: list[dict]) -> Path:
 
 
 def update_config_paths(out_base: Path) -> None:
-    config = load_json(CONFIG_FILE) if CONFIG_FILE.exists() else {}
+    config = load_config()
     config["vault_dir"] = str(DEFAULT_VAULT_DIR)
     config["decrypted_dir"] = str(out_base)
-    config.setdefault("exports_dir", "~/Documents/wechat-daily/exports")
+    config.setdefault("exports_dir", "~/Documents/wechat-local-vault/exports")
     save_json(CONFIG_FILE, config)
 
 
@@ -198,7 +202,7 @@ def main() -> None:
         "-o",
         "--output",
         default=str(DEFAULT_OUTPUT_DIR),
-        help="output directory; default is the private local wechat-daily vault",
+        help="output directory; default is the private local wechat-local-vault vault",
     )
     parser.add_argument(
         "--clean",
