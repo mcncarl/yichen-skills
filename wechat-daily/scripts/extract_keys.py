@@ -26,6 +26,7 @@ CONFIG_FILE = Path("~/.config/wechat-daily.json").expanduser()
 WECHAT_APP = Path("/Applications/WeChat.app")
 WECHAT_COPY = Path("~/Desktop/WeChat.app").expanduser()
 FRIDA_LOG = Path("/tmp/wechat_frida_keys.log")
+DEFAULT_VAULT_DIR = Path("~/Library/Application Support/wechat-daily").expanduser()
 WECHAT_BASE = Path(
     "~/Library/Containers/com.tencent.xinWeChat/Data/Documents/xwechat_files"
 ).expanduser()
@@ -36,6 +37,11 @@ IV_SIZE = 16
 
 DB_RELATIVE_PATHS = {
     "message_0": "message/message_0.db",
+    "message_1": "message/message_1.db",
+    "message_2": "message/message_2.db",
+    "message_3": "message/message_3.db",
+    "message_fts": "message/message_fts.db",
+    "message_resource": "message/message_resource.db",
     "contact": "contact/contact.db",
     "session": "session/session.db",
     "sns": "sns/sns.db",
@@ -106,6 +112,7 @@ function installHookAt(address, owner) {
 
       const dkHex = hexFromPointer(this.derivedKey, this.derivedKeyLen, 128);
       if (!dkHex) return;
+      const passwordHex = hexFromPointer(this.password, this.passwordLen, 512);
 
       const key = [this.rounds, saltHex, dkHex].join(':');
       if (seen[key]) return;
@@ -117,6 +124,7 @@ function installHookAt(address, owner) {
         rounds: this.rounds,
         prf: this.prf,
         password_len: this.passwordLen,
+        password: passwordHex,
         salt_len: this.saltLen,
         salt: saltHex,
         dk_len: this.derivedKeyLen,
@@ -163,7 +171,7 @@ function installLoop() {
   setTimeout(installLoop, 500);
 }
 
-sendStatus('Frida script loaded. Target salts: ' + TARGET_SALTS.join(', '));
+sendStatus('Frida script loaded. Target database count: ' + TARGET_SALTS.length);
 installLoop();
 """
 
@@ -190,11 +198,9 @@ def on_message(message, data):
         if payload.get("type") == "pbkdf2":
             item = payload["data"]
             keys.append(item)
-            salt = item.get("salt", "")
-            dk = item.get("dk", "")
             print(
-                f"  [PBKDF2] rounds={item.get('rounds')} salt={salt[:16]}... "
-                f"dk={dk[:24]}... len={item.get('dk_len')}"
+                f"  [PBKDF2] rounds={item.get('rounds')} "
+                f"key material captured (redacted), len={item.get('dk_len')}"
             )
         elif payload.get("type") == "status":
             print(f"  {payload.get('msg')}")
@@ -269,6 +275,10 @@ def save_json(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w") as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
 
 
 def check_env() -> None:
@@ -331,6 +341,7 @@ def find_db_base(preferred: str | None = None) -> tuple[str, Path]:
 
 def collect_db_info(db_base: Path) -> dict[str, dict[str, str]]:
     info = {}
+    alias_paths = set()
     for name, rel in DB_RELATIVE_PATHS.items():
         path = db_base / rel
         if not path.exists():
@@ -338,14 +349,33 @@ def collect_db_info(db_base: Path) -> dict[str, dict[str, str]]:
         with path.open("rb") as f:
             salt = f.read(16).hex()
         info[name] = {"path": str(path), "salt": salt, "size": str(path.stat().st_size)}
+        alias_paths.add(path.resolve())
+    for path in sorted(db_base.rglob("*.db")):
+        if path.name.endswith(("-wal", "-shm")):
+            continue
+        try:
+            resolved = path.resolve()
+        except OSError:
+            continue
+        if resolved in alias_paths:
+            continue
+        if path.stat().st_size < PAGE_SIZE:
+            continue
+        with path.open("rb") as f:
+            salt = f.read(16).hex()
+        rel = str(path.relative_to(db_base))
+        info[rel] = {"path": str(path), "salt": salt, "size": str(path.stat().st_size)}
     return info
 
 
-def print_db_info(info: dict[str, dict[str, str]]) -> None:
+def print_db_info(info: dict[str, dict[str, str]], *, show_sensitive: bool = False) -> None:
     print("\n[3/5] Local database salts...")
     for name, item in info.items():
         size_mb = int(item["size"]) / 1024 / 1024
-        print(f"  {name:10s} salt={item['salt']} size={size_mb:.2f} MB")
+        if show_sensitive:
+            print(f"  {name:24s} salt={item['salt']} size={size_mb:.2f} MB")
+        else:
+            print(f"  {name:24s} size={size_mb:.2f} MB")
 
 
 def normalize_targets(targets: str, db_info: dict[str, dict[str, str]]) -> list[str]:
@@ -356,7 +386,7 @@ def normalize_targets(targets: str, db_info: dict[str, dict[str, str]]) -> list[
         name = item.strip()
         if not name:
             continue
-        if name not in DB_RELATIVE_PATHS:
+        if name not in DB_RELATIVE_PATHS and name not in db_info:
             raise SystemExit(f"Unknown target database: {name}")
         result.append(name)
     return result
@@ -488,15 +518,47 @@ def match_keys(
     result = dict(existing)
 
     candidates_by_salt: dict[str, list[str]] = {}
-    for item in captured:
-        dk = item.get("dk", "")
-        salt = item.get("salt", "")
-        if len(dk) < 64:
-            continue
-        key_hex = dk[:64]
+
+    def add_candidate(salt: str, key_hex: str) -> None:
+        if not salt or len(key_hex) != 64:
+            return
+        try:
+            bytes.fromhex(key_hex)
+        except ValueError:
+            return
         candidates_by_salt.setdefault(salt, [])
         if key_hex not in candidates_by_salt[salt]:
             candidates_by_salt[salt].append(key_hex)
+
+    def password_candidates(password_hex: str) -> list[str]:
+        result = []
+        if not password_hex:
+            return result
+        if len(password_hex) == 64:
+            result.append(password_hex)
+        try:
+            raw = bytes.fromhex(password_hex)
+        except ValueError:
+            return result
+        if len(raw) == 32:
+            result.append(raw.hex())
+        try:
+            text = raw.decode("ascii", errors="ignore")
+        except Exception:
+            text = ""
+        if text.startswith("x'") and "'" in text[2:]:
+            inner = text[2:text.find("'", 2)]
+            if len(inner) >= 64:
+                result.append(inner[:64])
+        return result
+
+    for item in captured:
+        dk = item.get("dk", "")
+        salt = item.get("salt", "")
+        if len(dk) >= 64:
+            add_candidate(salt, dk[:64])
+        for key_hex in password_candidates(item.get("password", "")):
+            add_candidate(salt, key_hex)
 
     print(f"  Captured {len(captured)} PBKDF2 rows, {sum(len(v) for v in candidates_by_salt.values())} unique candidates")
 
@@ -539,6 +601,9 @@ def update_config(wxid: str, db_base: Path) -> None:
     config = load_json(CONFIG_FILE)
     config["wxid"] = wxid
     config["db_base_path"] = str(db_base)
+    config.setdefault("vault_dir", str(DEFAULT_VAULT_DIR))
+    config.setdefault("decrypted_dir", str(DEFAULT_VAULT_DIR / "decrypted/current"))
+    config.setdefault("exports_dir", "~/Documents/wechat-daily/exports")
     save_json(CONFIG_FILE, config)
     print(f"  Updated config: {CONFIG_FILE}")
 
@@ -566,6 +631,7 @@ def main() -> None:
     parser.add_argument("--reuse-log", action="store_true", help="Do not delete /tmp/wechat_frida_keys.log before capture.")
     parser.add_argument("--list-dbs", action="store_true", help="Only print detected database salts.")
     parser.add_argument("--match-only", action="store_true", help="Only match keys from the existing frida log.")
+    parser.add_argument("--show-sensitive", action="store_true", help="Show salts/key-adjacent identifiers in terminal output.")
     args = parser.parse_args()
 
     print("=" * 64)
@@ -575,9 +641,9 @@ def main() -> None:
     check_env()
     wxid, db_base = find_db_base(args.db_base)
     db_info = collect_db_info(db_base)
-    print(f"  wxid: {wxid}")
+    print(f"  wxid: {wxid if args.show_sensitive else '[redacted]'}")
     print(f"  db_base: {db_base}")
-    print_db_info(db_info)
+    print_db_info(db_info, show_sensitive=args.show_sensitive)
 
     if args.list_dbs:
         return
@@ -615,7 +681,10 @@ def main() -> None:
         print("Not all target keys were captured yet:")
         for name in missing:
             salt = db_info.get(name, {}).get("salt", "?")
-            print(f"  - {name}: salt={salt}")
+            if args.show_sensitive:
+                print(f"  - {name}: salt={salt}")
+            else:
+                print(f"  - {name}")
         print("\nRun again while opening those WeChat pages in the signed copy:")
         print(f"  python3 {Path(__file__).resolve()} --mode attach --targets {','.join(missing)} --duration 120 --skip-prepare --reuse-log")
     else:

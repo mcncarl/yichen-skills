@@ -13,6 +13,7 @@ RESERVE = 80
 IV_SIZE = 16
 KEYS_FILE = os.path.expanduser("~/.config/wechat-keys.json")
 CONFIG_FILE = os.path.expanduser("~/.config/wechat-daily.json")
+TMP_DIR = os.path.expanduser("~/Library/Application Support/wechat-daily/tmp")
 
 ZSTD_MAGIC = b'\x28\xb5\x2f\xfd'
 _zstd_decompressor = zstd.ZstdDecompressor()
@@ -95,7 +96,7 @@ def main(config_path=None):
         return
 
     keys = load_keys()
-    tmp_dir = os.path.expanduser("~/tmp/wechat_daily")
+    tmp_dir = TMP_DIR
     os.makedirs(tmp_dir, exist_ok=True)
 
     paths = {

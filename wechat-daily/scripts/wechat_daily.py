@@ -14,6 +14,7 @@ RESERVE = 80
 IV_SIZE = 16
 KEYS_FILE = os.path.expanduser("~/.config/wechat-keys.json")
 CONFIG_FILE = os.path.expanduser("~/.config/wechat-daily.json")
+TMP_DIR = os.path.expanduser("~/Library/Application Support/wechat-daily/tmp")
 
 MSG_TYPE_LABELS = {
     1: None,           # 文本
@@ -216,7 +217,7 @@ def list_all_chats(config):
         return
 
     keys = load_keys()
-    tmp_dir = os.path.expanduser("~/tmp/wechat_daily")
+    tmp_dir = TMP_DIR
     os.makedirs(tmp_dir, exist_ok=True)
 
     paths = {
@@ -364,7 +365,7 @@ def run_daily(config_path=None):
     if not db_base:
         return None
 
-    tmp_dir = os.path.expanduser("~/tmp/wechat_daily")
+    tmp_dir = TMP_DIR
     decrypt_databases(db_base, tmp_dir)
 
     contacts = get_contact_map(os.path.join(tmp_dir, "contact.db"))
@@ -408,7 +409,7 @@ def run_date(date_str, config_path=None):
     if not db_base:
         return None
 
-    tmp_dir = os.path.expanduser("~/tmp/wechat_daily")
+    tmp_dir = TMP_DIR
     decrypt_databases(db_base, tmp_dir)
 
     contacts = get_contact_map(os.path.join(tmp_dir, "contact.db"))

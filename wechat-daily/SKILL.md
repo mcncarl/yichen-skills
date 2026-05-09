@@ -1,262 +1,128 @@
 ---
-name: wechat-daily
+name: wechat-local-vault
 description: |
-  微信聊天/朋友圈/收藏夹数字资产沉淀助手。从加密的微信 Mac 4.x 本地数据库提取聊天记录、朋友圈和收藏夹，
-  生成 AI 精华日报、朋友圈日报、收藏夹整理、客户跟进和数字资产沉淀工作流。
-  触发词：日报、微信日报、朋友圈日报、收藏夹整理、客户跟进、数字资产沉淀、wechat-daily。
-  首次使用会引导配置（密钥提取 + 三大类九种玩法选择 + 监控对象选择）。
+  微信 Mac 4.x 本地数据库全量/增量解析与数字资产库。用于本机微信聊天记录、联系人、群聊、朋友圈、收藏夹、语音/附件索引的密钥提取、全量解密、增量刷新、指定联系人/群聊导出、关系复盘、客户跟进和内容沉淀。触发词：微信解析、微信全量、微信增量、聊天记录、导出聊天、朋友圈解析、收藏夹解析、客户跟进、wechat-daily、wechat-local-vault。
 ---
 
-# 微信数字资产 Skill
+# 微信本地解析 Vault
 
-## 总览
+这个 skill 的定位是“微信本地数字资产库”，不是日报工具。默认只读取本机数据库和本地进程，不点击微信界面；除非用户明确允许，不操作微信 UI。默认只处理官方第一个微信容器 `com.tencent.xinWeChat`，不要处理双开/第二微信容器。
 
-本 Skill 从微信 Mac 4.x 的本地加密数据库中提取聊天记录、朋友圈和收藏夹内容，把它们沉淀为可复盘、可检索、可行动的个人数字资产。默认先支持微信群聊日报，也可以引导用户配置朋友圈监督、收藏夹整理、客户跟进、大佬对话复盘等玩法。
+## 隐私边界
 
-**适用条件：**
-- macOS 系统
-- 微信 Mac 4.x 已安装
-- Python 3.9+
+- 不在回复或日志里输出 key、完整 salt、wxid、原始聊天库内容，除非用户明确要求展示。
+- 密钥、配置、明文库、manifest、增量状态和导出目录都由本机配置文件管理；skill 文档不要写入任何个人机器的真实绝对路径、wxid、联系人或聊天内容。
+- 建议把密钥和明文库放在本机私有应用数据目录，把可读报告放在用户自选的导出目录；路径以占位符或配置字段说明即可。
+- 不要把明文数据库复制到项目工作区、桌面、网盘目录或聊天回复里；工作区只放用户明确要求的导出报告。
 
----
+## 自动选择模式
 
-## 执行流程
+根据用户指令选最小必要动作：
 
-### Phase 1: 环境检测（每次执行）
+1. 用户说“第一次用、解不开、key 没了、全部解密、全量重建”：走全量路线。
+2. 用户说“继续、更新一下、增量、最近、今天、新消息”：走增量路线。
+3. 用户点名联系人/群聊/会话 ID：只导出这一条会话；必要时先增量解密消息库。
+4. 用户给时间范围：只按该时间范围导出或分析。
+5. 用户问朋友圈/收藏夹：只读取对应已解密库；缺 key 再补抓。
+6. 用户明确说“日报”时，可以生成日报类报告，但不要把整个 skill 解释成日报工具。
+7. 用户要求不操作微信界面时，只能使用 `--match-only`、已保存 key、已解密库或本地数据库文件；不要启动 Computer Use。
 
-检查 `~/.config/wechat-daily.json` 是否存在且包含 `wxid` 或 `db_base_path`：
-- 不存在或不完整 → 进入 Phase 2（首次配置）
-- 存在且完整 → 进入 Phase 3（生成日报）
+## 常用命令
 
-### Phase 2: 首次配置（新用户引导）
-
-Skill 无法在“安装瞬间”自动弹窗；当用户第一次触发本 Skill（例如说“日报”“朋友圈日报”“收藏夹整理”）时，先展示三大类九种玩法，再进入密钥和监控对象配置。
-
-#### Step 2a: 安装 Python 依赖
-
-```bash
-pip3 install pycryptodome zstandard
-```
-
-#### Step 2b: 提取数据库密钥
-
-运行密钥提取脚本：
-
-```bash
-python3 {{SKILL_DIR}}/scripts/extract_keys.py
-```
-
-脚本会自动：
-1. 检查微信是否安装
-2. 复制微信到 `~/Desktop/WeChat.app` 并 codesign 去掉 Hardened Runtime
-3. 检查/安装 frida
-4. frida spawn 启动签名副本 → hook `CCKeyDerivationPBKDF`
-5. 按本机 `sns.db` / `favorite.db` / `message_0.db` 等数据库 salt 捕获并匹配密钥
-6. 自动检测 wxid 和数据库路径
-7. 合并保存到 `~/.config/wechat-keys.json`，并更新 `~/.config/wechat-daily.json`
-
-**重要：微信 Mac 4.1.x 是按库独立密钥。`favorite.db` 和 `sns.db` 往往不会在启动时加载；脚本运行期间必须在弹出的签名副本微信里手动打开「收藏」和「朋友圈」，朋友圈最好滚动一次。**
-
-如果已有 `message_0` / `contact` / `session` 密钥，只补朋友圈和收藏：
-
-```bash
-python3 {{SKILL_DIR}}/scripts/extract_keys.py --targets sns,favorite --duration 120
-```
-
-如果签名副本已经登录并正在运行，用 attach 模式重新捕获，不必重启：
-
-```bash
-python3 {{SKILL_DIR}}/scripts/extract_keys.py --mode attach --targets sns,favorite --duration 120 --skip-prepare --reuse-log
-```
-
-只查看本机数据库 salt 和路径，不启动微信：
+查看本机有哪些库，不启动微信：
 
 ```bash
 python3 {{SKILL_DIR}}/scripts/extract_keys.py --list-dbs
 ```
 
-#### Step 2c: 玩法选择与信息收集
-
-首次引导时，先用自然语言告诉用户本 Skill 支持三大类玩法：聊天记录、朋友圈、收藏夹。然后展示下面九种小玩法，并询问用户当前优先启用哪几种。若用户不确定，默认推荐先启用：微信群聊日报沉淀、朋友圈日报、收藏夹大扫除到知识库。
-
-不要修改 `~/.config/wechat-daily.json` 的结构；本步骤收集的信息先作为本轮上下文使用，只有原有日报配置需要写入 `monitor_groups`、`monitor_contacts`、`report_dir`。
-
-**聊天记录类**
-
-1. 微信群聊日报沉淀
-   - 用途：把每天的高价值微信群聊沉淀到 Obsidian 或飞书，适合每天阅读最精华部分。
-   - 需要问：要关注哪些群聊、日报时间范围、输出到 Obsidian 还是飞书、日报目录或知识库位置。
-   - 输出建议：每日精华摘要、重点链接、待复盘话题。轻量日报可建议用 Flash。
-2. 大佬对话复盘
-   - 用途：整理和某位关键人物的对话，分析如何更好地彰显实力和价值，争取合作、请教或机会。
-   - 需要问：要分析哪位好友、分析时间范围、目标是合作/请教/成交/长期关系维护中的哪一种。
-   - 输出建议：对话画像、对方关注点、用户当前表达问题、下一轮聊天建议。深度复盘可建议用 1T 模型。
-3. 重点事项跟进与提醒
-   - 用途：持续关注近期重点推进事项相关的群聊和联系人，梳理待办事项或日历事件。
-   - 需要问：最近推进的项目名、相关群聊/联系人、需要识别哪些待办/会议/截止时间。
-   - 输出建议：待办清单、日历事件草案、提醒建议。本次只生成草案，不执行飞书 CLI。
-4. 客户管理沉淀
-   - 用途：把重点客户聊天内容、跟进状态和下一步动作沉淀为客户管理素材，提高转化率。
-   - 需要问：重点客户或客户群、客户阶段定义、要追踪的状态字段。
-   - 输出建议：客户状态摘要、下一步动作、可写入飞书多维表格的字段建议。本次不真实写入飞书多维表格。
-
-**朋友圈类**
-
-5. 竞品监督与客户需求抓取
-   - 用途：监督同行和客户朋友圈，发现新品、需求、价格、活动、招聘等信号，形成朋友圈日报。
-   - 需要问：哪些联系人是竞品、哪些是客户、要关注哪些信号。
-   - 输出建议：朋友圈日报、风险/机会提醒、建议响应动作。实时巡查只给方案建议，本次不创建自动巡查。
-6. 个人 IP 诊断
-   - 用途：分析自己的朋友圈内容主题、互动表现和别人可能形成的印象标签。
-   - 需要问：分析自己的朋友圈时间范围、目标人设、希望优化的方向。
-   - 输出建议：主题分布、发布节奏、互动表现、外界印象标签、优化建议。全量深度分析可建议用 1T 模型。
-7. 高价值内容提炼
-   - 用途：从朋友圈噪音中提取高手分享的工具、资源、机会和认知内容。
-   - 需要问：关注哪些人或标签、哪些内容算高价值，例如工具、认知、资源、机会。
-   - 输出建议：高价值内容清单、摘要、可转化选题。
-
-**收藏夹类**
-
-8. 收藏夹大扫除到知识库
-   - 用途：解决“收藏即遗忘”，把收藏夹整理成可检索的知识库或选题库。
-   - 需要问：分类偏好、输出位置、是否生成标签和摘要。
-   - 输出建议：分类体系、逐条摘要、标签、选题/资料库建议。本次不真实写入飞书。
-9. 收藏复活提醒
-   - 用途：每周重新捞出被遗忘的高价值收藏，让收藏真正被再次使用。
-   - 需要问：遗忘阈值 N 天、每周推送频率、每次推送数量、偏好主题。
-   - 输出建议：复活清单、推荐阅读顺序、提醒草案。本次不创建自动化。
-
-如果用户只想用原来的群聊日报，直接进入下一步“选择监控对象”，保持旧流程不变。
-
-#### Step 2d: 选择监控对象
-
-运行列表脚本展示所有群聊和联系人：
+用已有抓取日志匹配 key，不启动微信：
 
 ```bash
-python3 {{SKILL_DIR}}/scripts/list_contacts.py
+python3 {{SKILL_DIR}}/scripts/extract_keys.py --match-only --targets all --reuse-log
 ```
 
-然后向用户提问（使用 AskUserQuestion 工具）：
-
-**问题 1：** "你想监控哪些群聊？请从上面的列表中选择，输入群聊名称（多个用逗号分隔）。"
-
-**问题 2：** "你想监控哪些具体的个人？请输入联系人备注名或昵称（多个用逗号分隔），没有可以跳过。"
-
-用户回答后，将选择保存到 `~/.config/wechat-daily.json` 的 `monitor_groups` 和 `monitor_contacts` 字段。
-
-若用户选择了朋友圈玩法，还要继续询问：要关注哪些朋友圈联系人、哪些联系人属于竞品/客户/高手、是否分析自己的朋友圈、关注的关键词或信号是什么。
-
-若用户选择了收藏夹玩法，还要继续询问：收藏内容希望如何分类、输出到哪里、是否需要摘要和标签、是否要生成复活提醒草案。
-
-#### Step 2e: 配置输出路径
-
-向用户提问：
-
-**问题 3：** "日报保存到哪个目录？"（默认 `~/Documents/wechat-daily`）
-
-保存到配置文件的 `report_dir` 字段。
-
-#### Step 2f: 生成首份日报
-
-配置完成后，自动执行 Phase 3。
-
-### Phase 3: 生成日报
-
-#### Step 3a: 运行提取脚本
-
-默认取**昨天 08:00 到今天 08:00** 的完整数据：
+首次全量抓 key。只在需要抓新 key 时使用；不要碰第二微信：
 
 ```bash
-python3 {{SKILL_DIR}}/scripts/wechat_daily.py
+python3 {{SKILL_DIR}}/scripts/extract_keys.py --targets all --duration 240
 ```
 
-如果用户指定了具体日期（如"4月16日的日报"、"2026-04-16"），用日期模式：
+全量解密到私密 vault：
 
 ```bash
-python3 {{SKILL_DIR}}/scripts/wechat_daily.py YYYY-MM-DD
+python3 {{SKILL_DIR}}/scripts/decrypt_all_dbs.py --mode full
 ```
 
-如果用户有自定义配置文件路径：
+日常增量刷新。只跳过未变化的库，不重新处理全部内容：
 
 ```bash
-python3 {{SKILL_DIR}}/scripts/wechat_daily.py --config /path/to/config.json
+python3 {{SKILL_DIR}}/scripts/decrypt_all_dbs.py --mode incremental
 ```
 
-#### Step 3b: 读取原始报告
+导出某个联系人完整聊天：
 
-读取 Step 3a 生成的原始报告文件。报告路径从脚本输出中获取，或在配置的 `report_dir` 下查找 `YYYY-MM-DD.md`。
-
-#### Step 3c: 生成精华摘要
-
-你是一个群聊精华提取专家。根据原始消息，按以下格式重写报告：
-
-**格式要求：**
-- 开头：1-2段自然语言概括当天最核心的内容（不使用 markdown 格式）
-- 正文：按群分类，每个群提取有价值的讨论要点
-- 不使用 markdown 加粗和标题语法，用 emoji + 列表
-- 链接保持原样
-- 保留关键人名
-- 结尾固定格式"本简报由AI自动生成"
-
-**分类参考（根据实际内容灵活选用）：**
-- 🛠 工具技巧/实战经验
-- 💰 资源推荐
-- 📡 行业动态
-- 💡 观点碰撞
-- 🎭 群友趣事
-- 🐟 群聊日常
-- 📈 投资/加密
-- 💬 话题讨论
-
-**内容规范：**
-- 重点突出，过滤不重要的闲聊
-- 语言通俗，保留群友的生动表达和金句
-- 图片、语音、表情等非文本消息不写入摘要
-- 系统消息（撤回、加群等）不写入摘要
-- 不写人名，只总结精华内容（除非是公众人物或用户特别指定）
-- 不写私聊摘要（除非用户配置了 monitor_contacts）
-- 不写"其他群聊速览"
-- 每个群的消息数量标注在群名后面，如 `群名（123条）`
-- 群与群之间用 `---` 分隔
-
-#### Step 3d: 写入文件
-
-将精华摘要覆盖写入：`{report_dir}/YYYY-MM-DD.md`
-
-然后告诉用户日报已生成，简要概括今天最核心的1-2件事。
-
----
-
-## 配置文件格式
-
-`~/.config/wechat-daily.json`：
-```json
-{
-  "wxid": "<wxid>",
-  "db_base_path": "~/Library/Containers/.../db_storage",
-  "monitor_groups": ["群名1", "群名2"],
-  "monitor_contacts": [],
-  "report_dir": "~/Documents/wechat-daily",
-  "time_mode": "8am_to_8am"
-}
+```bash
+python3 {{SKILL_DIR}}/scripts/export_chat.py --contact "联系人备注" --mode full
 ```
 
-`~/.config/wechat-keys.json`（自动生成，不要手动编辑）：
-```json
-{
-  "message_0": "hex_key",
-  "contact": "hex_key",
-  "session": "hex_key",
-  "sns": "hex_key",
-  "favorite": "hex_key"
-}
+导出某个联系人新增聊天：
+
+```bash
+python3 {{SKILL_DIR}}/scripts/export_chat.py --contact "联系人备注" --mode incremental
 ```
 
----
+按精确会话 ID 和时间范围导出：
 
-## 依赖
+```bash
+python3 {{SKILL_DIR}}/scripts/export_chat.py --chat-id "contact_username" --since "2025-01-01"
+```
 
-- Python 3.9+
-- pycryptodome
-- zstandard
-- frida + frida-tools（仅首次密钥提取时需要）
+## 工作流
+
+### 全量路线
+
+用于首次配置、换设备、微信升级后 key 变化、用户明确要求全量重建。
+
+1. 先运行 `extract_keys.py --list-dbs` 看本地库，不展示敏感 salt。
+2. 如果 `~/.config/wechat-keys.json` 已有 key，先用 `--match-only --targets all --reuse-log` 尝试复用。
+3. 只有复用失败或缺关键库时，才运行抓 key。
+4. 运行 `decrypt_all_dbs.py --mode full`，明文库写入私密 vault。
+5. 读取 manifest 确认解密数量和失败项。
+
+### 增量路线
+
+用于日常更新、继续上次工作、只分析近期新增内容。
+
+1. 运行 `decrypt_all_dbs.py --mode incremental`。
+2. 如果目标是联系人/群聊，运行 `export_chat.py --mode incremental`。
+3. 如果没有新增消息，直接告诉用户没有新增内容。
+4. 增量状态只写入 vault 的 `state` 目录，不写进 skill 文档。
+
+### 指定会话分析
+
+用于“分析我和某某的聊天”“导出这个会话 ID”“帮我写下一条怎么回”。
+
+1. 若用户给的是备注/昵称，使用 `export_chat.py --contact`。
+2. 若用户给的是微信 userName 或会话 ID，使用 `export_chat.py --chat-id`。
+3. 导出后读取报告，按用户目标分析关系、语气、风险、下一步话术。
+4. 不要默认展示全部原文；用户要“仔细解析”时再给完整时间线或报告路径。
+
+### 朋友圈/收藏夹解析
+
+优先使用已解密的 `sns/sns.db`、`favorite/favorite.db`、`message_resource.db`。缺 key 时只补相关库，不全量抓取。输出到 `~/Documents/wechat-daily/exports/sns` 或 `~/Documents/wechat-daily/exports/favorites`。
+
+## 输出原则
+
+- 回复里优先给结论、文件路径、下一步建议；完整原文放 Markdown 文件。
+- 涉及私聊时，少量引用必要原文即可，避免把整库内容贴到聊天里。
+- 明确区分“已解密明文库”“可读导出报告”“密钥配置”。
+- 每次涉及解密完成，说明保存位置和是否包含明文隐私。
+
+## 现有脚本
+
+- `scripts/extract_keys.py`：本机 key 捕获、复用和匹配。
+- `scripts/decrypt_all_dbs.py`：全量/增量解密，写入私密 vault，并生成 manifest。
+- `scripts/export_chat.py`：按联系人、群聊或会话 ID 导出完整/增量聊天记录。
+- `scripts/list_contacts.py`：列出联系人和群聊。
+- `scripts/wechat_daily.py`：旧日报脚本，仅在用户明确要日报时使用。
+- `scripts/search_sns.py`：朋友圈搜索辅助。
