@@ -34,6 +34,33 @@ def clean_anchor(text: str) -> str:
     return text.strip().strip("|").strip()
 
 
+def inspect_leading_cover(markdown_file: Path) -> dict:
+    """Check whether the first meaningful Markdown line is an image."""
+    lines = markdown_file.read_text().splitlines()
+    index = 0
+
+    while index < len(lines) and not lines[index].strip():
+        index += 1
+
+    if index < len(lines) and lines[index].strip() == "---":
+        index += 1
+        while index < len(lines) and lines[index].strip() != "---":
+            index += 1
+        if index < len(lines):
+            index += 1
+
+    while index < len(lines) and not lines[index].strip():
+        index += 1
+
+    first_line = lines[index].strip() if index < len(lines) else ""
+    starts_with_image = bool(re.match(r"^!\[[^\]]*\]\(.+\)", first_line))
+    return {
+        "starts_with_image": starts_with_image,
+        "first_content_line": index + 1 if first_line else None,
+        "first_content_preview": first_line[:160],
+    }
+
+
 def parse_markdown(markdown_file: Path, parse_script: Path | None) -> dict:
     script = parse_script
     if script is None:
@@ -79,10 +106,27 @@ def find_line_anchor(markdown_lines: list[str], image_path: str) -> tuple[str, i
     return "", found + 1
 
 
-def build_content_images(data: dict, markdown_file: Path) -> list[dict]:
+def build_content_images(data: dict, markdown_file: Path, include_cover_as_body: bool = False) -> list[dict]:
     lines = markdown_file.read_text().splitlines()
+    images = list(data["content_images"])
+    if include_cover_as_body and data.get("cover_image"):
+        images.insert(
+            0,
+            {
+                "path": data["cover_image"],
+                "original_path": data["cover_image"],
+                "exists": Path(data["cover_image"]).exists(),
+                "alt": "",
+                "block_index": 0,
+                "after_text": "",
+                "text_before": "",
+                "text_after": "",
+                "block_type": "paragraph",
+            },
+        )
+
     items = []
-    for index, image in enumerate(data["content_images"], 1):
+    for index, image in enumerate(images, 1):
         primary, line = find_line_anchor(lines, image["path"])
         candidates = []
         if primary:
@@ -122,6 +166,7 @@ async def run_upload(args: argparse.Namespace, data: dict, content_images: list[
     rich_html = data["html"]
     plain = plain_text_from_html(rich_html)
     cookies = load_cookies(Path(args.cookies_json))
+    upload_cover = bool(data.get("cover_image")) and not args.allow_no_cover
 
     async def count_media(page):
         return await page.evaluate(
@@ -276,12 +321,15 @@ async def run_upload(args: argparse.Namespace, data: dict, content_images: list[
 
         print("[2/5] upload cover")
         await page.wait_for_selector('textarea[placeholder="添加标题"]', timeout=70000)
-        await page.locator('input[type="file"][accept*="image"]').first.set_input_files(data["cover_image"])
-        await page.wait_for_timeout(3000)
-        await click_apply_if_present(page, timeout_s=35)
-        await page.wait_for_timeout(8000)
-        if await count_media(page) < 1:
-            raise RuntimeError("Cover upload was not detected.")
+        if upload_cover:
+            await page.locator('input[type="file"][accept*="image"]').first.set_input_files(data["cover_image"])
+            await page.wait_for_timeout(3000)
+            await click_apply_if_present(page, timeout_s=35)
+            await page.wait_for_timeout(8000)
+            if await count_media(page) < 1:
+                raise RuntimeError("Cover upload was not detected.")
+        else:
+            print("cover=skipped (--allow-no-cover)")
 
         print("[3/5] fill title and body")
         await page.locator('textarea[placeholder="添加标题"]').first.fill(args.title or data["title"])
@@ -353,7 +401,8 @@ async def run_upload(args: argparse.Namespace, data: dict, content_images: list[
             {
                 "draft_url": draft_url,
                 "media_count": len(final_media),
-                "expected_total_media": 1 + data["expected_image_count"],
+                "expected_total_media": (1 if upload_cover else 0) + data["expected_image_count"],
+                "cover_uploaded": upload_cover,
                 "inserted": inserted,
             }
         )
@@ -380,6 +429,11 @@ def main() -> None:
     parser.add_argument("--cookies-json", default="/tmp/x_current_cookies.json")
     parser.add_argument("--parse-script")
     parser.add_argument("--title")
+    parser.add_argument(
+        "--allow-no-cover",
+        action="store_true",
+        help="Continue when the article does not start with an image. Skips cover upload and treats all images as body images.",
+    )
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--headed", action="store_true")
     parser.add_argument("--result-json", default="/tmp/x_article_upload_result.json")
@@ -388,16 +442,34 @@ def main() -> None:
     args = parser.parse_args()
 
     markdown_file = Path(args.markdown_file).expanduser()
+    cover_policy = inspect_leading_cover(markdown_file)
     data = parse_markdown(markdown_file, Path(args.parse_script).expanduser() if args.parse_script else None)
     if args.title:
         data["title"] = args.title
-    content_images = build_content_images(data, markdown_file)
+
+    if not cover_policy["starts_with_image"] and not args.allow_no_cover:
+        message = (
+            "文章第一个有效内容不是图片。建议先在文章最开头加一张封面图，再上传到 X Articles。\n"
+            f"当前第一个有效内容在第 {cover_policy['first_content_line']} 行："
+            f"{cover_policy['first_content_preview']!r}\n"
+            "如果用户明确拒绝添加封面图，并希望继续上传无封面草稿，请重新运行并加上 --allow-no-cover。"
+        )
+        print(message, file=sys.stderr)
+        raise SystemExit(2)
+
+    include_cover_as_body = args.allow_no_cover and bool(data.get("cover_image"))
+    content_images = build_content_images(data, markdown_file, include_cover_as_body=include_cover_as_body)
+    if args.allow_no_cover:
+        data["cover_image"] = None
+        data["expected_image_count"] = len(content_images)
 
     print(
         json.dumps(
             {
                 "title": data["title"],
                 "cover_image": data["cover_image"],
+                "cover_policy": cover_policy,
+                "cover_upload": bool(data.get("cover_image")) and not args.allow_no_cover,
                 "expected_body_images": data["expected_image_count"],
                 "anchors": [
                     {"index": item["index"], "file": Path(item["path"]).name, "anchor": item["expected_anchor"]}

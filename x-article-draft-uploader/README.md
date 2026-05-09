@@ -5,6 +5,7 @@
 它会自动完成：
 
 - 第一张图作为 X Article 封面
+- 如果文章不是以图片开头，默认中断并提醒先加封面图
 - Markdown 转 rich text 正文
 - 正文图片按原文位置插入
 - 使用独立 Playwright 浏览器，不抢占用户当前 Chrome
@@ -16,6 +17,7 @@
 - 从 Obsidian 发布长文到 X Articles
 - Markdown 里有大量本地图片
 - 封面必须使用文章最上方的第一张图片
+- 需要在没有封面图时先提醒用户，而不是自动拿正文里的第一张图充当封面
 - 旧脚本出现缺图、错位、`MPH_MARKER` 残留
 - 用户已经在 Chrome 登录 X，但不希望自动化接管当前浏览器窗口
 
@@ -68,8 +70,22 @@ dry-run 会检查：
 
 - 文章标题
 - 第一张封面图
+- 第一个有效内容是否是图片
 - 正文图片数量
 - 每张正文图的插入锚点
+
+如果文章第一个有效内容不是图片，脚本会中断并提示先加封面图。此时不会打开 X，也不会创建草稿。
+
+如果用户明确拒绝添加封面图，但仍然要继续上传无封面草稿，可以使用：
+
+```bash
+python3 ~/.codex/skills/x-article-draft-uploader/scripts/upload_markdown_to_x_article.py \
+  "/absolute/path/to/article.md" \
+  --cookies-json /tmp/x_current_cookies.json \
+  --allow-no-cover
+```
+
+使用 `--allow-no-cover` 后，脚本会跳过封面上传，并把文章里的所有图片都按正文图片插入。
 
 ### 3. 上传为新的 X Article 草稿
 
@@ -87,15 +103,16 @@ python3 ~/.codex/skills/x-article-draft-uploader/scripts/upload_markdown_to_x_ar
 
 ## 工作原理
 
-1. 解析 Markdown，识别标题、第一张封面图和正文图片。
-2. 从每张图片前一行提取 anchor，用于定位插图位置。
-3. 新开独立 Playwright Chromium 会话，并加载临时 cookies。
-4. 在 X Articles 新建草稿。
-5. 上传封面并点击 X 的 `应用`。
-6. 粘贴 rich HTML 正文。
-7. 从后往前插入正文图片，避免前面的插入动作影响后面定位。
-8. 等待 X autosave。
-9. 校验标题、正文开头/结尾、无 `MPH_MARKER`、媒体数等于 `封面 + 正文图数量`。
+1. 解析 Markdown，识别标题、封面候选图和正文图片。
+2. 检查文章第一个有效内容是否是图片；不是图片时默认中断上传并提醒用户加封面图。
+3. 从每张图片前一行提取 anchor，用于定位插图位置。
+4. 新开独立 Playwright Chromium 会话，并加载临时 cookies。
+5. 在 X Articles 新建草稿。
+6. 上传封面并点击 X 的 `应用`；使用 `--allow-no-cover` 时跳过这步。
+7. 粘贴 rich HTML 正文。
+8. 从后往前插入正文图片，避免前面的插入动作影响后面定位。
+9. 等待 X autosave。
+10. 校验标题、正文开头/结尾、无 `MPH_MARKER`、媒体数等于 `封面数 + 正文图数量`。
 
 ## 隐私与安全
 
@@ -126,6 +143,10 @@ python3 ~/.codex/skills/x-article-draft-uploader/scripts/export_x_cookies_from_c
 ### 封面上传后页面被遮住怎么办？
 
 X 会弹出媒体编辑层。必须点击 `应用`，否则编辑器会被 mask 挡住，封面也不会真正保存。脚本已经内置这个动作。
+
+### 文章不是以图片开头怎么办？
+
+默认先停下来提醒用户加封面图。只有用户明确说“不加封面也继续”，才使用 `--allow-no-cover`。这时 X Article 会没有封面，文章里的图片全部作为正文图片处理。
 
 ### 为什么正文图片要倒序插入？
 
