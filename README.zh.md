@@ -10,6 +10,10 @@
 2. 把 Obsidian/Markdown 长文上传为 X Articles 草稿（`x-article-draft-uploader`）
 3. 从微信聊天、朋友圈、收藏夹沉淀 AI 数字资产（`wechat-local-vault`）
 4. Mac 微信双开，第二个微信带蓝色图标（`mac-wechat-dual-open`）
+5. 抓取抖音和小红书对标视频/笔记（`douyin-fetcher`、`xiaohongshu-fetch`）
+6. 用火山 ASR 做转写、字幕和口播粗剪（`volc-asr`）
+7. 诊断对标视频和口播稿内容（`yichen-video-content`、`dbs-content`）
+8. 把粗剪成片交给剪映/CapCut 做最后精修（`jianying-editor`）
 
 ## 包含的技能
 
@@ -55,6 +59,40 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 依赖：macOS、微信 Mac 4.x、Python 3.9+、`pycryptodome`、`zstandard`
 - 详细文档见 [wechat-local-vault/README.md](./wechat-local-vault/README.md)
 
+### 5) `douyin-fetcher`
+抓取抖音视频元数据并下载 MP4：
+- 支持 `/video/<id>` 链接和部分弹窗类链接
+- 下载视频旁边生成精简 `.metadata.json`
+- 支持 `--metadata-only`，只验证链接不下载视频
+
+### 6) `xiaohongshu-fetch`
+抓取小红书视频/图文笔记到本地：
+- 解析 `window.__INITIAL_STATE__`
+- 尽量下载视频、字幕、图片和元数据
+- 不把 Cookie、飞书 AppToken/TableID、目标表 ID 写进仓库
+
+### 7) `volc-asr`
+本地音视频转写和口播粗剪：
+- 火山 ASR 和 TOS 配置全部通过环境变量读取
+- 输出转写稿、SRT 字幕、ASR 缓存和可选粗剪 MP4
+- 清理临时文件前必须得到用户明确允许
+
+### 8) `yichen-video-content`
+对标视频内容拆解：
+- 对口播稿逐句标注作用
+- 输出可模仿结构和改进建议
+
+### 9) `dbs-content`
+内容创作诊断：
+- 检查选题、形式、表达和平台是否匹配
+- 给修改方向，不替代创作者自己的写作
+
+### 10) `jianying-editor`
+剪映/CapCut 桌面端精修助手：
+- 检查素材、导入粗剪、放入时间线
+- 处理字幕、画面精修、导出和项目记录
+- 自动粗剪逻辑交给 `volc-asr`
+
 ## 目录结构
 
 ```text
@@ -85,6 +123,26 @@ yichen-skills/
 │  │  └─ wechat_dual_open.py
 │  └─ references/
 │     └─ reliability-and-risks.md
+├─ douyin-fetcher/
+│  ├─ SKILL.md
+│  └─ scripts/
+│     └─ download.py
+├─ xiaohongshu-fetch/
+│  ├─ SKILL.md
+│  └─ scripts/
+│     └─ fetch.py
+├─ volc-asr/
+│  ├─ SKILL.md
+│  └─ scripts/
+│     └─ transcribe.py
+├─ yichen-video-content/
+│  ├─ SKILL.md
+│  └─ references/
+│     └─ title-formulas.md
+├─ dbs-content/
+│  └─ SKILL.md
+├─ jianying-editor/
+│  └─ SKILL.md
 ├─ README.md
 ├─ README.zh.md
 ├─ THIRD_PARTY_NOTICES.md
@@ -101,6 +159,9 @@ yichen-skills/
   - X 文章草稿：`pip install playwright pycryptodome && python3 -m playwright install chromium`
   - 微信本地解析：`pip install pycryptodome zstandard`
   - 微信双开：`pip install Pillow`
+  - 抖音抓取：`pip install playwright requests && python3 -m playwright install chromium`
+  - 小红书抓取：`pip install requests`
+  - 火山 ASR 粗剪：`pip install requests`，并安装本机 `ffmpeg` / `ffprobe`
 
 ## 安装方式
 
@@ -115,6 +176,12 @@ yichen-skills/
 - `x-article-draft-uploader`
 - `wechat-local-vault`
 - `mac-wechat-dual-open`
+- `douyin-fetcher`
+- `xiaohongshu-fetch`
+- `volc-asr`
+- `yichen-video-content`
+- `dbs-content`
+- `jianying-editor`
 
 ## 3 分钟快速上手
 
@@ -148,6 +215,14 @@ yichen-skills/
 5. 后续使用自动生成对应的解析报告或草案
 6. 详细说明见 [wechat-local-vault/README.md](./wechat-local-vault/README.md)
 
+### E）启用自媒体视频工作流
+
+1. 安装 Playwright、requests 和 ffmpeg
+2. 用 `douyin-fetcher` 或 `xiaohongshu-fetch` 保存对标素材
+3. 用 `volc-asr` 做转写、字幕或口播粗剪
+4. 用 `yichen-video-content` 和 `dbs-content` 诊断对标稿和自己的初稿
+5. 用 `jianying-editor` 做剪映/CapCut 导入、字幕、精修和导出
+
 ## X Cookie 处理
 
 本仓库不包含真实凭据，也不再提供需要手动填写的 cookie 模板。
@@ -171,6 +246,7 @@ rm -f /tmp/x_current_cookies.json
 - 不包含真实 token/cookie
 - 历史缓存类目录默认不追踪
 - 个人绝对路径已替换为通用写法
+- 第三方 AppID、AppToken、TableID、bucket 名和 ASR token 必须通过环境变量或私有配置提供
 
 如果你曾在公开仓库暴露过 Cookie，请立即轮换。
 

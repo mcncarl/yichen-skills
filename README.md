@@ -10,6 +10,10 @@ A skill collection for creators who want to streamline writing, X Articles draft
 2. Upload Obsidian/Markdown articles to X Articles drafts (`x-article-draft-uploader`)
 3. Turn WeChat chats, Moments, and Favorites into AI-powered digital assets (`wechat-local-vault`)
 4. Run two WeChat accounts on one Mac with a distinct blue icon (`mac-wechat-dual-open`)
+5. Fetch benchmark videos/posts from Douyin and Xiaohongshu (`douyin-fetcher`, `xiaohongshu-fetch`)
+6. Transcribe, caption, and rough-cut talking-head videos with Volcengine ASR (`volc-asr`)
+7. Diagnose benchmark videos and creator scripts (`yichen-video-content`, `dbs-content`)
+8. Hand off rough cuts to Jianying/CapCut for final editing (`jianying-editor`)
 
 ## Included Skills
 
@@ -55,6 +59,41 @@ WeChat digital-asset assistant for macOS:
 - Requirements: macOS, WeChat Mac 4.x, Python 3.9+, `pycryptodome`, `zstandard`
 - See [wechat-local-vault/README.md](./wechat-local-vault/README.md) for full documentation
 
+### 5) `douyin-fetcher`
+Fetch Douyin video metadata and download an MP4 through Playwright network interception:
+- Supports `/video/<id>` links and selected modal-style URLs
+- Writes a compact `.metadata.json` next to the downloaded video
+- Use `--metadata-only` to validate a link without downloading media
+
+### 6) `xiaohongshu-fetch`
+Fetch Xiaohongshu video/image posts into local files:
+- Parses `window.__INITIAL_STATE__`
+- Downloads video, subtitles, images, and metadata when available
+- Keeps cookies, Feishu AppToken/TableID, and target table IDs out of the repo
+
+### 7) `volc-asr`
+Transcribe local audio/video files and generate rough cuts:
+- Uses environment variables for Volcengine ASR and TOS configuration
+- Produces transcript text, SRT subtitles, ASR cache, and optional rough-cut MP4
+- Requires explicit user approval before cleaning temporary files
+
+### 8) `yichen-video-content`
+Analyze benchmark video transcripts:
+- Breaks a transcript down sentence by sentence
+- Labels each sentence's role
+- Produces a structured imitation and improvement report
+
+### 9) `dbs-content`
+Diagnose content ideas and scripts:
+- Checks whether a topic, format, expression, and platform fit
+- Gives rewrite direction without replacing the creator's own writing
+
+### 10) `jianying-editor`
+Guide Jianying/CapCut desktop finishing:
+- Confirms media files and imports rough cuts
+- Handles timeline placement, subtitles, visual polishing, and export notes
+- Leaves automatic rough-cut logic to `volc-asr`
+
 ## Project Structure
 
 ```text
@@ -85,6 +124,26 @@ yichen-skills/
 │  │  └─ wechat_dual_open.py
 │  └─ references/
 │     └─ reliability-and-risks.md
+├─ douyin-fetcher/
+│  ├─ SKILL.md
+│  └─ scripts/
+│     └─ download.py
+├─ xiaohongshu-fetch/
+│  ├─ SKILL.md
+│  └─ scripts/
+│     └─ fetch.py
+├─ volc-asr/
+│  ├─ SKILL.md
+│  └─ scripts/
+│     └─ transcribe.py
+├─ yichen-video-content/
+│  ├─ SKILL.md
+│  └─ references/
+│     └─ title-formulas.md
+├─ dbs-content/
+│  └─ SKILL.md
+├─ jianying-editor/
+│  └─ SKILL.md
 ├─ README.md
 ├─ README.zh.md
 ├─ THIRD_PARTY_NOTICES.md
@@ -101,6 +160,9 @@ yichen-skills/
   - X article drafts: `pip install playwright pycryptodome && python3 -m playwright install chromium`
   - WeChat local vault: `pip install pycryptodome zstandard`
   - WeChat dual open: `pip install Pillow`
+  - Douyin fetcher: `pip install playwright requests && python3 -m playwright install chromium`
+  - Xiaohongshu fetcher: `pip install requests`
+  - Volc ASR rough cut: `pip install requests` plus local `ffmpeg` / `ffprobe`
 
 ## Installation
 
@@ -115,6 +177,12 @@ Keep directory names unchanged:
 - `x-article-draft-uploader`
 - `wechat-local-vault`
 - `mac-wechat-dual-open`
+- `douyin-fetcher`
+- `xiaohongshu-fetch`
+- `volc-asr`
+- `yichen-video-content`
+- `dbs-content`
+- `jianying-editor`
 
 ## Quick Start (3 Minutes)
 
@@ -148,6 +216,14 @@ Keep directory names unchanged:
 5. Subsequent runs generate the selected digest, report, or draft workflow
 6. See [wechat-local-vault/README.md](./wechat-local-vault/README.md) for details
 
+### E) Enable the creator video workflow
+
+1. Install Playwright, requests, and ffmpeg
+2. Use `douyin-fetcher` or `xiaohongshu-fetch` to save benchmark media locally
+3. Use `volc-asr` to transcribe or rough-cut recorded talking-head videos
+4. Use `yichen-video-content` and `dbs-content` to diagnose benchmark transcripts and drafts
+5. Use `jianying-editor` for final Jianying/CapCut import, subtitle, polish, and export steps
+
 ## X Cookie Handling
 
 This repo does not include real credentials or cookie templates.
@@ -171,6 +247,7 @@ rm -f /tmp/x_current_cookies.json
 - Real token/cookie values are not included
 - History/cache artifacts are excluded from tracking
 - Personal absolute paths are replaced with generic forms
+- Third-party AppID, AppToken, TableID, bucket names, and ASR tokens must be supplied through environment variables or private config
 
 If you ever exposed real cookies in a public repo, rotate them immediately.
 

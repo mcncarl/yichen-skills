@@ -23,5 +23,19 @@
 *.pyc
 *.log
 
+# Media workflow outputs
+**/*.mp4
+**/*.mov
+**/*.m4a
+**/*.mp3
+**/*.srt
+**/*.vtt
+**/*.asr_cache.json
+**/*.asr_pending.json
+**/*.metadata.json
+**/*.transcript.txt
+**/xhs_*/
+**/douyin_*/
+
 # Local notes and extras
 .write_test.txt
