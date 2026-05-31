@@ -12,7 +12,7 @@
 4. Mac 微信双开，第二个微信带蓝色图标（`mac-wechat-dual-open`）
 5. 抓取抖音和小红书对标视频/笔记（`douyin-fetcher`、`xiaohongshu-fetch`）
 6. 用火山 ASR 做转写、字幕和口播粗剪（`volc-asr`）
-7. 诊断对标视频和口播稿内容（`yichen-video-content`、`dbs-content`）
+7. 诊断对标视频口播稿（`yichen-video-content`）
 8. 把粗剪成片交给剪映/CapCut 做最后精修（`jianying-editor`）
 
 ## 包含的技能
@@ -82,12 +82,7 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 对口播稿逐句标注作用
 - 输出可模仿结构和改进建议
 
-### 9) `dbs-content`
-内容创作诊断：
-- 检查选题、形式、表达和平台是否匹配
-- 给修改方向，不替代创作者自己的写作
-
-### 10) `jianying-editor`
+### 9) `jianying-editor`
 剪映/CapCut 桌面端精修助手：
 - 检查素材、导入粗剪、放入时间线
 - 处理字幕、画面精修、导出和项目记录
@@ -139,8 +134,6 @@ yichen-skills/
 │  ├─ SKILL.md
 │  └─ references/
 │     └─ title-formulas.md
-├─ dbs-content/
-│  └─ SKILL.md
 ├─ jianying-editor/
 │  └─ SKILL.md
 ├─ README.md
@@ -180,7 +173,6 @@ yichen-skills/
 - `xiaohongshu-fetch`
 - `volc-asr`
 - `yichen-video-content`
-- `dbs-content`
 - `jianying-editor`
 
 ## 3 分钟快速上手
@@ -220,7 +212,7 @@ yichen-skills/
 1. 安装 Playwright、requests 和 ffmpeg
 2. 用 `douyin-fetcher` 或 `xiaohongshu-fetch` 保存对标素材
 3. 用 `volc-asr` 做转写、字幕或口播粗剪
-4. 用 `yichen-video-content` 和 `dbs-content` 诊断对标稿和自己的初稿
+4. 用 `yichen-video-content` 诊断对标稿
 5. 用 `jianying-editor` 做剪映/CapCut 导入、字幕、精修和导出
 
 ## X Cookie 处理

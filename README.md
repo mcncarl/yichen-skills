@@ -12,7 +12,7 @@ A skill collection for creators who want to streamline writing, X Articles draft
 4. Run two WeChat accounts on one Mac with a distinct blue icon (`mac-wechat-dual-open`)
 5. Fetch benchmark videos/posts from Douyin and Xiaohongshu (`douyin-fetcher`, `xiaohongshu-fetch`)
 6. Transcribe, caption, and rough-cut talking-head videos with Volcengine ASR (`volc-asr`)
-7. Diagnose benchmark videos and creator scripts (`yichen-video-content`, `dbs-content`)
+7. Diagnose benchmark video transcripts (`yichen-video-content`)
 8. Hand off rough cuts to Jianying/CapCut for final editing (`jianying-editor`)
 
 ## Included Skills
@@ -83,12 +83,7 @@ Analyze benchmark video transcripts:
 - Labels each sentence's role
 - Produces a structured imitation and improvement report
 
-### 9) `dbs-content`
-Diagnose content ideas and scripts:
-- Checks whether a topic, format, expression, and platform fit
-- Gives rewrite direction without replacing the creator's own writing
-
-### 10) `jianying-editor`
+### 9) `jianying-editor`
 Guide Jianying/CapCut desktop finishing:
 - Confirms media files and imports rough cuts
 - Handles timeline placement, subtitles, visual polishing, and export notes
@@ -140,8 +135,6 @@ yichen-skills/
 │  ├─ SKILL.md
 │  └─ references/
 │     └─ title-formulas.md
-├─ dbs-content/
-│  └─ SKILL.md
 ├─ jianying-editor/
 │  └─ SKILL.md
 ├─ README.md
@@ -181,7 +174,6 @@ Keep directory names unchanged:
 - `xiaohongshu-fetch`
 - `volc-asr`
 - `yichen-video-content`
-- `dbs-content`
 - `jianying-editor`
 
 ## Quick Start (3 Minutes)
@@ -221,7 +213,7 @@ Keep directory names unchanged:
 1. Install Playwright, requests, and ffmpeg
 2. Use `douyin-fetcher` or `xiaohongshu-fetch` to save benchmark media locally
 3. Use `volc-asr` to transcribe or rough-cut recorded talking-head videos
-4. Use `yichen-video-content` and `dbs-content` to diagnose benchmark transcripts and drafts
+4. Use `yichen-video-content` to diagnose benchmark transcripts
 5. Use `jianying-editor` for final Jianying/CapCut import, subtitle, polish, and export steps
 
 ## X Cookie Handling
