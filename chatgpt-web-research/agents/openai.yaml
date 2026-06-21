@@ -1,0 +1,4 @@
+interface:
+  display_name: "ChatGPT Web Research"
+  short_description: "通过 ChatGPT 官网 Pro 完成可验证调研，支持电脑兜底"
+  default_prompt: "Use $chatgpt-web-research to research a product through the official ChatGPT web page and save a verified Markdown report."

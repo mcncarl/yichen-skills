@@ -13,7 +13,8 @@ A skill collection for creators who want to streamline writing, X Articles draft
 5. Fetch benchmark videos/posts from Douyin and Xiaohongshu (`douyin-fetcher`, `xiaohongshu-fetch`)
 6. Transcribe, caption, and rough-cut talking-head videos with Volcengine ASR (`volc-asr`)
 7. Diagnose benchmark video transcripts (`yichen-video-content`)
-8. Hand off rough cuts to Jianying/CapCut for final editing (`jianying-editor`)
+8. Run verified research through the official ChatGPT web page (`chatgpt-web-research`)
+9. Hand off rough cuts to Jianying/CapCut for final editing (`jianying-editor`)
 
 ## Included Skills
 
@@ -83,7 +84,17 @@ Analyze benchmark video transcripts:
 - Labels each sentence's role
 - Produces a structured imitation and improvement report
 
-### 9) `jianying-editor`
+### 9) `chatgpt-web-research`
+Run research through the user's already signed-in official ChatGPT website account:
+- Uses the real ChatGPT web page, not the OpenAI API or a separate account
+- Prefers Chrome extension control and falls back to visible Computer Use only when necessary
+- Waits for a full answer with a unique marker before extracting
+- Saves raw and readable Markdown reports under the current workspace's `reports/` directory
+- Keeps profile names, local paths, cookies, tokens, and browser storage out of the public skill
+
+See [chatgpt-web-research/README.md](./chatgpt-web-research/README.md) for privacy notes and workflow details.
+
+### 10) `jianying-editor`
 Guide Jianying/CapCut desktop finishing:
 - Confirms media files and imports rough cuts
 - Handles timeline placement, subtitles, visual polishing, and export notes
@@ -135,6 +146,10 @@ yichen-skills/
 │  ├─ SKILL.md
 │  └─ references/
 │     └─ title-formulas.md
+├─ chatgpt-web-research/
+│  ├─ SKILL.md
+│  ├─ README.md
+│  └─ agents/
 ├─ jianying-editor/
 │  └─ SKILL.md
 ├─ README.md
@@ -156,6 +171,7 @@ yichen-skills/
   - Douyin fetcher: `pip install playwright requests && python3 -m playwright install chromium`
   - Xiaohongshu fetcher: `pip install requests`
   - Volc ASR rough cut: `pip install requests` plus local `ffmpeg` / `ffprobe`
+  - ChatGPT Web research: Chrome signed in to ChatGPT, plus Chrome/Computer Use capability in your agent environment
 
 ## Installation
 
@@ -174,6 +190,7 @@ Keep directory names unchanged:
 - `xiaohongshu-fetch`
 - `volc-asr`
 - `yichen-video-content`
+- `chatgpt-web-research`
 - `jianying-editor`
 
 ## Quick Start (3 Minutes)
@@ -215,6 +232,13 @@ Keep directory names unchanged:
 3. Use `volc-asr` to transcribe or rough-cut recorded talking-head videos
 4. Use `yichen-video-content` to diagnose benchmark transcripts
 5. Use `jianying-editor` for final Jianying/CapCut import, subtitle, polish, and export steps
+
+### F) Enable `chatgpt-web-research`
+
+1. Make sure Chrome is already signed in to the intended ChatGPT account
+2. Keep the ChatGPT tab or profile visible when a Pro route must be confirmed
+3. Ask for official-site research, for example: "Use ChatGPT Web to research Anthropic and save a Markdown report"
+4. The skill waits for a complete answer, verifies the marker, and saves raw/readable Markdown reports
 
 ## X Cookie Handling
 

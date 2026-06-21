@@ -13,7 +13,8 @@
 5. 抓取抖音和小红书对标视频/笔记（`douyin-fetcher`、`xiaohongshu-fetch`）
 6. 用火山 ASR 做转写、字幕和口播粗剪（`volc-asr`）
 7. 诊断对标视频口播稿（`yichen-video-content`）
-8. 把粗剪成片交给剪映/CapCut 做最后精修（`jianying-editor`）
+8. 通过 ChatGPT 官网完成可验证调研（`chatgpt-web-research`）
+9. 把粗剪成片交给剪映/CapCut 做最后精修（`jianying-editor`）
 
 ## 包含的技能
 
@@ -82,7 +83,17 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 对口播稿逐句标注作用
 - 输出可模仿结构和改进建议
 
-### 9) `jianying-editor`
+### 9) `chatgpt-web-research`
+通过用户已登录的 ChatGPT 官网账号执行调研：
+- 使用真实 ChatGPT 网页，不走 OpenAI API，也不切到另一个账号
+- 优先使用 Chrome 扩展控制，必要时才用可视化 Computer Use 兜底
+- 等待完整答案和唯一校验标记后再提取
+- 把原始输出和可读报告保存到当前工作区的 `reports/` 目录
+- 公开版已去掉个人路径、Chrome 配置名、cookie、token 和浏览器存储信息
+
+隐私边界和工作流见 [chatgpt-web-research/README.md](./chatgpt-web-research/README.md)。
+
+### 10) `jianying-editor`
 剪映/CapCut 桌面端精修助手：
 - 检查素材、导入粗剪、放入时间线
 - 处理字幕、画面精修、导出和项目记录
@@ -134,6 +145,10 @@ yichen-skills/
 │  ├─ SKILL.md
 │  └─ references/
 │     └─ title-formulas.md
+├─ chatgpt-web-research/
+│  ├─ SKILL.md
+│  ├─ README.md
+│  └─ agents/
 ├─ jianying-editor/
 │  └─ SKILL.md
 ├─ README.md
@@ -155,6 +170,7 @@ yichen-skills/
   - 抖音抓取：`pip install playwright requests && python3 -m playwright install chromium`
   - 小红书抓取：`pip install requests`
   - 火山 ASR 粗剪：`pip install requests`，并安装本机 `ffmpeg` / `ffprobe`
+  - ChatGPT 官网调研：Chrome 已登录 ChatGPT，且当前 Agent 环境支持 Chrome/Computer Use 能力
 
 ## 安装方式
 
@@ -173,6 +189,7 @@ yichen-skills/
 - `xiaohongshu-fetch`
 - `volc-asr`
 - `yichen-video-content`
+- `chatgpt-web-research`
 - `jianying-editor`
 
 ## 3 分钟快速上手
@@ -214,6 +231,13 @@ yichen-skills/
 3. 用 `volc-asr` 做转写、字幕或口播粗剪
 4. 用 `yichen-video-content` 诊断对标稿
 5. 用 `jianying-editor` 做剪映/CapCut 导入、字幕、精修和导出
+
+### F）启用 `chatgpt-web-research`
+
+1. 确认 Chrome 已登录目标 ChatGPT 账号
+2. 如果任务要求 Pro 路线，保持可见页面能确认账号或模型状态
+3. 直接提出官网调研任务，例如：“用 ChatGPT 官网调研 Anthropic，并保存 Markdown 报告”
+4. Skill 会等待完整答案、校验标记，并保存原始版和可读版报告
 
 ## X Cookie 处理
 
