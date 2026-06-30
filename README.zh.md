@@ -14,6 +14,7 @@
 6. 用火山 ASR 做转写、字幕和口播粗剪（`volc-asr`）
 7. 诊断对标视频口播稿（`yichen-video-content`）
 8. 把粗剪成片交给剪映/CapCut 做最后精修（`jianying-editor`）
+9. 测试和修复闲鱼租赁 ROI 看板的数据刷新、投资计算和图表问题（`xianyu-roi-qa`）
 
 ## 包含的技能
 
@@ -88,6 +89,13 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 处理字幕、画面精修、导出和项目记录
 - 自动粗剪逻辑交给 `volc-asr`
 
+### 10) `xianyu-roi-qa`
+闲鱼租赁 ROI 网站 QA 与修复助手：
+- 当当前目录只是空壳时，先找到真实可编辑源码
+- 检查 React/Vite + Node/SQLite 项目结构、Node 22 标记、刷新接口和 Recharts 使用
+- 引导完整浏览器回归：市场刷新、投资配置、投资组合、现金流图表和对比分析
+- 内置安全的 `qa_probe.py` 探针脚本，只检查文件和可访问 HTTP 接口，不修改项目
+
 ## 目录结构
 
 ```text
@@ -136,6 +144,10 @@ yichen-skills/
 │     └─ title-formulas.md
 ├─ jianying-editor/
 │  └─ SKILL.md
+├─ xianyu-roi-qa/
+│  ├─ SKILL.md
+│  └─ scripts/
+│     └─ qa_probe.py
 ├─ README.md
 ├─ README.zh.md
 ├─ THIRD_PARTY_NOTICES.md
@@ -174,6 +186,7 @@ yichen-skills/
 - `volc-asr`
 - `yichen-video-content`
 - `jianying-editor`
+- `xianyu-roi-qa`
 
 ## 3 分钟快速上手
 
