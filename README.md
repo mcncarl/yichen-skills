@@ -14,7 +14,7 @@ A skill collection for creators who want to streamline writing, X Articles draft
 6. Transcribe, caption, and rough-cut talking-head videos with Volcengine ASR (`volc-asr`)
 7. Diagnose benchmark video transcripts (`yichen-video-content`)
 8. Hand off rough cuts to Jianying/CapCut for final editing (`jianying-editor`)
-9. QA and fix Xianyu rental ROI dashboards with refresh APIs and Recharts (`xianyu-roi-qa`)
+9. QA and fix Xianyu rental ROI dashboards with refresh APIs and Recharts (`闲鱼选品`)
 
 ## Included Skills
 
@@ -90,7 +90,7 @@ Guide Jianying/CapCut desktop finishing:
 - Handles timeline placement, subtitles, visual polishing, and export notes
 - Leaves automatic rough-cut logic to `volc-asr`
 
-### 10) `xianyu-roi-qa`
+### 10) `闲鱼选品`
 QA and fix Xianyu rental ROI web apps:
 - Finds the real editable source tree when the visible folder is only a wrapper
 - Checks React/Vite + Node/SQLite project shape, Node 22 markers, refresh routes, and Recharts usage
@@ -145,7 +145,7 @@ yichen-skills/
 │     └─ title-formulas.md
 ├─ jianying-editor/
 │  └─ SKILL.md
-├─ xianyu-roi-qa/
+├─ 闲鱼选品/
 │  ├─ SKILL.md
 │  └─ scripts/
 │     └─ qa_probe.py
@@ -187,7 +187,7 @@ Keep directory names unchanged:
 - `volc-asr`
 - `yichen-video-content`
 - `jianying-editor`
-- `xianyu-roi-qa`
+- `闲鱼选品`
 
 ## Quick Start (3 Minutes)
 

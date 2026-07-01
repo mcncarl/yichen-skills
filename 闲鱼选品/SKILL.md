@@ -1,13 +1,13 @@
 ---
-name: xianyu-roi-qa
+name: "闲鱼选品"
 description: |
-  QA and fix Xianyu rental ROI web apps, especially React/Vite + Node/SQLite projects with product refresh APIs, investment calculators, Recharts dashboards, and local source-tree confusion.
-  Use when the user asks to test, debug, optimize, or make refreshable a Xianyu/second-hand rental ROI website.
+  闲鱼选品网站 QA 与修复助手。用于测试和优化闲鱼/二手租赁投资回报率网站，尤其是带产品刷新接口、投资计算、Recharts 看板和真实源码目录混淆的 React/Vite + Node/SQLite 项目。
+  Trigger when the user asks to test, debug, optimize, or make refreshable a Xianyu/second-hand rental ROI website.
 ---
 
-# Xianyu ROI QA
+# 闲鱼选品
 
-Use this skill to test and harden Xianyu rental ROI apps end to end: find the real source tree, verify refreshable market data, test investment calculations, and catch frontend chart/layout bugs.
+用于端到端测试和加固闲鱼选品/二手租赁 ROI 应用：找到真实源码、验证可刷新的市场数据、检查投资计算，并捕获前端图表和布局 bug。
 
 ## When To Use
 
@@ -106,14 +106,14 @@ Check:
 Run from the skill repository or copy the script path:
 
 ```bash
-python3 xianyu-roi-qa/scripts/qa_probe.py --root /path/to/app --backend-url http://127.0.0.1:3001 --frontend-url http://127.0.0.1:5174
+python3 闲鱼选品/scripts/qa_probe.py --root /path/to/app --backend-url http://127.0.0.1:3001 --frontend-url http://127.0.0.1:5174
 ```
 
 Useful options:
 
 ```bash
-python3 xianyu-roi-qa/scripts/qa_probe.py --root /path/to/app --post-refresh
-python3 xianyu-roi-qa/scripts/qa_probe.py --root /path/to/app --json
+python3 闲鱼选品/scripts/qa_probe.py --root /path/to/app --post-refresh
+python3 闲鱼选品/scripts/qa_probe.py --root /path/to/app --json
 ```
 
 The script does not install dependencies, start servers, or modify files. It only inspects local files and reachable HTTP endpoints.

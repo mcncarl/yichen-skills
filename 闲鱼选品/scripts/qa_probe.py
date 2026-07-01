@@ -149,7 +149,7 @@ def probe_http(backend_url: str | None, frontend_url: str | None, post_refresh: 
 def render_markdown(report: dict[str, Any]) -> str:
     repo = report["repo"]
     lines = [
-        "# Xianyu ROI QA Probe",
+        "# 闲鱼选品 QA Probe",
         "",
         f"- Root: `{repo['root']}`",
         f"- Git repo: `{repo['is_git_repo']}`",
