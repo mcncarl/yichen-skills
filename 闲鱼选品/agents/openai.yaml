@@ -1,7 +1,7 @@
 interface:
   display_name: "闲鱼选品"
   short_description: "测试和修复闲鱼选品 ROI 网站的数据刷新与图表问题"
-  default_prompt: "Use $闲鱼选品 to test and fix a Xianyu rental ROI product-selection website end to end."
+  default_prompt: "使用 $闲鱼选品 端到端测试和修复闲鱼选品网站的数据刷新、投资计算和图表问题。"
 
 policy:
   allow_implicit_invocation: true
