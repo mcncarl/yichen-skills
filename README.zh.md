@@ -146,6 +146,8 @@ yichen-skills/
 │  └─ SKILL.md
 ├─ 闲鱼选品/
 │  ├─ SKILL.md
+│  ├─ agents/
+│  │  └─ openai.yaml
 │  └─ scripts/
 │     └─ qa_probe.py
 ├─ README.md
