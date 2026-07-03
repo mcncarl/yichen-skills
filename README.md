@@ -15,6 +15,7 @@ A skill collection for creators who want to streamline writing, X Articles draft
 7. Diagnose benchmark video transcripts (`yichen-video-content`)
 8. Run verified research through the official ChatGPT web page (`chatgpt-web-research`)
 9. Hand off rough cuts to Jianying/CapCut for final editing (`jianying-editor`)
+10. Install and maintain a Markdown/Obsidian-first Codex memory system (`codex-memory`)
 
 ## Included Skills
 
@@ -100,6 +101,15 @@ Guide Jianying/CapCut desktop finishing:
 - Handles timeline placement, subtitles, visual polishing, and export notes
 - Leaves automatic rough-cut logic to `volc-asr`
 
+### 11) `codex-memory`
+Install and maintain the public Codex Memory system:
+- Creates a local Markdown/Obsidian-first memory vault from the public template
+- Uses Markdown as the source of truth and SQLite/FTS as the fast index
+- Supports optional Zvec semantic retrieval for fuzzy "meaning-based" recall
+- Guides prewrite reconcile, closeout, audit, and privacy-safe template updates
+- Typical triggers: "install Codex memory", "set up memory vault", "run memory closeout", "audit my Codex memory"
+- Template repo: [mcncarl/codex-memory](https://github.com/mcncarl/codex-memory)
+
 ## Project Structure
 
 ```text
@@ -152,6 +162,9 @@ yichen-skills/
 │  └─ agents/
 ├─ jianying-editor/
 │  └─ SKILL.md
+├─ codex-memory/
+│  ├─ SKILL.md
+│  └─ agents/
 ├─ README.md
 ├─ README.zh.md
 ├─ THIRD_PARTY_NOTICES.md
@@ -192,6 +205,7 @@ Keep directory names unchanged:
 - `yichen-video-content`
 - `chatgpt-web-research`
 - `jianying-editor`
+- `codex-memory`
 
 ## Quick Start (3 Minutes)
 
@@ -239,6 +253,13 @@ Keep directory names unchanged:
 2. Keep the ChatGPT tab or profile visible when a Pro route must be confirmed
 3. Ask for official-site research, for example: "Use ChatGPT Web to research Anthropic and save a Markdown report"
 4. The skill waits for a complete answer, verifies the marker, and saves raw/readable Markdown reports
+
+### G) Enable `codex-memory`
+
+1. Make sure `codex-memory/SKILL.md` is available in your loaded skills path
+2. Ask Codex to "install Codex Memory" or "set up a local Codex memory vault"
+3. The skill will use [mcncarl/codex-memory](https://github.com/mcncarl/codex-memory) to create a private local vault
+4. After setup, use `codex_memory_search.py`, `codex_memory_closeout.py`, and `codex_memory_audit.py` for search, task-end cleanup, and periodic review
 
 ## X Cookie Handling
 

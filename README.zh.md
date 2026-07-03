@@ -15,6 +15,7 @@
 7. 诊断对标视频口播稿（`yichen-video-content`）
 8. 通过 ChatGPT 官网完成可验证调研（`chatgpt-web-research`）
 9. 把粗剪成片交给剪映/CapCut 做最后精修（`jianying-editor`）
+10. 安装和维护 Markdown/Obsidian-first 的 Codex 记忆系统（`codex-memory`）
 
 ## 包含的技能
 
@@ -99,6 +100,15 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 处理字幕、画面精修、导出和项目记录
 - 自动粗剪逻辑交给 `volc-asr`
 
+### 11) `codex-memory`
+安装和维护公开版 Codex Memory 系统：
+- 从公开模板创建本地 Markdown/Obsidian-first 记忆库
+- Markdown 是事实源，SQLite/FTS 是快速索引
+- 可选接入 Zvec 语义检索，用来找“意思相近但措辞不同”的记忆
+- 引导写入前对账、任务结束 closeout、定期 audit 和公开模板脱敏更新
+- 常见触发词：“安装 Codex 记忆系统”、“搭建记忆库”、“运行 memory closeout”、“audit 我的 Codex 记忆”
+- 模板仓库：[mcncarl/codex-memory](https://github.com/mcncarl/codex-memory)
+
 ## 目录结构
 
 ```text
@@ -151,6 +161,9 @@ yichen-skills/
 │  └─ agents/
 ├─ jianying-editor/
 │  └─ SKILL.md
+├─ codex-memory/
+│  ├─ SKILL.md
+│  └─ agents/
 ├─ README.md
 ├─ README.zh.md
 ├─ THIRD_PARTY_NOTICES.md
@@ -191,6 +204,7 @@ yichen-skills/
 - `yichen-video-content`
 - `chatgpt-web-research`
 - `jianying-editor`
+- `codex-memory`
 
 ## 3 分钟快速上手
 
@@ -238,6 +252,13 @@ yichen-skills/
 2. 如果任务要求 Pro 路线，保持可见页面能确认账号或模型状态
 3. 直接提出官网调研任务，例如：“用 ChatGPT 官网调研 Anthropic，并保存 Markdown 报告”
 4. Skill 会等待完整答案、校验标记，并保存原始版和可读版报告
+
+### G）启用 `codex-memory`
+
+1. 确保 `codex-memory/SKILL.md` 在已加载的 skills 路径里
+2. 对 Codex 说“安装 Codex 记忆系统”或“搭建本地 Codex 记忆库”
+3. Skill 会使用 [mcncarl/codex-memory](https://github.com/mcncarl/codex-memory) 创建一个本地私有 vault
+4. 安装后用 `codex_memory_search.py`、`codex_memory_closeout.py`、`codex_memory_audit.py` 分别做搜索、任务结束整理和定期体检
 
 ## X Cookie 处理
 

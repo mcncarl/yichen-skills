@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex Memory"
+  short_description: "Install and maintain a Codex memory vault"
+  default_prompt: "Use $codex-memory to install, inspect, or maintain a local Codex memory system."
