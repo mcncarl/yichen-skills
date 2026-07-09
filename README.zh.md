@@ -16,6 +16,7 @@
 8. 通过 ChatGPT 官网完成可验证调研（`chatgpt-web-research`）
 9. 把粗剪成片交给剪映/CapCut 做最后精修（`jianying-editor`）
 10. 安装和维护 Markdown/Obsidian-first 的 Codex 记忆系统（`codex-memory`）
+11. 批量导出公众号历史文章、原创列表、正文，以及可选阅读量/评论数据（`wechat-mp-batch-exporter`）
 
 ## 包含的技能
 
@@ -109,6 +110,17 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 常见触发词：“安装 Codex 记忆系统”、“搭建记忆库”、“运行 memory closeout”、“audit 我的 Codex 记忆”
 - 模板仓库：[mcncarl/codex-memory](https://github.com/mcncarl/codex-memory)
 
+### 12) `wechat-mp-batch-exporter`
+批量导出微信公众号文章：
+- 把已知 `mp.weixin.qq.com` 文章链接下载成 Markdown/JSON/text/HTML
+- 通过 `wechat-article-exporter` 做公众号搜索和历史列表同步
+- 明确区分 `publish_groups`、`expanded_url_items` 和 `original_articles`
+- 在有新鲜、用户自有凭证时，可规划导出阅读量、点赞、转发、评论和评论回复
+- 扫码登录、凭证捕获、证书信任、代理修改和任何微信桌面端动作都必须先得到用户确认
+- 不操控微信 UI，也不把真实凭据写入仓库
+
+安装和隐私边界见 [wechat-mp-batch-exporter/README.md](./wechat-mp-batch-exporter/README.md)。
+
 ## 目录结构
 
 ```text
@@ -164,6 +176,12 @@ yichen-skills/
 ├─ codex-memory/
 │  ├─ SKILL.md
 │  └─ agents/
+├─ wechat-mp-batch-exporter/
+│  ├─ SKILL.md
+│  ├─ README.md
+│  ├─ agents/
+│  ├─ references/
+│  └─ scripts/
 ├─ README.md
 ├─ README.zh.md
 ├─ THIRD_PARTY_NOTICES.md
@@ -184,6 +202,7 @@ yichen-skills/
   - 小红书抓取：`pip install requests`
   - 火山 ASR 粗剪：`pip install requests`，并安装本机 `ffmpeg` / `ffprobe`
   - ChatGPT 官网调研：Chrome 已登录 ChatGPT，且当前 Agent 环境支持 Chrome/Computer Use 能力
+  - 公众号批量导出：已知 URL 正文下载只需 Python 3 标准库；历史列表、阅读量和评论需要额外配置 `wechat-article-exporter` / `wxdown-service`
 
 ## 安装方式
 
@@ -205,6 +224,7 @@ yichen-skills/
 - `chatgpt-web-research`
 - `jianying-editor`
 - `codex-memory`
+- `wechat-mp-batch-exporter`
 
 ## 3 分钟快速上手
 
@@ -260,6 +280,14 @@ yichen-skills/
 3. Skill 会使用 [mcncarl/codex-memory](https://github.com/mcncarl/codex-memory) 创建一个本地私有 vault
 4. 安装后用 `codex_memory_search.py`、`codex_memory_closeout.py`、`codex_memory_audit.py` 分别做搜索、任务结束整理和定期体检
 
+### H）启用 `wechat-mp-batch-exporter`
+
+1. 确保 `wechat-mp-batch-exporter/SKILL.md` 在已加载的 skills 路径里
+2. 如果只是下载已知文章链接，直接要求下载 Markdown 即可
+3. 如果要抓公众号历史列表，配置 `WECHAT_ARTICLE_EXPORTER_DIR`，或使用 `wechat-article-exporter` 支持的公开 exporter 路线
+4. 如果要抓阅读量和评论，配置 `WXDOWN_SERVICE_DIR`，并在启动任何本地凭证辅助服务前确认凭证捕获流程
+5. 涉及指标、评论、代理、证书或微信桌面端动作前，先看 [wechat-mp-batch-exporter/README.md](./wechat-mp-batch-exporter/README.md)
+
 ## X Cookie 处理
 
 本仓库不包含真实凭据，也不再提供需要手动填写的 cookie 模板。
@@ -284,6 +312,7 @@ rm -f /tmp/x_current_cookies.json
 - 历史缓存类目录默认不追踪
 - 个人绝对路径已替换为通用写法
 - 第三方 AppID、AppToken、TableID、bucket 名和 ASR token 必须通过环境变量或私有配置提供
+- 公众号 exporter auth-key、凭证文件、扫码登录秘密、捕获 cookies 和下载的文章归档必须只保存在本地
 
 如果你曾在公开仓库暴露过 Cookie，请立即轮换。
 

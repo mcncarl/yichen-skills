@@ -16,6 +16,7 @@ A skill collection for creators who want to streamline writing, X Articles draft
 8. Run verified research through the official ChatGPT web page (`chatgpt-web-research`)
 9. Hand off rough cuts to Jianying/CapCut for final editing (`jianying-editor`)
 10. Install and maintain a Markdown/Obsidian-first Codex memory system (`codex-memory`)
+11. Batch-export WeChat Official Account article history, original-article lists, bodies, and optional read/comment metrics (`wechat-mp-batch-exporter`)
 
 ## Included Skills
 
@@ -110,6 +111,17 @@ Install and maintain the public Codex Memory system:
 - Typical triggers: "install Codex memory", "set up memory vault", "run memory closeout", "audit my Codex memory"
 - Template repo: [mcncarl/codex-memory](https://github.com/mcncarl/codex-memory)
 
+### 12) `wechat-mp-batch-exporter`
+Batch-export WeChat Official Account articles:
+- Downloads known `mp.weixin.qq.com` article URLs as Markdown/JSON/text/HTML
+- Uses `wechat-article-exporter` for account search and history list sync
+- Separates `publish_groups`, `expanded_url_items`, and `original_articles`
+- Supports enhanced archive planning for read counts, likes, shares, comments, and replies through `wxdown-service` when fresh user-owned credentials are available
+- Requires user confirmation for QR login, credential capture, certificate trust, proxy changes, and any WeChat desktop steps
+- Never operates WeChat UI or stores real credentials in the repo
+
+See [wechat-mp-batch-exporter/README.md](./wechat-mp-batch-exporter/README.md) for setup and privacy notes.
+
 ## Project Structure
 
 ```text
@@ -165,6 +177,12 @@ yichen-skills/
 ├─ codex-memory/
 │  ├─ SKILL.md
 │  └─ agents/
+├─ wechat-mp-batch-exporter/
+│  ├─ SKILL.md
+│  ├─ README.md
+│  ├─ agents/
+│  ├─ references/
+│  └─ scripts/
 ├─ README.md
 ├─ README.zh.md
 ├─ THIRD_PARTY_NOTICES.md
@@ -185,6 +203,7 @@ yichen-skills/
   - Xiaohongshu fetcher: `pip install requests`
   - Volc ASR rough cut: `pip install requests` plus local `ffmpeg` / `ffprobe`
   - ChatGPT Web research: Chrome signed in to ChatGPT, plus Chrome/Computer Use capability in your agent environment
+  - WeChat MP batch export: Python 3 standard library for known URL downloads; `wechat-article-exporter` / `wxdown-service` only for account history, metrics, and comments
 
 ## Installation
 
@@ -206,6 +225,7 @@ Keep directory names unchanged:
 - `chatgpt-web-research`
 - `jianying-editor`
 - `codex-memory`
+- `wechat-mp-batch-exporter`
 
 ## Quick Start (3 Minutes)
 
@@ -261,6 +281,14 @@ Keep directory names unchanged:
 3. The skill will use [mcncarl/codex-memory](https://github.com/mcncarl/codex-memory) to create a private local vault
 4. After setup, use `codex_memory_search.py`, `codex_memory_closeout.py`, and `codex_memory_audit.py` for search, task-end cleanup, and periodic review
 
+### H) Enable `wechat-mp-batch-exporter`
+
+1. Make sure `wechat-mp-batch-exporter/SKILL.md` is available in your loaded skills path
+2. For known article URLs, ask for a Markdown download directly
+3. For account history, configure `WECHAT_ARTICLE_EXPORTER_DIR` or use the public exporter route supported by `wechat-article-exporter`
+4. For read counts and comments, configure `WXDOWN_SERVICE_DIR` and confirm the credential-capture workflow before starting any local helper
+5. See [wechat-mp-batch-exporter/README.md](./wechat-mp-batch-exporter/README.md) before using metrics, comments, proxy, certificate, or WeChat desktop workflows
+
 ## X Cookie Handling
 
 This repo does not include real credentials or cookie templates.
@@ -285,6 +313,7 @@ rm -f /tmp/x_current_cookies.json
 - History/cache artifacts are excluded from tracking
 - Personal absolute paths are replaced with generic forms
 - Third-party AppID, AppToken, TableID, bucket names, and ASR tokens must be supplied through environment variables or private config
+- WeChat exporter auth-keys, credential files, QR secrets, captured cookies, and downloaded article archives must stay local and private
 
 If you ever exposed real cookies in a public repo, rotate them immediately.
 

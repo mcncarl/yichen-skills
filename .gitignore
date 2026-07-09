@@ -17,6 +17,18 @@
 **/*.sqlite3
 **/wechat_frida_keys.log
 
+# WeChat public-account exporter credentials and archives
+**/credentials.json
+**/*auth-key*
+**/wechat-mp-batch/
+wechat-mp-batch-exporter/**/history.*.json
+wechat-mp-batch-exporter/**/history.*.csv
+wechat-mp-batch-exporter/**/urls.*.txt
+wechat-mp-batch-exporter/**/articles/
+wechat-mp-batch-exporter/**/comments/
+wechat-mp-batch-exporter/**/comment-replies/
+wechat-mp-batch-exporter/**/raw-exporter/
+
 # Local caches/history
 **/.versions/
 **/__pycache__/
