@@ -39,12 +39,36 @@ This repository references and adapts ideas/workflows from external projects.
   - The database decryption function was implemented based on the documented decryption parameters
   - The overall workflow (codesign → frida spawn → hook → capture keys → match to DB files) follows the same approach
 
+## 4) wechat-article/wechat-article-exporter
+
+- Upstream: https://github.com/wechat-article/wechat-article-exporter
+- License: MIT
+- Usage in this repo (`wechat-mp-batch-exporter`):
+  - Referenced workflow for WeChat Official Account search, history sync, multi-format export, and enhanced metric/comment export.
+  - The skill points users to their own local or hosted `wechat-article-exporter` instance instead of vendoring upstream code.
+- What was copied:
+  - No upstream source code is vendored in this repository.
+  - The public skill only includes local wrapper scripts, runbooks, output schemas, safety gates, and attribution links.
+
+## 5) wechat-article/wxdown-service
+
+- Upstream: https://github.com/wechat-article/wxdown-service
+- Documentation: https://docs.mptext.top/advanced/wxdown-service
+- License: MIT, according to the upstream documentation footer.
+- Usage in this repo (`wechat-mp-batch-exporter`):
+  - Referenced the credential-capture workflow needed for read counts, likes, shares, comments, and replies.
+  - The skill requires explicit user confirmation before any certificate, proxy, credential, or WeChat desktop step.
+- What was copied:
+  - No upstream source code is vendored in this repository.
+  - `start_wxdown_service.py` only starts a user-provided local checkout path and does not modify system proxy settings.
+
 ## Notes
 
 - This repository maintains its own license (`LICENSE`) for original contributions. It is personal-learning and non-commercial only.
 - The upstream projects listed above retain their original licenses and copyrights.
 - Upstream licenses and notices should be preserved when redistributing derived works.
 - `wechat-local-vault` is an independent implementation that adapts specific technical approaches from `wx-favorites-report`. It does not contain any code directly copied from the upstream project.
+- `wechat-mp-batch-exporter` references workflows from `wechat-article-exporter` and `wxdown-service`, but does not include their source code, credentials, cached browser data, or downloaded article archives.
 - `x-article-draft-uploader` references workflow and Markdown parsing ideas from `wshuyi/x-article-publisher-skill`; it stores no real credentials and writes cookies only to temporary runtime files.
 - `summary` and the broader skill packaging conventions reference public Claude skill community practices, including JimLiu/baoyu-skills.
 - `mac-wechat-dual-open` references public X/Twitter discussion and implements the copy + bundle-id + ad-hoc signing workflow locally.
