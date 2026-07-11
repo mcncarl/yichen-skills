@@ -37,13 +37,25 @@ python3 scripts/bootstrap.py --memory-root "$HOME/agent-memory-vault" --write-en
 source .env
 ```
 
-3. Optionally initialize Git for the private vault:
+3. For a stable shared runtime, install the repository's canonical scripts and create a private TOML config:
+
+```bash
+python3 scripts/install_runtime.py --config-root "$HOME/.config/agent-memory"
+cp config/agent-memory.example.toml "$HOME/.config/agent-memory/config/agent-memory.toml"
+# Edit memory_root, git_root, and state_db. Never commit this private file.
+"$HOME/.config/agent-memory/scripts/install_runtime.py" \
+  --config-root "$HOME/.config/agent-memory" --verify --json
+```
+
+Treat the public repository as the only core-script source. The installer preserves unknown local adapters and private config while recording file hashes in `runtime-manifest.json`.
+
+4. Optionally initialize Git for the private vault:
 
 ```bash
 git -C "$AGENT_MEMORY_GIT_ROOT" init
 ```
 
-4. Build indexes and validate:
+5. Build indexes and validate:
 
 ```bash
 python3 scripts/agent_memory_evolution.py --init --scan --report
@@ -52,11 +64,12 @@ python3 scripts/agent_memory_check.py
 python3 scripts/agent_memory_doctor.py
 ```
 
-5. Tell the user the final vault path, state database path, and the command to run at the end of future important tasks:
+6. Tell the user the final vault path, state database path, and the claim/closeout commands for future important tasks:
 
 ```bash
-python3 scripts/agent_memory_closeout.py --dry-run
-python3 scripts/agent_memory_closeout.py --commit
+memoryctl --actor codex claim --file "/absolute/path/to/changed-memory.md"
+memoryctl --actor codex closeout --dry-run
+memoryctl --actor codex closeout
 ```
 
 ## Daily Operations
@@ -66,6 +79,7 @@ When the neutral wrapper is installed, prefer it from both hosts:
 ```bash
 memoryctl --actor codex search "query" --limit 5
 memoryctl --actor claude prewrite "summary of the memory to write"
+memoryctl --actor claude claim --file "/absolute/path/to/changed-memory.md"
 memoryctl --actor claude closeout
 ```
 
@@ -94,16 +108,23 @@ Allowed reconcile actions:
 - `MERGE_REQUIRED`: stop and ask the user to merge or choose.
 - `ASK_USER`: ask before sensitive, destructive, account, credential, cost, or uncertain actions.
 
-At the end of an important task, run closeout:
+Immediately after creating or changing a formal memory, claim it for the current host session:
+
+```bash
+memoryctl --actor codex claim --file "/absolute/path/to/changed-memory.md"
+memoryctl --actor claude claim --file "/absolute/path/to/changed-memory.md"
+```
+
+Codex normally exposes `CODEX_THREAD_ID`. For Claude, configure `agent_memory_session_hook.py --actor claude` under `SessionStart`; it uses Claude Code's official `CLAUDE_ENV_FILE` mechanism to export the hook payload's real `session_id` to later Bash commands and clears any inherited Codex thread ID. Claims are stored in SQLite with only a one-way session hash. At the end of an important task, run closeout:
 
 ```bash
 python3 scripts/agent_memory_closeout.py --dry-run
 python3 scripts/agent_memory_closeout.py --commit
 ```
 
-Closeout discovers dirty memory files and also recovers changes committed by an external backup tool since the last successful `git_observed_through` baseline. It checks structure and leaks, performs postwrite reconcile, refreshes SQLite, optionally refreshes Zvec, refreshes Agent evolution when needed, piggybacks audit when due, logs the run, and can commit only processed memory files.
+Session closeout processes only files claimed by that actor/session and also recovers their changes if an external backup tool committed first. Other sessions' files are excluded. Unclaimed dirty memory must be resolved instead of being silently swept into a commit. Human maintenance can use `memoryctl --actor human closeout --global` deliberately.
 
-Closeout uses a process lock. Its compaction messages are non-blocking advisories, while failed checks or unresolved semantic duplicates still block the normal commit path.
+Closeout uses both a process lock and a session ownership ledger: the lock serializes SQLite/Zvec/Git work, while claims prevent cross-session commits. Its compaction messages are non-blocking advisories, while failed checks or unresolved semantic duplicates still block the normal commit path.
 
 Run audit manually when asked:
 
@@ -114,18 +135,20 @@ python3 scripts/agent_memory_audit_autorun.py --reason manual --json
 python3 scripts/agent_memory_doctor.py
 ```
 
-Audit findings are prompts for review. Do not let audit directly rewrite Markdown facts unless the user asks for that update.
+Audit findings are prompts for review. Do not let audit directly rewrite Markdown facts unless the user asks for that update. Current-fact invariants can detect retired paths/scripts, wrong `agent_scope`, and stale fixed metrics in active summaries.
 
 `doctor` is read-only by default. Use `--repair-derived` only when the user wants SQLite/FTS and Zvec rebuilt; it must never rewrite Markdown facts.
 
 ## Optional Semantic Retrieval
 
-After installing `requirements-vector.txt`, build and validate Zvec with:
+Install the tested `requirements-vector.lock`, then build and validate Zvec:
 
 ```bash
 python3 scripts/agent_memory_zvec_index.py --scan --prune
 python3 scripts/agent_memory_zvec_index.py --report
 ```
+
+For durable offline use, copy or APFS-clone a pinned model snapshot into the private runtime, set `require_local_model = true`, and record a private model manifest with revision, sizes, and hashes. `doctor` should pass the local-model, manifest-integrity, dependency-lock, and real offline-query checks before calling the semantic layer hardened.
 
 The unified search runs SQLite and Zvec in parallel, applies all filters after merging, and discards semantic neighbors beyond the configured distance threshold. Search hits are candidates; always read the Markdown source before treating a claim as true.
 
@@ -133,11 +156,12 @@ The unified search runs SQLite and Zvec in parallel, applies all filters after m
 
 Only install global Codex hooks or a macOS LaunchAgent after the user has asked for automation.
 
-- Stop is turn-scoped in both hosts, so the memory hook must be gated and quiet when there are no pending memory changes.
-- A shared setup may run full closeout from Stop only after the Agent has written formal memory and only when dirty Markdown or unobserved Git history exists.
+- Stop is turn-scoped in both hosts, so the memory hook must be gated and quiet when the current session has no claims and all pending files belong to other sessions.
+- Claude must have the SessionStart bridge in the live settings and in any settings manager's persistent configuration; verify it alongside Stop and SessionEnd after provider switches.
+- A shared setup runs full closeout from Stop only after the Agent has written and claimed formal memory. Unclaimed dirty memory should block silent completion with a concrete claim instruction.
 - Both hosts should block normal completion when closeout fails, using their native protocols: Claude returns `decision: block`; Codex exits with code `2` and writes a continuation prompt to stderr. Claude SessionEnd can be a non-blocking fallback; Codex currently has no direct equivalent.
 - Keep the outer Stop hook timeout slightly above the closeout timeout. For a 300-second closeout, use at least 320 seconds outside.
-- Keep one global closeout lock, one Git baseline, one audit scheduler, one SQLite database, and one Zvec index across both hosts.
+- Keep one global closeout lock, one Git baseline, one session-claim table, one audit scheduler, one SQLite database, and one Zvec index across both hosts.
 - Let `agent_memory_audit_autorun.py --min-interval-days 7` decide whether audit is due.
 - The weekly LaunchAgent must not use `--force`; otherwise closeout, hook, and launchd can run duplicate audits inside the same seven-day window.
 - Merge the memory command into existing `~/.codex/hooks.json`; never overwrite unrelated hooks.
@@ -172,4 +196,5 @@ rg -n "/Users/|sk-[A-Za-z0-9]|token|secret|cookie|password|\\.sqlite|\\.db|zvec"
 - If Zvec parity fails, run `agent_memory_zvec_index.py --scan --prune` and then `--report`.
 - If audit repeats the same finding, record a decision with `--ack`, `--ignore`, `--resolve`, or `--snooze`; finding IDs must remain stable as counts change.
 - If Claude debug reports zero matching hooks after installation, check whether a provider switcher rewrote `~/.claude/settings.json`. Persist the hooks in that manager's common configuration and any live rollback copy, then restart it and verify the loaded matchers again.
-- If doctor reports `mtime_fallback`, do not fabricate a verification date. Re-verify that fact, then add an explicit `verified_at` and suitable `review_after_days`.
+- If doctor reports `needs_review` or `mtime_fallback`, do not fabricate a verification date. Classify structural/snapshot documents explicitly, use document dates only as provenance, and add `verified_at` only after checking real evidence.
+- If doctor reports Zvec hash mismatch, run closeout for the claimed changed files or run `agent_memory_zvec_index.py --scan --prune`; equal document counts alone do not prove fresh vectors.
