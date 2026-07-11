@@ -3,12 +3,13 @@
 小红书笔记抓取器。
 
 默认从网页的 window.__INITIAL_STATE__ 中提取元数据，并下载视频、字幕或图片。
-不写入飞书，不读取或保存 Cookie。
+不写入飞书；可从子进程环境变量 XHS_COOKIE 读取登录态，但不会保存或输出 Cookie。
 """
 
 import argparse
 import html as html_lib
 import json
+import os
 import re
 import sys
 from datetime import datetime
@@ -38,6 +39,9 @@ def request_headers(referer: Optional[str] = None) -> Dict[str, str]:
     }
     if referer:
         headers["Referer"] = referer
+    cookie = os.environ.get("XHS_COOKIE", "").strip()
+    if cookie:
+        headers["Cookie"] = cookie
     return headers
 
 
