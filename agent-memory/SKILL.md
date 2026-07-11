@@ -122,7 +122,7 @@ python3 scripts/agent_memory_closeout.py --dry-run
 python3 scripts/agent_memory_closeout.py --commit
 ```
 
-Session closeout processes only files claimed by that actor/session and also recovers their changes if an external backup tool committed first. Other sessions' files are excluded. Unclaimed dirty memory must be resolved instead of being silently swept into a commit. Human maintenance can use `memoryctl --actor human closeout --global` deliberately.
+Session closeout processes only files claimed by that actor/session and also recovers their changes if an external backup tool committed first. Other sessions' files are excluded. A successful closeout records the processed content hash in `memory_file_observations`; only a matching observation proves that historical content is complete and lets the shared Git baseline advance. Unclaimed dirty memory must be resolved instead of being silently swept into a commit. Human maintenance can use `memoryctl --actor human closeout --global` deliberately.
 
 Closeout uses both a process lock and a session ownership ledger: the lock serializes SQLite/Zvec/Git work, while claims prevent cross-session commits. Its compaction messages are non-blocking advisories, while failed checks or unresolved semantic duplicates still block the normal commit path.
 
