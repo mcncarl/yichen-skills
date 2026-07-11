@@ -171,4 +171,5 @@ rg -n "/Users/|sk-[A-Za-z0-9]|token|secret|cookie|password|\\.sqlite|\\.db|zvec"
 - If Zvec is slow or unavailable, use `--no-zvec` for search/reconcile or `--skip-zvec` for closeout.
 - If Zvec parity fails, run `agent_memory_zvec_index.py --scan --prune` and then `--report`.
 - If audit repeats the same finding, record a decision with `--ack`, `--ignore`, `--resolve`, or `--snooze`; finding IDs must remain stable as counts change.
+- If Claude debug reports zero matching hooks after installation, check whether a provider switcher rewrote `~/.claude/settings.json`. Persist the hooks in that manager's common configuration and any live rollback copy, then restart it and verify the loaded matchers again.
 - If doctor reports `mtime_fallback`, do not fabricate a verification date. Re-verify that fact, then add an explicit `verified_at` and suitable `review_after_days`.
