@@ -6,29 +6,31 @@
 
 ## 这个仓库能做什么
 
-1. 把 Claude Code 对话沉淀为结构化 Obsidian 笔记（`summary`）
-2. 把 Obsidian/Markdown 长文上传为 X Articles 草稿（`x-article-draft-uploader`）
-3. 从微信聊天、朋友圈、收藏夹沉淀 AI 数字资产（`wechat-local-vault`）
-4. Mac 微信双开，第二个微信带蓝色图标（`mac-wechat-dual-open`）
-5. 抓取抖音和小红书对标视频/笔记（`douyin-fetcher`、`xiaohongshu-fetch`）
-6. 用火山 ASR 做转写、字幕和口播粗剪（`volc-asr`）
-7. 诊断对标视频口播稿（`yichen-video-content`）
-8. 通过 ChatGPT 官网完成可验证调研（`chatgpt-web-research`）
-9. 把粗剪成片交给剪映/CapCut 做最后精修（`jianying-editor`）
-10. 安装和维护 Markdown/Obsidian-first 的 Codex 记忆系统（`agent-memory`）
-11. 批量导出公众号历史文章、原创列表、正文，以及可选阅读量/评论数据（`wechat-mp-batch-exporter`）
+1. 把 Claude Code 对话沉淀为结构化 Obsidian 笔记（`yichen-summary`）
+2. 把 Obsidian/Markdown 长文上传为 X Articles 草稿（`yichen-x-article-draft-uploader`）
+3. Mac 微信双开，第二个微信带蓝色图标（`yichen-mac-wechat-dual-open`）
+4. 从微信聊天、朋友圈、收藏夹沉淀 AI 数字资产（`yichen-wechat-local-vault`）
+5. 抓取抖音对标视频（`yichen-douyin-fetcher`）
+6. 抓取小红书对标笔记（`yichen-xiaohongshu-fetch`）
+7. 用火山 ASR 做转写、字幕和口播粗剪（`yichen-volc-asr`）
+8. 诊断对标视频口播稿（`yichen-video-content`）
+9. 通过 ChatGPT 官网完成可验证调研（`yichen-chatgpt-web-research`）
+10. 把粗剪成片交给剪映/CapCut 做最后精修（`yichen-jianying-editor`）
+11. 安装和维护 Markdown/Obsidian-first 的 Codex 记忆系统（`yichen-agent-memory`）
+12. 批量导出公众号历史文章、原创列表、正文，以及可选阅读量/评论数据（`yichen-wechat-mp-batch-exporter`）
+13. 只读解析并导出本机企业微信 5.x 数据库快照，不操控客户端（`yichen-wecom-local-vault`）
 
 ## 包含的技能
 
-### 1) `summary`
+### 1) `yichen-summary`
 - 用途：提炼当前对话精华并保存到 Obsidian
-- 常见触发词：`/summary`、保存对话、导出精华
+- 常见触发词：`/yichen-summary`、保存对话、导出精华
 - 关键能力：
   - 自动过滤低价值过渡内容
   - 输出结构化笔记（背景、核心内容、解决方案、关键要点、相关）
   - 适合长期知识沉淀
 
-### 2) `x-article-draft-uploader`
+### 2) `yichen-x-article-draft-uploader`
 把 Obsidian/Markdown 长文上传到 X Articles 草稿：
 - 第一张图片自动作为 X Article 封面
 - Markdown 转成 X 编辑器可识别的 rich text
@@ -37,9 +39,9 @@
 - 通过临时导出的 cookies 复用 Chrome 登录态
 - 只保存草稿，不点击最终 `发布`
 
-完整说明见 [x-article-draft-uploader/README.md](./x-article-draft-uploader/README.md)。
+完整说明见 [yichen-x-article-draft-uploader/README.md](./yichen-x-article-draft-uploader/README.md)。
 
-### 3) `mac-wechat-dual-open`
+### 3) `yichen-mac-wechat-dual-open`
 Mac 微信双开——无需第三方工具，一条命令搞定：
 - 复制微信、改 Bundle Identifier、本地重签名
 - 第二个微信图标自动改为蓝色，视觉上一眼区分
@@ -50,7 +52,7 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 限制：微信更新后需要重新运行（用 `repair`）；推送通知可能不稳定
 - 方法来源：[@koffuxu](https://x.com/koffuxu/status/2043110831584690427) 的公开教程
 
-### 4) `wechat-local-vault`
+### 4) `yichen-wechat-local-vault`
 微信数字资产沉淀助手（macOS 专属）：
 - 解密微信 Mac 4.x 本地 SQLCipher 数据库（AES-256-CBC）
 - 提取聊天记录、朋友圈（`sns.db`）和收藏夹（`favorite.db`）
@@ -58,23 +60,23 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 首次引导展示三大类九种玩法：聊天记录、朋友圈、收藏夹
 - 可配置监控指定群聊、联系人、朋友圈对象和收藏夹整理偏好
 - 首次使用通过 frida 引导密钥提取
-- 常见触发词：”微信解析”、”微信全量”、”微信增量”、”导出聊天”、”朋友圈解析”、”收藏夹整理”、”客户跟进”、”wechat-local-vault”
+- 常见触发词：”微信解析”、”微信全量”、”微信增量”、”导出聊天”、”朋友圈解析”、”收藏夹整理”、”客户跟进”、”yichen-wechat-local-vault”
 - 依赖：macOS、微信 Mac 4.x、Python 3.9+、`pycryptodome`、`zstandard`
-- 详细文档见 [wechat-local-vault/README.md](./wechat-local-vault/README.md)
+- 详细文档见 [yichen-wechat-local-vault/README.md](./yichen-wechat-local-vault/README.md)
 
-### 5) `douyin-fetcher`
+### 5) `yichen-douyin-fetcher`
 抓取抖音视频元数据并下载 MP4：
 - 支持 `/video/<id>` 链接和部分弹窗类链接
 - 下载视频旁边生成精简 `.metadata.json`
 - 支持 `--metadata-only`，只验证链接不下载视频
 
-### 6) `xiaohongshu-fetch`
+### 6) `yichen-xiaohongshu-fetch`
 抓取小红书视频/图文笔记到本地：
 - 解析 `window.__INITIAL_STATE__`
 - 尽量下载视频、字幕、图片和元数据
 - 不把 Cookie、飞书 AppToken/TableID、目标表 ID 写进仓库
 
-### 7) `volc-asr`
+### 7) `yichen-volc-asr`
 本地音视频转写和口播粗剪：
 - 火山 ASR 和 TOS 配置全部通过环境变量读取
 - 输出转写稿、SRT 字幕、ASR 缓存和可选粗剪 MP4
@@ -85,7 +87,7 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 对口播稿逐句标注作用
 - 输出可模仿结构和改进建议
 
-### 9) `chatgpt-web-research`
+### 9) `yichen-chatgpt-web-research`
 通过用户已登录的 ChatGPT 官网账号执行调研：
 - 使用真实 ChatGPT 网页，不走 OpenAI API，也不切到另一个账号
 - 优先使用 Chrome 扩展控制，必要时才用可视化 Computer Use 兜底
@@ -93,15 +95,15 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 把原始输出和可读报告保存到当前工作区的 `reports/` 目录
 - 公开版已去掉个人路径、Chrome 配置名、cookie、token 和浏览器存储信息
 
-隐私边界和工作流见 [chatgpt-web-research/README.md](./chatgpt-web-research/README.md)。
+隐私边界和工作流见 [yichen-chatgpt-web-research/README.md](./yichen-chatgpt-web-research/README.md)。
 
-### 10) `jianying-editor`
+### 10) `yichen-jianying-editor`
 剪映/CapCut 桌面端精修助手：
 - 检查素材、导入粗剪、放入时间线
 - 处理字幕、画面精修、导出和项目记录
-- 自动粗剪逻辑交给 `volc-asr`
+- 自动粗剪逻辑交给 `yichen-volc-asr`
 
-### 11) `agent-memory`
+### 11) `yichen-agent-memory`
 安装和维护公开版 Agent Memory Vault 系统：
 - 从公开模板创建本地 Markdown/Obsidian-first 记忆库
 - Markdown 是事实源，SQLite/FTS 是快速索引
@@ -110,7 +112,7 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 常见触发词：“安装 Codex 记忆系统”、“搭建记忆库”、“运行 memory closeout”、“audit 我的 Codex 记忆”
 - 模板仓库：[mcncarl/agent-memory-vault](https://github.com/mcncarl/agent-memory-vault)
 
-### 12) `wechat-mp-batch-exporter`
+### 12) `yichen-wechat-mp-batch-exporter`
 批量导出微信公众号文章：
 - 把已知 `mp.weixin.qq.com` 文章链接下载成 Markdown/JSON/text/HTML
 - 通过 `wechat-article-exporter` 做公众号搜索和历史列表同步
@@ -119,15 +121,22 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 扫码登录、凭证捕获、证书信任、代理修改和任何微信桌面端动作都必须先得到用户确认
 - 不操控微信 UI，也不把真实凭据写入仓库
 
-安装和隐私边界见 [wechat-mp-batch-exporter/README.md](./wechat-mp-batch-exporter/README.md)。
+安装和隐私边界见 [yichen-wechat-mp-batch-exporter/README.md](./yichen-wechat-mp-batch-exporter/README.md)。
+
+### 13) `yichen-wecom-local-vault`
+只读解析、查询和导出 macOS 企业微信 5.x 桌面端数据库：
+- 生成私密、带时间戳的明文快照，绝不写回企业微信容器
+- 支持联系人、会话、聊天记录、搜索与 Markdown/JSON 导出
+- raw key、快照和聊天导出都不进入 Git
+- 不操控原始企业微信，也不发送消息
 
 ## 目录结构
 
 ```text
 yichen-skills/
-├─ summary/
+├─ yichen-summary/
 │  └─ SKILL.md
-├─ x-article-draft-uploader/
+├─ yichen-x-article-draft-uploader/
 │  ├─ SKILL.md
 │  ├─ README.md
 │  ├─ agents/
@@ -135,7 +144,7 @@ yichen-skills/
 │     ├─ export_x_cookies_from_chrome.py
 │     ├─ parse_markdown.py
 │     └─ upload_markdown_to_x_article.py
-├─ wechat-local-vault/
+├─ yichen-wechat-local-vault/
 │  ├─ SKILL.md
 │  ├─ README.md
 │  └─ scripts/
@@ -145,21 +154,21 @@ yichen-skills/
 │     ├─ list_contacts.py
 │     ├─ search_sns.py
 │     └─ wechat_digest.py
-├─ mac-wechat-dual-open/
+├─ yichen-mac-wechat-dual-open/
 │  ├─ SKILL.md
 │  ├─ scripts/
 │  │  └─ wechat_dual_open.py
 │  └─ references/
 │     └─ reliability-and-risks.md
-├─ douyin-fetcher/
+├─ yichen-douyin-fetcher/
 │  ├─ SKILL.md
 │  └─ scripts/
 │     └─ download.py
-├─ xiaohongshu-fetch/
+├─ yichen-xiaohongshu-fetch/
 │  ├─ SKILL.md
 │  └─ scripts/
 │     └─ fetch.py
-├─ volc-asr/
+├─ yichen-volc-asr/
 │  ├─ SKILL.md
 │  └─ scripts/
 │     └─ transcribe.py
@@ -167,18 +176,23 @@ yichen-skills/
 │  ├─ SKILL.md
 │  └─ references/
 │     └─ title-formulas.md
-├─ chatgpt-web-research/
+├─ yichen-chatgpt-web-research/
 │  ├─ SKILL.md
 │  ├─ README.md
 │  └─ agents/
-├─ jianying-editor/
+├─ yichen-jianying-editor/
 │  └─ SKILL.md
-├─ agent-memory/
+├─ yichen-agent-memory/
 │  ├─ SKILL.md
 │  └─ agents/
-├─ wechat-mp-batch-exporter/
+├─ yichen-wechat-mp-batch-exporter/
 │  ├─ SKILL.md
 │  ├─ README.md
+│  ├─ agents/
+│  ├─ references/
+│  └─ scripts/
+├─ yichen-wecom-local-vault/
+│  ├─ SKILL.md
 │  ├─ agents/
 │  ├─ references/
 │  └─ scripts/
@@ -192,7 +206,7 @@ yichen-skills/
 ## 环境要求
 
 - Claude Code / Codex CLI（支持加载本地 skills）
-- Python Playwright（`x-article-draft-uploader` 必需）
+- Python Playwright（`yichen-x-article-draft-uploader` 必需）
 - Python 3.9+
 - 依赖：
   - X 文章草稿：`pip install playwright pycryptodome && python3 -m playwright install chromium`
@@ -203,6 +217,7 @@ yichen-skills/
   - 火山 ASR 粗剪：`pip install requests`，并安装本机 `ffmpeg` / `ffprobe`
   - ChatGPT 官网调研：Chrome 已登录 ChatGPT，且当前 Agent 环境支持 Chrome/Computer Use 能力
   - 公众号批量导出：已知 URL 正文下载只需 Python 3 标准库；历史列表、阅读量和评论需要额外配置 `wechat-article-exporter` / `wxdown-service`
+  - 企业微信本地解析：`pycryptodome`；只有明确授权抓取本机 raw key 时才需要 `frida`
 
 ## 安装方式
 
@@ -213,89 +228,96 @@ yichen-skills/
 - 如果你有自定义技能目录，也可以使用自定义路径
 
 建议保持目录名不变：
-- `summary`
-- `x-article-draft-uploader`
-- `wechat-local-vault`
-- `mac-wechat-dual-open`
-- `douyin-fetcher`
-- `xiaohongshu-fetch`
-- `volc-asr`
+- `yichen-summary`
+- `yichen-x-article-draft-uploader`
+- `yichen-wechat-local-vault`
+- `yichen-mac-wechat-dual-open`
+- `yichen-douyin-fetcher`
+- `yichen-xiaohongshu-fetch`
+- `yichen-volc-asr`
 - `yichen-video-content`
-- `chatgpt-web-research`
-- `jianying-editor`
-- `agent-memory`
-- `wechat-mp-batch-exporter`
+- `yichen-chatgpt-web-research`
+- `yichen-jianying-editor`
+- `yichen-agent-memory`
+- `yichen-wechat-mp-batch-exporter`
+- `yichen-wecom-local-vault`
 
 ## 3 分钟快速上手
 
-### A）启用 `summary`
+### A）启用 `yichen-summary`
 
-1. 确保 `summary/SKILL.md` 在已加载的 skills 路径里
-2. 新开会话后输入 `/summary`
+1. 确保 `yichen-summary/SKILL.md` 在已加载的 skills 路径里
+2. 新开会话后输入 `/yichen-summary`
 3. 确认输出写入 Obsidian 目录（示例路径通常是 `<OBSIDIAN_VAULT>/...`）
 
-### B）启用 `x-article-draft-uploader`
+### B）启用 `yichen-x-article-draft-uploader`
 
 1. 安装 Python Playwright：`pip3 install playwright pycryptodome && python3 -m playwright install chromium`
 2. 确认 Chrome 已经登录 X
 3. 直接说“把这篇 Markdown 上传到 X Articles 草稿”，或手动运行脚本
 4. Skill 会新建干净草稿，第一张图作为封面，正文图片按原文位置插入
-5. 详细命令见 [x-article-draft-uploader/README.md](./x-article-draft-uploader/README.md)
+5. 详细命令见 [yichen-x-article-draft-uploader/README.md](./yichen-x-article-draft-uploader/README.md)
 
-### C）启用 `mac-wechat-dual-open`
+### C）启用 `yichen-mac-wechat-dual-open`
 
 1. 安装 Python 依赖：`pip3 install Pillow`
 2. 在 Claude Code 中说"帮我微信双开"或 "WeChat dual open"
 3. 脚本会自动创建第二个微信（`~/Applications/WeChat-2.app`）并改蓝色图标
-4. 详细命令见 `mac-wechat-dual-open/SKILL.md`
+4. 详细命令见 `yichen-mac-wechat-dual-open/SKILL.md`
 
-### D）启用 `wechat-local-vault`
+### D）启用 `yichen-wechat-local-vault`
 
 1. 安装 Python 依赖：`pip3 install pycryptodome zstandard`
 2. 在 Claude Code 或 Codex 中说"微信解析"、"导出聊天"或"收藏夹整理"
 3. 首次运行会引导你完成密钥提取，并从九种玩法里选择当前要启用的工作流
 4. 如果不确定，默认从"聊天记录解析 + 朋友圈解析 + 收藏夹整理"开始
 5. 后续使用自动生成对应的解析报告或草案
-6. 详细说明见 [wechat-local-vault/README.md](./wechat-local-vault/README.md)
+6. 详细说明见 [yichen-wechat-local-vault/README.md](./yichen-wechat-local-vault/README.md)
 
 ### E）启用自媒体视频工作流
 
 1. 安装 Playwright、requests 和 ffmpeg
-2. 用 `douyin-fetcher` 或 `xiaohongshu-fetch` 保存对标素材
-3. 用 `volc-asr` 做转写、字幕或口播粗剪
+2. 用 `yichen-douyin-fetcher` 或 `yichen-xiaohongshu-fetch` 保存对标素材
+3. 用 `yichen-volc-asr` 做转写、字幕或口播粗剪
 4. 用 `yichen-video-content` 诊断对标稿
-5. 用 `jianying-editor` 做剪映/CapCut 导入、字幕、精修和导出
+5. 用 `yichen-jianying-editor` 做剪映/CapCut 导入、字幕、精修和导出
 
-### F）启用 `chatgpt-web-research`
+### F）启用 `yichen-chatgpt-web-research`
 
 1. 确认 Chrome 已登录目标 ChatGPT 账号
 2. 如果任务要求 Pro 路线，保持可见页面能确认账号或模型状态
 3. 直接提出官网调研任务，例如：“用 ChatGPT 官网调研 Anthropic，并保存 Markdown 报告”
 4. Skill 会等待完整答案、校验标记，并保存原始版和可读版报告
 
-### G）启用 `agent-memory`
+### G）启用 `yichen-agent-memory`
 
-1. 确保 `agent-memory/SKILL.md` 在已加载的 skills 路径里
+1. 确保 `yichen-agent-memory/SKILL.md` 在已加载的 skills 路径里
 2. 对 Codex 说“安装 Codex 记忆系统”或“搭建本地 Codex 记忆库”
 3. Skill 会使用 [mcncarl/agent-memory-vault](https://github.com/mcncarl/agent-memory-vault) 创建一个本地私有 vault
 4. 安装后用 `codex_memory_search.py`、`codex_memory_closeout.py`、`codex_memory_audit.py` 分别做搜索、任务结束整理和定期体检
 
-### H）启用 `wechat-mp-batch-exporter`
+### H）启用 `yichen-wechat-mp-batch-exporter`
 
-1. 确保 `wechat-mp-batch-exporter/SKILL.md` 在已加载的 skills 路径里
+1. 确保 `yichen-wechat-mp-batch-exporter/SKILL.md` 在已加载的 skills 路径里
 2. 如果只是下载已知文章链接，直接要求下载 Markdown 即可
 3. 如果要抓公众号历史列表，配置 `WECHAT_ARTICLE_EXPORTER_DIR`，或使用 `wechat-article-exporter` 支持的公开 exporter 路线
 4. 如果要抓阅读量和评论，配置 `WXDOWN_SERVICE_DIR`，并在启动任何本地凭证辅助服务前确认凭证捕获流程
-5. 涉及指标、评论、代理、证书或微信桌面端动作前，先看 [wechat-mp-batch-exporter/README.md](./wechat-mp-batch-exporter/README.md)
+5. 涉及指标、评论、代理、证书或微信桌面端动作前，先看 [yichen-wechat-mp-batch-exporter/README.md](./yichen-wechat-mp-batch-exporter/README.md)
+
+### I）启用 `yichen-wecom-local-vault`
+
+1. 确保 `yichen-wecom-local-vault/SKILL.md` 在已加载的 skills 路径里
+2. 安装 `pycryptodome`；只有在明确授权本机捕获 raw key 时才安装 `frida`
+3. 直接要求检查或导出本机企业微信数据；流程不会操控原始客户端
 
 ## X Cookie 处理
 
 本仓库不包含真实凭据，也不再提供需要手动填写的 cookie 模板。
 
-`x-article-draft-uploader` 会从本机 Chrome 临时导出 X cookies 到 Playwright 可用的 JSON 文件：
+`yichen-x-article-draft-uploader` 会从本机 Chrome 临时导出 X cookies 到 Playwright 可用的 JSON 文件：
 
 ```bash
-python3 ~/.codex/skills/x-article-draft-uploader/scripts/export_x_cookies_from_chrome.py --output /tmp/x_current_cookies.json
+python3 ~/.codex/skills/yichen-x-article-draft-uploader/scripts/export_x_cookies_from_chrome.py --output /tmp/x_current_cookies.json
 ```
 
 这个临时文件是敏感文件，用完可以删除：
@@ -343,7 +365,7 @@ rm -f /tmp/x_current_cookies.json
 - `LICENSE`
 - `.gitignore`
 - `THIRD_PARTY_NOTICES.md`
-- `x-article-draft-uploader/README.md`
+- `yichen-x-article-draft-uploader/README.md`
 
 不要把本仓库重新打包或重新发布为公开 Skill 套件。并明确提醒用户不要上传真实凭据或隐私数据。
 
@@ -356,7 +378,7 @@ rm -f /tmp/x_current_cookies.json
   - 文档：<https://github.com/wshuyi/x-article-publisher-skill/blob/main/README_CN.md>
   - 许可：MIT
 
-`wechat-local-vault` 的微信数据库解密方法参考了以下项目：
+`yichen-wechat-local-vault` 的微信数据库解密方法参考了以下项目：
 
 - `zhuyansen/wx-favorites-report`
   - 仓库：<https://github.com/zhuyansen/wx-favorites-report>
@@ -364,7 +386,7 @@ rm -f /tmp/x_current_cookies.json
   - 许可：MIT
   - 具体参考：frida hook `CCKeyDerivationPBKDF` 密钥提取方法和 SQLCipher 4 分页解密逻辑
 
-`mac-wechat-dual-open` 的微信双开方法参考了：
+`yichen-mac-wechat-dual-open` 的微信双开方法参考了：
 
 - [@koffuxu](https://x.com/koffuxu) — 原始教程 (2026-04)：[Mac 微信双开最完美方案](https://x.com/koffuxu/status/2043110831584690427)
 - [@MinLiBuilds](https://x.com/MinLiBuilds) — 独立验证 (2026-04)
@@ -377,7 +399,8 @@ rm -f /tmp/x_current_cookies.json
 - 本仓库仅限个人学习和非商业个人工作流使用。
 - 未经作者书面许可，禁止商用、客户交付、转售、付费分发、市场打包、课程打包或公司内部部署。
 - 使用者需自行遵守 X 平台条款、自动化政策及当地法律法规。
-- `wechat-local-vault` 仅限个人使用——仅可解密和读取本人的聊天数据，不得用于侵犯他人隐私。
+- `yichen-wechat-local-vault` 仅限个人使用——仅可解密和读取本人的聊天数据，不得用于侵犯他人隐私。
+- `yichen-wecom-local-vault` 仅限 owner 授权的本地数据；绝不上传 key、明文快照或聊天导出。
 - 请勿把真实账号凭据（如 `cookies.json`、`wechat-keys.json`）上传到公开仓库。
 - 请勿上传真实聊天记录、微信数据库、客户数据、私人笔记、API key、本机路径或其他个人隐私数据。
 

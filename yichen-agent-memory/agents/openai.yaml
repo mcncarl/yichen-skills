@@ -1,4 +1,4 @@
 interface:
   display_name: "Agent Memory Vault"
   short_description: "Install and maintain a shared Agent Memory Vault"
-  default_prompt: "Use $agent-memory to install, inspect, or maintain a local Agent Memory Vault system."
+  default_prompt: "Use $yichen-agent-memory to install, inspect, or maintain a local Agent Memory Vault system."

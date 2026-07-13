@@ -1,0 +1,4 @@
+interface:
+  display_name: "企业微信本地数据 Vault"
+  short_description: "只读解析 Mac 企业微信本地聊天数据库并导出数据"
+  default_prompt: "Use $yichen-wecom-local-vault to inspect and export my local WeCom chat data without controlling the app."

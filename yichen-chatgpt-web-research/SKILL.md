@@ -1,5 +1,5 @@
 ---
-name: chatgpt-web-research
+name: yichen-chatgpt-web-research
 description: Use the user's already signed-in official ChatGPT website account, especially GPT-5.5 Pro / ChatGPT Pro, to perform product research, market research, competitor research, second-opinion analysis, or any request that says ChatGPT 官网, ChatGPT 网页版, GPT-5.5 Pro, 5.5 Pro, 用官网调研, 产品调研, 市场调研, or avoid API cost. Prefer the Chrome plugin/extension route; if it is unavailable or cannot attach, fall back to Computer Use on the real visible Chrome window/profile. This skill must control the real ChatGPT web page in the intended Chrome account/profile; it must not open a different free-account window, use OpenAI API, use web search alone, use generic Playwright, or use the deprecated chatgpt-web MCP.
 ---
 

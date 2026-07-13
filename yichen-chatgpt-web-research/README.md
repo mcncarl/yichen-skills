@@ -27,7 +27,7 @@ Use the official ChatGPT website, through the user's already signed-in Chrome pr
 ## Typical Use
 
 ```text
-Use $chatgpt-web-research to research Anthropic through the official ChatGPT web page and save a verified Markdown report.
+Use $yichen-chatgpt-web-research to research Anthropic through the official ChatGPT web page and save a verified Markdown report.
 ```
 
 The skill is intentionally strict: if it cannot operate the intended real ChatGPT page, it stops instead of substituting an API call, web search, or a different account.

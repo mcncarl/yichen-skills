@@ -1,27 +1,28 @@
 ---
-name: volc-asr
+name: yichen-volc-asr
 description: |
   火山引擎音视频转写 + 口播自动粗剪 skill。用于语音转文字、视频转文字、音频识别、生成时间戳/SRT 字幕，也用于帮我剪口播、自动粗剪、删重复、删停顿、删口误、生成粗剪 MP4。
   触发场景：用户说"帮我转写这个视频"、"音视频转文字"、"识别这个音频"、"帮我剪口播"、"自动剪辑"时使用。
-triggers:
-  - /转写
-  - /剪口播
-  - 转写视频
-  - 转写音频
-  - 视频转文字
-  - 音频转文字
-  - 音视频转写
-  - 识别这个视频
-  - 识别这个音频
-  - 视频识别
-  - 音频识别
-  - 生成字幕
-  - 帮我剪口播
-  - 自动剪辑
-  - 自动粗剪
-  - 删停顿
-  - 删口误
-  - 删重复
+metadata:
+  triggers:
+    - /转写
+    - /剪口播
+    - 转写视频
+    - 转写音频
+    - 视频转文字
+    - 音频转文字
+    - 音视频转写
+    - 识别这个视频
+    - 识别这个音频
+    - 视频识别
+    - 音频识别
+    - 生成字幕
+    - 帮我剪口播
+    - 自动剪辑
+    - 自动粗剪
+    - 删停顿
+    - 删口误
+    - 删重复
 ---
 
 # 火山 ASR 转写 + 口播自动粗剪
@@ -46,22 +47,22 @@ triggers:
 
 ```bash
 # 基础用法：转写 + 分析 + 自动剪辑
-python3 volc-asr/scripts/transcribe.py '<工作副本路径>'
+python3 yichen-volc-asr/scripts/transcribe.py '<工作副本路径>'
 
 # 只看标注不执行剪辑
-python3 volc-asr/scripts/transcribe.py '<工作副本路径>' --dry-run
+python3 yichen-volc-asr/scripts/transcribe.py '<工作副本路径>' --dry-run
 
 # 忽略 ASR 缓存，重新识别
-python3 volc-asr/scripts/transcribe.py '<工作副本路径>' --no-cache
+python3 yichen-volc-asr/scripts/transcribe.py '<工作副本路径>' --no-cache
 
 # 不执行 ffmpeg 剪辑，仍生成转写、标注和 SRT
-python3 volc-asr/scripts/transcribe.py '<工作副本路径>' --no-execute
+python3 yichen-volc-asr/scripts/transcribe.py '<工作副本路径>' --no-execute
 
 # 只转写，不做剪辑分析或生成 SRT
-python3 volc-asr/scripts/transcribe.py '<工作副本路径>' --transcribe-only
+python3 yichen-volc-asr/scripts/transcribe.py '<工作副本路径>' --transcribe-only
 
 # 只恢复查询已提交任务，不重新上传/提交
-python3 volc-asr/scripts/transcribe.py '<工作副本路径>' --request-id '<火山ASR request_id>' --no-execute
+python3 yichen-volc-asr/scripts/transcribe.py '<工作副本路径>' --request-id '<火山ASR request_id>' --no-execute
 ```
 
 脚本默认使用 `VOLC_ASR_TRIAL_APP_ID`，并优先读取 `VOLC_ASR_TRIAL_TOKEN`。只有确认试用/时长包已经用完后，才设置 `VOLC_ASR_TRIAL_EXHAUSTED=1`，脚本才会切到 `VOLC_ASR_PAID_APP_ID` 并读取 `VOLC_ASR_PAID_TOKEN` 或旧的 `VOLC_ASR_TOKEN`。如确实需要切到其他火山语音应用，先设置 `VOLC_ASR_APP_ID`；若该应用不是试用包应用且未标记试用已用完，脚本会停止，除非同时显式设置 `VOLC_ASR_ALLOW_NON_TRIAL_APP=1`。
@@ -84,7 +85,7 @@ python3 volc-asr/scripts/transcribe.py '<工作副本路径>' --request-id '<火
 
 1. 确认输入文件存在、大小正常；必要时用 `ffprobe` 看时长和编码。
 2. 复制原片为工作副本，例如 `source_for_asr.mp4`。
-3. 运行 `python3 volc-asr/scripts/transcribe.py '<工作副本路径>' --no-execute`。
+3. 运行 `python3 yichen-volc-asr/scripts/transcribe.py '<工作副本路径>' --no-execute`。
 4. 交付转写稿、时间戳、字幕草稿和缓存路径。
 5. 明确说明本次没有做剪辑。
 
@@ -102,7 +103,7 @@ python3 volc-asr/scripts/transcribe.py '<工作副本路径>' --request-id '<火
 5. 生成粗剪 MP4。长口播、多段删减时优先使用稳定的分段提取 + concat 流程。
 6. 对粗剪 MP4 做复转写审核。
 7. 通过审核后，输出粗剪 MP4、SRT、转写稿、删留方案和复查说明。
-8. 如需进入剪映，交给 `jianying-editor` 负责导入、放轨道、视觉精修和导出。
+8. 如需进入剪映，交给 `yichen-jianying-editor` 负责导入、放轨道、视觉精修和导出。
 
 ## 剪辑规则
 

@@ -1,5 +1,5 @@
 ---
-name: douyin-fetcher
+name: yichen-douyin-fetcher
 description: |
   抖音视频下载工具。使用 Playwright 拦截 Network 响应提取无水印直链并下载。
   触发词：「下载抖音视频」「抓取抖音」「douyin」「帮我下载这个抖音」
@@ -30,7 +30,7 @@ description: |
 
 运行下载脚本：
 ```bash
-python3 douyin-fetcher/scripts/download.py "<抖音链接>" [输出路径]
+python3 yichen-douyin-fetcher/scripts/download.py "<抖音链接>" [输出路径]
 ```
 
 **参数说明：**
@@ -41,9 +41,9 @@ python3 douyin-fetcher/scripts/download.py "<抖音链接>" [输出路径]
 
 **示例：**
 ```bash
-python3 douyin-fetcher/scripts/download.py "https://www.douyin.com/video/7611845735025364265"
-python3 douyin-fetcher/scripts/download.py "https://www.douyin.com/video/7611845735025364265" "/tmp/my_video.mp4"
-python3 douyin-fetcher/scripts/download.py "https://www.douyin.com/video/7611845735025364265" --metadata-only
+python3 yichen-douyin-fetcher/scripts/download.py "https://www.douyin.com/video/7611845735025364265"
+python3 yichen-douyin-fetcher/scripts/download.py "https://www.douyin.com/video/7611845735025364265" "/tmp/my_video.mp4"
+python3 yichen-douyin-fetcher/scripts/download.py "https://www.douyin.com/video/7611845735025364265" --metadata-only
 ```
 
 ## 输出信息
@@ -67,4 +67,4 @@ python3 douyin-fetcher/scripts/download.py "https://www.douyin.com/video/7611845
 - 推荐页面链接需要转换为视频详情页格式（`/video/` 前缀）
 - 下载的视频为无水印 MP4 格式
 - 部分视频可能因版权或地区限制无法下载
-- 这个 skill 只负责抓视频和元数据；需要口播稿时继续调用 `volc-asr` 做转写
+- 这个 skill 只负责抓视频和元数据；需要口播稿时继续调用 `yichen-volc-asr` 做转写

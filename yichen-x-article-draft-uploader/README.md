@@ -1,4 +1,4 @@
-# x-article-draft-uploader
+# yichen-x-article-draft-uploader
 
 把 Obsidian 或本地 Markdown 文章上传到 X Articles 草稿的 Codex Skill。
 
@@ -26,7 +26,7 @@
 把本目录复制到 Codex 或 Claude Code 的 skills 目录：
 
 ```bash
-cp -R x-article-draft-uploader ~/.codex/skills/
+cp -R yichen-x-article-draft-uploader ~/.codex/skills/
 ```
 
 常见路径：
@@ -51,7 +51,7 @@ macOS 上还需要 Chrome 已安装，并且当前 Chrome 已登录 X。
 ### 1. 导出当前 X cookies
 
 ```bash
-python3 ~/.codex/skills/x-article-draft-uploader/scripts/export_x_cookies_from_chrome.py \
+python3 ~/.codex/skills/yichen-x-article-draft-uploader/scripts/export_x_cookies_from_chrome.py \
   --output /tmp/x_current_cookies.json
 ```
 
@@ -60,7 +60,7 @@ python3 ~/.codex/skills/x-article-draft-uploader/scripts/export_x_cookies_from_c
 ### 2. 先做 dry-run
 
 ```bash
-python3 ~/.codex/skills/x-article-draft-uploader/scripts/upload_markdown_to_x_article.py \
+python3 ~/.codex/skills/yichen-x-article-draft-uploader/scripts/upload_markdown_to_x_article.py \
   "/absolute/path/to/article.md" \
   --cookies-json /tmp/x_current_cookies.json \
   --dry-run
@@ -79,7 +79,7 @@ dry-run 会检查：
 如果用户明确拒绝添加封面图，但仍然要继续上传无封面草稿，可以使用：
 
 ```bash
-python3 ~/.codex/skills/x-article-draft-uploader/scripts/upload_markdown_to_x_article.py \
+python3 ~/.codex/skills/yichen-x-article-draft-uploader/scripts/upload_markdown_to_x_article.py \
   "/absolute/path/to/article.md" \
   --cookies-json /tmp/x_current_cookies.json \
   --allow-no-cover
@@ -90,7 +90,7 @@ python3 ~/.codex/skills/x-article-draft-uploader/scripts/upload_markdown_to_x_ar
 ### 3. 上传为新的 X Article 草稿
 
 ```bash
-python3 ~/.codex/skills/x-article-draft-uploader/scripts/upload_markdown_to_x_article.py \
+python3 ~/.codex/skills/yichen-x-article-draft-uploader/scripts/upload_markdown_to_x_article.py \
   "/absolute/path/to/article.md" \
   --cookies-json /tmp/x_current_cookies.json
 ```
@@ -134,7 +134,7 @@ rm -f /tmp/x_current_cookies.json
 说明 cookies 过期了，重新运行：
 
 ```bash
-python3 ~/.codex/skills/x-article-draft-uploader/scripts/export_x_cookies_from_chrome.py \
+python3 ~/.codex/skills/yichen-x-article-draft-uploader/scripts/export_x_cookies_from_chrome.py \
   --output /tmp/x_current_cookies.json
 ```
 
@@ -159,7 +159,7 @@ X 会弹出媒体编辑层。必须点击 `应用`，否则编辑器会被 mask 
 ## 文件结构
 
 ```text
-x-article-draft-uploader/
+yichen-x-article-draft-uploader/
 ├── SKILL.md
 ├── README.md
 ├── agents/

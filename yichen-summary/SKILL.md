@@ -1,9 +1,9 @@
-﻿---
-name: summary
-description: 将当前对话的精华内容提取并保存到 Obsidian。触发条件：用户说 "/summary"、"保存对话"、"导出精华"、"沉淀到 Obsidian" 等，或明确要求将对话内容保存到笔记软件时使用。
+---
+name: yichen-summary
+description: 将当前对话的精华内容提取并保存到 Obsidian。触发条件：用户说 "/yichen-summary"、"保存对话"、"导出精华"、"沉淀到 Obsidian" 等，或明确要求将对话内容保存到笔记软件时使用。
 ---
 
-# Claude Code 对话精华提取器
+# yichen-summary：Claude Code 对话精华提取器
 
 ## 目标
 将当前对话的精华内容自动提取、结构化，并保存到 Obsidian 指定文件夹中。
@@ -125,4 +125,3 @@ EOF
 - **Bash 工具**: 执行 shell 命令直接写入文件
 - **cat 命令 + heredoc**: 创建包含多行内容的文件
 - **mkdir 命令**: 创建目录（如果不存在）
-

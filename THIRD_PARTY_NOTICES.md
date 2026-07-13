@@ -12,7 +12,7 @@ This repository references and adapts ideas/workflows from external projects.
 - Local copy of license: `licenses/wshuyi-x-article-publisher-skill-LICENSE.txt`
 - Usage in this repo:
   - Workflow and X Articles editor automation references
-  - Adapted Markdown parsing and rich-text conversion ideas now used by `x-article-draft-uploader`
+  - Adapted Markdown parsing and rich-text conversion ideas now used by `yichen-x-article-draft-uploader`
 
 ## 2) JimLiu/baoyu-skills
 
@@ -30,7 +30,7 @@ This repository references and adapts ideas/workflows from external projects.
 - Upstream: https://github.com/zhuyansen/wx-favorites-report
 - Author: zhuyansen
 - License: MIT
-- Usage in this repo (`wechat-local-vault`):
+- Usage in this repo (`yichen-wechat-local-vault`):
   - Frida hook method for intercepting `CCKeyDerivationPBKDF` (Apple CommonCrypto PBKDF2) to extract SQLCipher encryption keys at runtime
   - SQLCipher 4 page-level decryption logic (AES-256-CBC, page_size=4096, reserve=80)
   - The approach of codesign-bypass to remove Hardened Runtime for frida injection
@@ -43,7 +43,7 @@ This repository references and adapts ideas/workflows from external projects.
 
 - Upstream: https://github.com/wechat-article/wechat-article-exporter
 - License: MIT
-- Usage in this repo (`wechat-mp-batch-exporter`):
+- Usage in this repo (`yichen-wechat-mp-batch-exporter`):
   - Referenced workflow for WeChat Official Account search, history sync, multi-format export, and enhanced metric/comment export.
   - The skill points users to their own local or hosted `wechat-article-exporter` instance instead of vendoring upstream code.
 - What was copied:
@@ -55,7 +55,7 @@ This repository references and adapts ideas/workflows from external projects.
 - Upstream: https://github.com/wechat-article/wxdown-service
 - Documentation: https://docs.mptext.top/advanced/wxdown-service
 - License: MIT, according to the upstream documentation footer.
-- Usage in this repo (`wechat-mp-batch-exporter`):
+- Usage in this repo (`yichen-wechat-mp-batch-exporter`):
   - Referenced the credential-capture workflow needed for read counts, likes, shares, comments, and replies.
   - The skill requires explicit user confirmation before any certificate, proxy, credential, or WeChat desktop step.
 - What was copied:
@@ -67,9 +67,9 @@ This repository references and adapts ideas/workflows from external projects.
 - This repository maintains its own license (`LICENSE`) for original contributions. It is personal-learning and non-commercial only.
 - The upstream projects listed above retain their original licenses and copyrights.
 - Upstream licenses and notices should be preserved when redistributing derived works.
-- `wechat-local-vault` is an independent implementation that adapts specific technical approaches from `wx-favorites-report`. It does not contain any code directly copied from the upstream project.
-- `wechat-mp-batch-exporter` references workflows from `wechat-article-exporter` and `wxdown-service`, but does not include their source code, credentials, cached browser data, or downloaded article archives.
-- `x-article-draft-uploader` references workflow and Markdown parsing ideas from `wshuyi/x-article-publisher-skill`; it stores no real credentials and writes cookies only to temporary runtime files.
-- `summary` and the broader skill packaging conventions reference public Claude skill community practices, including JimLiu/baoyu-skills.
-- `mac-wechat-dual-open` references public X/Twitter discussion and implements the copy + bundle-id + ad-hoc signing workflow locally.
+- `yichen-wechat-local-vault` is an independent implementation that adapts specific technical approaches from `wx-favorites-report`. It does not contain any code directly copied from the upstream project.
+- `yichen-wechat-mp-batch-exporter` references workflows from `wechat-article-exporter` and `wxdown-service`, but does not include their source code, credentials, cached browser data, or downloaded article archives.
+- `yichen-x-article-draft-uploader` references workflow and Markdown parsing ideas from `wshuyi/x-article-publisher-skill`; it stores no real credentials and writes cookies only to temporary runtime files.
+- `yichen-summary` and the broader skill packaging conventions reference public Claude skill community practices, including JimLiu/baoyu-skills.
+- `yichen-mac-wechat-dual-open` references public X/Twitter discussion and implements the copy + bundle-id + ad-hoc signing workflow locally.
 - Do not remove this file when forking for personal study. It is the attribution record for borrowed ideas, workflows, and license notices.

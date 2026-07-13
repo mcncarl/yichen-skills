@@ -1,5 +1,5 @@
 ---
-name: agent-memory
+name: yichen-agent-memory
 description: Install, upgrade, inspect, and maintain the public Agent Memory Vault system from the mcncarl/agent-memory-vault repository, including a shared Claude Code and Codex setup. Use when the user asks to install a Markdown/Obsidian-first memory vault, connect Claude Code and Codex to one fact source, configure SQLite/FTS or optional Zvec semantic retrieval, run search, closeout, audit, or troubleshoot memory scripts and hooks.
 ---
 

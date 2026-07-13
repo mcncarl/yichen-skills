@@ -1,5 +1,5 @@
 ---
-name: x-article-draft-uploader
+name: yichen-x-article-draft-uploader
 description: 将 Obsidian 或本地 Markdown 文章上传到 X/Twitter Articles 草稿，自动把第一张图作为封面，并按原文位置插入所有正文图片。适用于用户要求上传、发布、保存 Markdown 到 X Article，尤其是需要复用 Chrome 登录态、使用独立 Playwright 浏览器、不接管用户当前浏览器、封面必须是最上方图片，或旧脚本出现缺图、错位、MPH_MARKER 等残留时。
 ---
 
@@ -16,13 +16,13 @@ description: 将 Obsidian 或本地 Markdown 文章上传到 X/Twitter Articles 
 1. 如果 `/tmp/x_current_cookies.json` 不存在或登录态失效，先导出当前 X cookies：
 
 ```bash
-python3 ~/.codex/skills/x-article-draft-uploader/scripts/export_x_cookies_from_chrome.py --output /tmp/x_current_cookies.json
+python3 ~/.codex/skills/yichen-x-article-draft-uploader/scripts/export_x_cookies_from_chrome.py --output /tmp/x_current_cookies.json
 ```
 
 2. 正式碰 X 之前，先 dry-run 解析文章，确认封面、正文图数量和锚点：
 
 ```bash
-python3 ~/.codex/skills/x-article-draft-uploader/scripts/upload_markdown_to_x_article.py \
+python3 ~/.codex/skills/yichen-x-article-draft-uploader/scripts/upload_markdown_to_x_article.py \
   "/absolute/path/to/article.md" \
   --cookies-json /tmp/x_current_cookies.json \
   --dry-run
@@ -31,7 +31,7 @@ python3 ~/.codex/skills/x-article-draft-uploader/scripts/upload_markdown_to_x_ar
 如果 dry-run 提醒“文章第一个有效内容不是图片”，先停下来提醒用户：建议在文章最开头加一张封面图。不要继续上传。只有用户明确拒绝添加封面、并要求继续上传无封面草稿时，才加 `--allow-no-cover`：
 
 ```bash
-python3 ~/.codex/skills/x-article-draft-uploader/scripts/upload_markdown_to_x_article.py \
+python3 ~/.codex/skills/yichen-x-article-draft-uploader/scripts/upload_markdown_to_x_article.py \
   "/absolute/path/to/article.md" \
   --cookies-json /tmp/x_current_cookies.json \
   --allow-no-cover
@@ -40,7 +40,7 @@ python3 ~/.codex/skills/x-article-draft-uploader/scripts/upload_markdown_to_x_ar
 3. 新建一篇干净的 X Article 草稿并上传：
 
 ```bash
-python3 ~/.codex/skills/x-article-draft-uploader/scripts/upload_markdown_to_x_article.py \
+python3 ~/.codex/skills/yichen-x-article-draft-uploader/scripts/upload_markdown_to_x_article.py \
   "/absolute/path/to/article.md" \
   --cookies-json /tmp/x_current_cookies.json
 ```

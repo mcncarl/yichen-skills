@@ -1,5 +1,5 @@
 ---
-name: mac-wechat-dual-open
+name: yichen-mac-wechat-dual-open
 description: |
   Create, inspect, repair, and polish a second WeChat app on macOS.
   Copy WeChat, change the bundle identifier, ad-hoc re-sign, launch the second
@@ -43,7 +43,7 @@ script path dynamically:
 
 ```bash
 # Auto-detect skill directory
-SKILL_DIR="$(dirname "$(find ~ -path '*/mac-wechat-dual-open/SKILL.md' -maxdepth 4 2>/dev/null | head -1)")"
+SKILL_DIR="$(dirname "$(find ~ -path '*/yichen-mac-wechat-dual-open/SKILL.md' -maxdepth 4 2>/dev/null | head -1)")"
 SCRIPT="$SKILL_DIR/scripts/wechat_dual_open.py"
 ```
 
