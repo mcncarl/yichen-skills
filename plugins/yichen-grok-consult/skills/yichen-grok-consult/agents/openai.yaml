@@ -1,0 +1,12 @@
+interface:
+  display_name: "Grok Consult"
+  short_description: "Ask or search with Grok without switching models"
+  default_prompt: "Use $yichen-grok-consult to ask Grok for an answer or search current public X posts."
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "grok-consult"
+      description: "Read-only Grok consultation through local OpenCodex and native public X search through the official Grok Build CLI"
+      transport: "stdio"
+policy:
+  allow_implicit_invocation: true

@@ -19,6 +19,7 @@
 11. 安装和维护 Markdown/Obsidian-first 的 Codex 记忆系统（`yichen-agent-memory`）
 12. 批量导出公众号历史文章、原创列表、正文，以及可选阅读量/评论数据（`yichen-wechat-mp-batch-exporter`）
 13. 只读解析并导出本机企业微信 5.x 数据库快照，不操控客户端（`yichen-wecom-local-vault`）
+14. 在 GPT 主导的 Codex 对话中调用 Grok 原生搜索 X 或提供第二意见，不切换主模型（`yichen-grok-consult`）
 
 ## 包含的技能
 
@@ -130,6 +131,16 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - raw key、快照和聊天导出都不进入 Git
 - 不操控原始企业微信，也不发送消息
 
+### 14) `yichen-grok-consult`
+让 GPT 在不切换主模型的情况下调用 Grok：
+- 通过官方 Grok Build CLI 原生搜索公开 X 帖子
+- 检查隔离 Grok 会话是否真实完成 `XSearch`
+- 提取 status URL，并确定性还原 Snowflake 编号中的发布时间
+- 让 Grok 远离当前项目，关闭本地文件、Shell、MCP、记忆和子代理权限
+- 可选通过本机 OpenCodex 提供独立回答、审稿和反方挑战
+
+安装、隐私边界和校验限制见 [plugins/yichen-grok-consult/README.zh.md](./plugins/yichen-grok-consult/README.zh.md)。
+
 ## 目录结构
 
 ```text
@@ -196,6 +207,15 @@ yichen-skills/
 │  ├─ agents/
 │  ├─ references/
 │  └─ scripts/
+├─ .agents/plugins/
+│  └─ marketplace.json
+├─ plugins/yichen-grok-consult/
+│  ├─ .codex-plugin/plugin.json
+│  ├─ .mcp.json
+│  ├─ README.md
+│  ├─ README.zh.md
+│  ├─ mcp/server.mjs
+│  └─ skills/yichen-grok-consult/
 ├─ README.md
 ├─ README.zh.md
 ├─ THIRD_PARTY_NOTICES.md
@@ -218,6 +238,7 @@ yichen-skills/
   - ChatGPT 官网调研：Chrome 已登录 ChatGPT，且当前 Agent 环境支持 Chrome/Computer Use 能力
   - 公众号批量导出：已知 URL 正文下载只需 Python 3 标准库；历史列表、阅读量和评论需要额外配置 `wechat-article-exporter` / `wxdown-service`
   - 企业微信本地解析：`pycryptodome`；只有明确授权抓取本机 raw key 时才需要 `frida`
+  - Grok Consult：Node.js 18+、官方 Grok Build CLI 和有效的 `grok login`；非搜索咨询工具可选依赖本机 OpenCodex
 
 ## 安装方式
 
@@ -241,6 +262,13 @@ yichen-skills/
 - `yichen-agent-memory`
 - `yichen-wechat-mp-batch-exporter`
 - `yichen-wecom-local-vault`
+
+`yichen-grok-consult` 是 Codex 插件，不是只复制目录即可工作的普通 Skill。请通过本仓库的 marketplace 安装：
+
+```bash
+codex plugin marketplace add mcncarl/yichen-skills --ref main
+codex plugin add yichen-grok-consult@yichen-skills
+```
 
 ## 3 分钟快速上手
 
@@ -310,6 +338,14 @@ yichen-skills/
 2. 安装 `pycryptodome`；只有在明确授权本机捕获 raw key 时才安装 `frida`
 3. 直接要求检查或导出本机企业微信数据；流程不会操控原始客户端
 
+### J）启用 `yichen-grok-consult`
+
+1. 安装官方 Grok Build CLI，并执行 `grok login`
+2. 添加 `mcncarl/yichen-skills` marketplace，再安装 `yichen-grok-consult`
+3. 新建 Codex 任务
+4. 让 GPT 调用 Grok 搜索公开 X 帖子，或要求 Grok 提供第二意见
+5. 配置代理或 OpenCodex 前先看 [plugins/yichen-grok-consult/README.zh.md](./plugins/yichen-grok-consult/README.zh.md)
+
 ## X Cookie 处理
 
 本仓库不包含真实凭据，也不再提供需要手动填写的 cookie 模板。
@@ -335,6 +371,7 @@ rm -f /tmp/x_current_cookies.json
 - 个人绝对路径已替换为通用写法
 - 第三方 AppID、AppToken、TableID、bucket 名和 ASR token 必须通过环境变量或私有配置提供
 - 公众号 exporter auth-key、凭证文件、扫码登录秘密、捕获 cookies 和下载的文章归档必须只保存在本地
+- `yichen-grok-consult` 不包含固定代理或凭证；但查询和结果仍会发送给 xAI，并保存在隔离的本机会话目录
 
 如果你曾在公开仓库暴露过 Cookie，请立即轮换。
 
@@ -391,11 +428,15 @@ rm -f /tmp/x_current_cookies.json
 - [@koffuxu](https://x.com/koffuxu) — 原始教程 (2026-04)：[Mac 微信双开最完美方案](https://x.com/koffuxu/status/2043110831584690427)
 - [@MinLiBuilds](https://x.com/MinLiBuilds) — 独立验证 (2026-04)
 
+`yichen-grok-consult` 的隔离 Grok Build 搜索设计参考了：
+
+- [`sudoHG/codex-grok-search`](https://github.com/sudoHG/codex-grok-search) — MIT 许可的公开参考；本仓库未复制其源码
+
 详细说明见 `THIRD_PARTY_NOTICES.md`。
 
 ## 合规边界
 
-- 本项目与 X（Twitter）、微信（腾讯）官方无隶属、背书或合作关系。
+- 本项目与 X、xAI、OpenAI、微信或腾讯官方无隶属、背书或合作关系。
 - 本仓库仅限个人学习和非商业个人工作流使用。
 - 未经作者书面许可，禁止商用、客户交付、转售、付费分发、市场打包、课程打包或公司内部部署。
 - 使用者需自行遵守 X 平台条款、自动化政策及当地法律法规。

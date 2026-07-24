@@ -19,6 +19,7 @@ A skill collection for creators who want to streamline writing, X Articles draft
 11. Install and maintain a Markdown/Obsidian-first Agent Memory Vault system (`yichen-agent-memory`)
 12. Batch-export WeChat Official Account article history, original-article lists, bodies, and optional read/comment metrics (`yichen-wechat-mp-batch-exporter`)
 13. Read and export local WeCom/企业微信 5.x database snapshots without controlling the app (`yichen-wecom-local-vault`)
+14. Let GPT call Grok for native X search or an independent second opinion without switching the main model (`yichen-grok-consult`)
 
 ## Included Skills
 
@@ -131,6 +132,16 @@ Read, decrypt, query, and export local WeCom/企业微信 5.x desktop databases 
 - Keeps raw keys, snapshots, and chat exports out of Git
 - Does not control the original WeCom app or send messages
 
+### 14) `yichen-grok-consult`
+Use Grok from a GPT-led Codex task without switching the main model:
+- Runs native public X search through the official Grok Build CLI
+- Verifies that the isolated Grok session completed `XSearch`
+- Extracts status URLs and deterministically decodes Snowflake publication times
+- Keeps Grok outside the current project and disables local file, shell, MCP, memory, and subagent access
+- Provides optional independent-answer, review, and challenge tools through local OpenCodex
+
+See [plugins/yichen-grok-consult/README.md](./plugins/yichen-grok-consult/README.md) for installation, privacy boundaries, and verification limits.
+
 ## Project Structure
 
 ```text
@@ -197,6 +208,15 @@ yichen-skills/
 │  ├─ agents/
 │  ├─ references/
 │  └─ scripts/
+├─ .agents/plugins/
+│  └─ marketplace.json
+├─ plugins/yichen-grok-consult/
+│  ├─ .codex-plugin/plugin.json
+│  ├─ .mcp.json
+│  ├─ README.md
+│  ├─ README.zh.md
+│  ├─ mcp/server.mjs
+│  └─ skills/yichen-grok-consult/
 ├─ README.md
 ├─ README.zh.md
 ├─ THIRD_PARTY_NOTICES.md
@@ -219,6 +239,7 @@ yichen-skills/
   - ChatGPT Web research: Chrome signed in to ChatGPT, plus Chrome/Computer Use capability in your agent environment
   - WeChat MP batch export: Python 3 standard library for known URL downloads; `wechat-article-exporter` / `wxdown-service` only for account history, metrics, and comments
   - WeCom local vault: `pycryptodome`; `frida` only for explicitly authorized raw-key capture
+  - Grok Consult: Node.js 18+, the official Grok Build CLI, and an active `grok login`; local OpenCodex is optional for non-search consultation tools
 
 ## Installation
 
@@ -242,6 +263,13 @@ Keep directory names unchanged:
 - `yichen-agent-memory`
 - `yichen-wechat-mp-batch-exporter`
 - `yichen-wecom-local-vault`
+
+`yichen-grok-consult` is a Codex plugin rather than a standalone copied skill. Install it through this repository's marketplace:
+
+```bash
+codex plugin marketplace add mcncarl/yichen-skills --ref main
+codex plugin add yichen-grok-consult@yichen-skills
+```
 
 ## Quick Start (3 Minutes)
 
@@ -311,6 +339,14 @@ Keep directory names unchanged:
 2. Install `pycryptodome`; install `frida` only if you need an explicitly authorized local raw-key capture
 3. Ask to inspect or export your local WeCom data; the workflow never controls the original app
 
+### J) Enable `yichen-grok-consult`
+
+1. Install the official Grok Build CLI and run `grok login`
+2. Add the `mcncarl/yichen-skills` marketplace and install `yichen-grok-consult`
+3. Start a new Codex task
+4. Ask GPT to search public X posts with Grok or request a Grok second opinion
+5. See [plugins/yichen-grok-consult/README.md](./plugins/yichen-grok-consult/README.md) before configuring proxies or OpenCodex
+
 ## X Cookie Handling
 
 This repo does not include real credentials or cookie templates.
@@ -336,6 +372,7 @@ rm -f /tmp/x_current_cookies.json
 - Personal absolute paths are replaced with generic forms
 - Third-party AppID, AppToken, TableID, bucket names, and ASR tokens must be supplied through environment variables or private config
 - WeChat exporter auth-keys, credential files, QR secrets, captured cookies, and downloaded article archives must stay local and private
+- `yichen-grok-consult` contains no fixed proxy or credentials; Grok queries and results are still sent to xAI and retained in an isolated local session directory
 
 If you ever exposed real cookies in a public repo, rotate them immediately.
 
@@ -392,11 +429,15 @@ The WeChat dual-open method in `yichen-mac-wechat-dual-open` is based on:
 - [@koffuxu](https://x.com/koffuxu) — original tutorial (2026-04): [Mac 微信双开最完美方案](https://x.com/koffuxu/status/2043110831584690427)
 - [@MinLiBuilds](https://x.com/MinLiBuilds) — independent confirmation (2026-04)
 
+The isolated Grok Build search design in `yichen-grok-consult` was informed by:
+
+- [`sudoHG/codex-grok-search`](https://github.com/sudoHG/codex-grok-search) — MIT-licensed public reference; no source code is vendored here
+
 See `THIRD_PARTY_NOTICES.md` for details.
 
 ## Compliance Boundary
 
-- This project is not affiliated with, endorsed by, or sponsored by X (Twitter) or WeChat (Tencent).
+- This project is not affiliated with, endorsed by, or sponsored by X, xAI, OpenAI, WeChat, or Tencent.
 - This repository is for personal learning and non-commercial personal workflow use only.
 - Commercial use, client delivery, resale, paid redistribution, marketplace packaging, course bundling, and internal company deployment are prohibited without prior written permission.
 - Users are responsible for complying with X platform terms/policies and local laws.

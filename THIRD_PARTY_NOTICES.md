@@ -1,6 +1,6 @@
 ﻿# THIRD_PARTY_NOTICES
 
-Last updated: 2026-05-09
+Last updated: 2026-07-24
 
 This repository references and adapts ideas/workflows from external projects.
 
@@ -62,6 +62,25 @@ This repository references and adapts ideas/workflows from external projects.
   - No upstream source code is vendored in this repository.
   - `start_wxdown_service.py` only starts a user-provided local checkout path and does not modify system proxy settings.
 
+## 6) sudoHG/codex-grok-search
+
+- Upstream: https://github.com/sudoHG/codex-grok-search
+- License: MIT
+- Usage in this repo (`yichen-grok-consult`):
+  - Referenced the public architecture of invoking the official Grok Build CLI from Codex in an isolated non-Git workspace.
+  - Reinforced the boundary that Grok should receive search tools without access to the user's current repository, browser cookies, local shell, or unrelated credentials.
+- What was copied:
+  - No upstream source code is vendored in this repository.
+  - The MCP server, transcript verification, URL extraction, Snowflake timestamp decoder, and Codex plugin packaging are independently implemented here.
+
+## 7) xAI Grok Build CLI
+
+- Official documentation: https://docs.x.ai/build/overview
+- Usage in this repo (`yichen-grok-consult`): external runtime dependency for native `x_search`, `web_search`, and `web_fetch`.
+- What is included:
+  - No Grok Build binary, xAI credential, authentication file, or xAI source code is included.
+  - Users install and authenticate the CLI separately under xAI's current terms and documentation.
+
 ## Notes
 
 - This repository maintains its own license (`LICENSE`) for original contributions. It is personal-learning and non-commercial only.
@@ -71,5 +90,6 @@ This repository references and adapts ideas/workflows from external projects.
 - `yichen-wechat-mp-batch-exporter` references workflows from `wechat-article-exporter` and `wxdown-service`, but does not include their source code, credentials, cached browser data, or downloaded article archives.
 - `yichen-x-article-draft-uploader` references workflow and Markdown parsing ideas from `wshuyi/x-article-publisher-skill`; it stores no real credentials and writes cookies only to temporary runtime files.
 - `yichen-summary` and the broader skill packaging conventions reference public Claude skill community practices, including JimLiu/baoyu-skills.
+- `yichen-grok-consult` references the public isolation pattern from `sudoHG/codex-grok-search`, but includes an independently implemented MCP server and deterministic verification layer.
 - `yichen-mac-wechat-dual-open` references public X/Twitter discussion and implements the copy + bundle-id + ad-hoc signing workflow locally.
 - Do not remove this file when forking for personal study. It is the attribution record for borrowed ideas, workflows, and license notices.

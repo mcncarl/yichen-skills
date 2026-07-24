@@ -1,0 +1,36 @@
+{
+  "name": "yichen-grok-consult",
+  "version": "0.1.0",
+  "description": "Consult Grok or search public X posts from a GPT-led Codex conversation without switching the main model.",
+  "author": {
+    "name": "mcncarl",
+    "url": "https://github.com/mcncarl"
+  },
+  "homepage": "https://github.com/mcncarl/yichen-skills/tree/main/plugins/yichen-grok-consult",
+  "repository": "https://github.com/mcncarl/yichen-skills",
+  "license": "LicenseRef-Yichen-Personal-NonCommercial",
+  "keywords": [
+    "grok",
+    "xai",
+    "x-search",
+    "model-consultation",
+    "mcp"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Grok Consult",
+    "shortDescription": "Ask Grok or search X without switching models.",
+    "longDescription": "Keep GPT in control while using Grok as a read-only advisor or using the official Grok Build CLI for native X search with deterministic post-time decoding.",
+    "developerName": "mcncarl",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive"
+    ],
+    "defaultPrompt": [
+      "Ask Grok for an independent second opinion.",
+      "Search public X posts with Grok and verify their publication times.",
+      "Find X posts from a fixed date and exclude out-of-window results."
+    ]
+  },
+  "mcpServers": "./.mcp.json"
+}

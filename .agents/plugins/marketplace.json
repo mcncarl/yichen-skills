@@ -1,0 +1,20 @@
+{
+  "name": "yichen-skills",
+  "interface": {
+    "displayName": "Yichen Skills"
+  },
+  "plugins": [
+    {
+      "name": "yichen-grok-consult",
+      "source": {
+        "source": "local",
+        "path": "./plugins/yichen-grok-consult"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

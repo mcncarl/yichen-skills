@@ -35,6 +35,12 @@ wechat-mp-batch-exporter/**/raw-exporter/
 *.pyc
 *.log
 
+# Grok Consult private runtime and credentials
+plugins/yichen-grok-consult/**/auth.json
+plugins/yichen-grok-consult/**/updates.jsonl
+plugins/yichen-grok-consult/**/sessions/
+plugins/yichen-grok-consult/**/grok-home/
+
 # Media workflow outputs
 **/*.mp4
 **/*.mov
