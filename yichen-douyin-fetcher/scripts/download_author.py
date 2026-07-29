@@ -34,12 +34,12 @@ from download import (
     fetch_video_info,
     get_best_video_stream,
     get_best_video_url,
+    isolated_sync_playwright,
     launch_compatible_browser,
     sanitize_douyin_page_url,
     validate_douyin_page_url,
 )
 from playwright.sync_api import Error as PlaywrightError
-from playwright.sync_api import sync_playwright
 
 DEFAULT_POLICY_PATH = Path.home() / ".config" / "yichen-douyin-fetcher" / "policy.json"
 
@@ -139,6 +139,7 @@ def resolve_author(
     timeout: int,
     headed: bool = False,
     storage_state=None,
+    direct: bool = False,
 ) -> dict:
     """从主页链接或任意一条作品解析博主身份。"""
     url = extract_url(source)
@@ -162,6 +163,7 @@ def resolve_author(
         headed=headed,
         storage_state=storage_state,
         capture_storage_state=headed,
+        direct=direct,
     )
     author = info.get("aweme_data", {}).get("author", {}) or {}
     sec_uid = author.get("sec_uid", "")
@@ -188,6 +190,7 @@ def scan_author_awemes(
     save_storage_state: Optional[str] = None,
     overwrite_storage_state: bool = False,
     target_ids: Optional[set[str]] = None,
+    direct: bool = False,
 ) -> dict:
     """打开博主主页，通过滚动拦截 aweme/post 分页响应。"""
     validate_douyin_page_url(profile_url)
@@ -202,6 +205,7 @@ def scan_author_awemes(
             save_storage_state,
             overwrite_storage_state,
             target_ids,
+            direct,
         )
     except PlaywrightError as exc:
         if any(hint in str(exc) for hint in MISSING_BROWSER_HINTS):
@@ -216,6 +220,7 @@ def scan_author_awemes(
                 save_storage_state,
                 overwrite_storage_state,
                 target_ids,
+                direct,
             )
         raise
 
@@ -230,6 +235,7 @@ def _scan_author_awemes_once(
     save_storage_state: Optional[str],
     overwrite_storage_state: bool,
     target_ids: Optional[set[str]],
+    direct: bool,
 ) -> dict:
     awemes = {}
     captured_storage_state = None
@@ -249,8 +255,12 @@ def _scan_author_awemes_once(
     elif storage_state:
         context_options["storage_state"] = storage_state
 
-    with sync_playwright() as playwright:
-        browser = launch_compatible_browser(playwright, headless=not headed)
+    with isolated_sync_playwright() as playwright:
+        browser = launch_compatible_browser(
+            playwright,
+            headless=not headed,
+            direct=direct,
+        )
         try:
             context = browser.new_context(**context_options)
             page = context.new_page()
@@ -364,10 +374,13 @@ def _scan_author_awemes_once(
 
     if not awemes:
         detail = "接口返回了空正文" if state["empty_responses"] else "未触发作品接口"
-        raise ValueError(
+        message = (
             f"未获取公开作品列表（{detail}）。请改用 --headed 进行一次性登录，"
             "或在明确授权后加载 --storage-state 登录态文件"
         )
+        if not direct:
+            message += "；若系统代理导致页面空白，请在确认允许直连后使用 --direct 重试"
+        raise ValueError(message)
 
     items = sorted(
         awemes.values(),
@@ -520,6 +533,7 @@ def download_batch(
     delay: float,
     asr_script: Optional[Path] = None,
     storage_state=None,
+    direct: bool = False,
 ) -> dict:
     completed = 0
     skipped = 0
@@ -561,7 +575,12 @@ def download_batch(
             width = int(stream.get("width") or 0)
             height = int(stream.get("height") or 0)
             if not info["video_url"] or not is_at_least_1080p(width, height):
-                info = fetch_video_info(source_url, timeout=60, storage_state=storage_state)
+                info = fetch_video_info(
+                    source_url,
+                    timeout=60,
+                    storage_state=storage_state,
+                    direct=direct,
+                )
                 detail_fetched = True
                 stream = info.get("video_stream") or {}
                 width = int(stream.get("width") or 0)
@@ -580,6 +599,7 @@ def download_batch(
                     str(part),
                     referer=profile_url,
                     validator=require_1080p_file,
+                    direct=direct,
                 )
                 part.replace(output)
                 output.chmod(0o600)
@@ -592,6 +612,7 @@ def download_batch(
                     transcript_path,
                     aweme_id,
                     source_url,
+                    direct=direct,
                 )
             if not native_transcript and not detail_fetched and asr_script is None:
                 try:
@@ -599,6 +620,7 @@ def download_batch(
                         source_url,
                         timeout=20,
                         storage_state=storage_state,
+                        direct=direct,
                     )
                     transcript_aweme = detail_info.get("aweme_data") or transcript_aweme
                 except Exception:
@@ -614,6 +636,7 @@ def download_batch(
                     aweme_id,
                     source_url,
                     asr_script,
+                    direct=direct,
                 )
             completed += 1
             print(f"已保存: {video_dir}（口播稿来源: {transcript_source}）")
@@ -648,6 +671,7 @@ def run_batch_download(
     state_dir: Path,
     storage_state,
     scan_partial: bool,
+    direct: bool,
 ) -> int:
     ensure_private_dir(output_dir)
     result = download_batch(
@@ -656,6 +680,7 @@ def run_batch_download(
         profile_url,
         delay,
         storage_state=storage_state,
+        direct=direct,
     )
     result_path = write_json_private(state_dir / "抓取状态.json", result)
     print("\n批量下载结束")
@@ -683,6 +708,11 @@ def main():
     parser.add_argument("--storage-state", help="加载 Playwright 登录态 JSON；文件包含敏感凭据")
     parser.add_argument("--save-storage-state", help="保存登录态 JSON；执行前必须取得用户明确授权")
     parser.add_argument("--no-persistent-session", action="store_true", help="本次忽略本机持久登录授权策略")
+    parser.add_argument(
+        "--direct",
+        action="store_true",
+        help="显式绕过系统代理直连抖音；仅在用户允许后使用",
+    )
     parser.add_argument(
         "--resume-only",
         action="store_true",
@@ -746,6 +776,7 @@ def main():
                 save_storage_state=save_storage_state,
                 overwrite_storage_state=overwrite_storage_state,
                 target_ids=target_ids,
+                direct=args.direct,
             )
             items = order_confirmed_items(items, hydrated_scan["awemes"])
             if hydrated_scan.get("session_state"):
@@ -760,6 +791,7 @@ def main():
                 manifest_path.parent,
                 storage_state,
                 scan_partial,
+                args.direct,
             )
             if exit_code:
                 sys.exit(exit_code)
@@ -771,6 +803,7 @@ def main():
             resolve_timeout,
             headed=args.headed,
             storage_state=storage_state,
+            direct=args.direct,
         )
         print(f"博主: {author.get('nickname') or '(从主页作品中识别)'}")
         effective_storage_state = storage_state or author.get("session_state")
@@ -783,6 +816,7 @@ def main():
             storage_state=effective_storage_state,
             save_storage_state=save_storage_state,
             overwrite_storage_state=overwrite_storage_state,
+            direct=args.direct,
         )
         if scan.get("session_state"):
             effective_storage_state = scan["session_state"]
@@ -817,6 +851,7 @@ def main():
             state_dir,
             effective_storage_state,
             scan_partial,
+            args.direct,
         )
         if exit_code:
             sys.exit(exit_code)

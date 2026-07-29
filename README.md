@@ -72,6 +72,7 @@ Download a single Douyin video or enumerate a creator's public posts through Pla
 - Prefers native Chinese captions and falls back to the separate `yichen-volc-asr` Skill when authorized and configured
 - Keeps the visible output limited to `视频.mp4` and `中文口播稿.txt`; machine manifests and login state stay private
 - Supports bounded sampling, fixed-manifest resume, and `--metadata-only` validation
+- Respects the system proxy by default; `--direct` bypasses it only after the user explicitly permits direct access
 
 ### 6) `yichen-xiaohongshu-fetch`
 Fetch Xiaohongshu video/image posts into local files:

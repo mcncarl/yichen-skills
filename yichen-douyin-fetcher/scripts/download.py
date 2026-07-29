@@ -20,7 +20,9 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
@@ -155,17 +157,60 @@ def ensure_playwright_chromium():
         raise RuntimeError("自动安装 Chromium 失败，请手动运行: python3 -m playwright install chromium") from exc
 
 
-def launch_compatible_browser(playwright, *, headless: bool):
+@contextmanager
+def isolated_sync_playwright():
+    """Keep Playwright's ephemeral profiles inside one self-cleaning directory."""
+    temp_keys = ("TMPDIR", "TMP", "TEMP")
+    previous = {key: os.environ.get(key) for key in temp_keys}
+    with tempfile.TemporaryDirectory(prefix="yichen-douyin-playwright-") as runtime_dir:
+        for key in temp_keys:
+            os.environ[key] = runtime_dir
+        try:
+            with sync_playwright() as playwright:
+                yield playwright
+        finally:
+            for key, value in previous.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+
+def launch_compatible_browser(playwright, *, headless: bool, direct: bool = False):
     """Launch bundled Chromium, falling back to an installed Google Chrome."""
+    launch_options = {"headless": headless}
+    if direct:
+        launch_options["args"] = ["--no-proxy-server"]
     try:
-        return playwright.chromium.launch(headless=headless)
+        return playwright.chromium.launch(**launch_options)
     except PlaywrightError as bundled_error:
         if not any(hint in str(bundled_error) for hint in MISSING_BROWSER_HINTS):
             raise
         try:
-            return playwright.chromium.launch(channel="chrome", headless=headless)
+            return playwright.chromium.launch(channel="chrome", **launch_options)
         except PlaywrightError as chrome_error:
             raise bundled_error from chrome_error
+
+
+@contextmanager
+def http_response(url: str, *, direct: bool = False, **kwargs):
+    """Open one HTTP response, optionally ignoring proxy settings from the environment."""
+    session = None
+    response = None
+    try:
+        if direct:
+            session = requests.Session()
+            session.trust_env = False
+            response = session.get(url, **kwargs)
+        else:
+            response = requests.get(url, **kwargs)
+        yield response
+    finally:
+        close = getattr(response, "close", None)
+        if callable(close):
+            close()
+        if session is not None:
+            session.close()
 
 
 def normalize_url_list(value: Any) -> List[str]:
@@ -427,30 +472,26 @@ def download_native_transcript(
     transcript_path: Path,
     aweme_id: str,
     referer: str,
+    direct: bool = False,
 ) -> Optional[Path]:
     """尝试使用抖音原生字幕；原始字幕只缓存到私有状态目录。"""
     headers = {"User-Agent": USER_AGENT, "Referer": safe_douyin_referer(referer)}
     for candidate in collect_native_caption_candidates(aweme_data):
         for url in candidate["urls"]:
-            response = None
             try:
-                response = requests.get(url, headers=headers, timeout=60)
-                response.raise_for_status()
-                content_type = str(response.headers.get("Content-Type", "")).lower()
-                if "text/html" in content_type or "application/xhtml+xml" in content_type:
-                    continue
-                transcript = caption_body_to_transcript(response.text)
-                if not transcript or not contains_chinese_text(transcript):
-                    continue
-                state_dir = ensure_private_dir(STATE_ROOT / "captions" / str(aweme_id))
-                write_text_private(state_dir / "平台字幕.txt", response.text)
-                return write_text_private(transcript_path, transcript)
+                with http_response(url, direct=direct, headers=headers, timeout=60) as response:
+                    response.raise_for_status()
+                    content_type = str(response.headers.get("Content-Type", "")).lower()
+                    if "text/html" in content_type or "application/xhtml+xml" in content_type:
+                        continue
+                    transcript = caption_body_to_transcript(response.text)
+                    if not transcript or not contains_chinese_text(transcript):
+                        continue
+                    state_dir = ensure_private_dir(STATE_ROOT / "captions" / str(aweme_id))
+                    write_text_private(state_dir / "平台字幕.txt", response.text)
+                    return write_text_private(transcript_path, transcript)
             except Exception:
                 continue
-            finally:
-                close = getattr(response, "close", None)
-                if callable(close):
-                    close()
     return None
 
 
@@ -461,12 +502,19 @@ def create_chinese_transcript(
     aweme_id: str,
     referer: str,
     asr_script: Optional[Path] = None,
+    direct: bool = False,
 ) -> Tuple[str, Path]:
     """优先平台字幕，无字幕时再调用独立 ASR Skill。"""
     if transcript_path.is_file() and transcript_path.stat().st_size > 0:
         return "已有口播稿", transcript_path
 
-    native = download_native_transcript(aweme_data, transcript_path, aweme_id, referer)
+    native = download_native_transcript(
+        aweme_data,
+        transcript_path,
+        aweme_id,
+        referer,
+        direct=direct,
+    )
     if native:
         return "平台字幕", native
 
@@ -483,6 +531,7 @@ def fetch_video_info(
     headed: bool = False,
     storage_state=None,
     capture_storage_state: bool = False,
+    direct: bool = False,
 ):
     """
     使用 Playwright 拦截 aweme/detail API 获取视频信息
@@ -495,6 +544,7 @@ def fetch_video_info(
             headed=headed,
             storage_state=storage_state,
             capture_storage_state=capture_storage_state,
+            direct=direct,
         )
     except PlaywrightError as exc:
         if any(hint in str(exc) for hint in MISSING_BROWSER_HINTS):
@@ -505,6 +555,7 @@ def fetch_video_info(
                 headed=headed,
                 storage_state=storage_state,
                 capture_storage_state=capture_storage_state,
+                direct=direct,
             )
         raise
 
@@ -515,6 +566,7 @@ def _fetch_video_info_once(
     headed: bool = False,
     storage_state=None,
     capture_storage_state: bool = False,
+    direct: bool = False,
 ):
     """单次打开页面并拦截详情接口。"""
     video_url = None
@@ -522,8 +574,8 @@ def _fetch_video_info_once(
     captured_storage_state = None
     normalized = normalize_url(url)
 
-    with sync_playwright() as p:
-        browser = launch_compatible_browser(p, headless=not headed)
+    with isolated_sync_playwright() as p:
+        browser = launch_compatible_browser(p, headless=not headed, direct=direct)
         try:
             context_options = {
                 'user_agent': USER_AGENT,
@@ -563,7 +615,10 @@ def _fetch_video_info_once(
             browser.close()
 
     if not aweme_data:
-        raise ValueError("无法获取视频数据，请检查链接是否有效")
+        message = "无法获取视频数据，请检查链接是否有效"
+        if not direct:
+            message += "；若系统代理导致页面空白，请在确认允许直连后使用 --direct 重试"
+        raise ValueError(message)
 
     if not video_url:
         video_url = get_best_video_url(aweme_data)
@@ -612,6 +667,7 @@ def download_video(
     output_path: str,
     referer: str = 'https://www.douyin.com/',
     validator: Optional[Callable[[Path], Any]] = None,
+    direct: bool = False,
 ) -> str:
     """按顺序尝试主地址和备用地址，下载视频到本地。"""
     candidates = [video_url] if isinstance(video_url, str) else list(video_url or [])
@@ -630,52 +686,53 @@ def download_video(
     last_error: Optional[Exception] = None
     for index, candidate in enumerate(candidates, start=1):
         output.unlink(missing_ok=True)
-        response = None
         try:
-            response = requests.get(candidate, headers=headers, stream=True, timeout=60)
-            response.raise_for_status()
+            with http_response(
+                candidate,
+                direct=direct,
+                headers=headers,
+                stream=True,
+                timeout=60,
+            ) as response:
+                response.raise_for_status()
 
-            content_type = str(response.headers.get('Content-Type', '')).lower()
-            if 'text/html' in content_type or 'application/xhtml+xml' in content_type:
-                raise ValueError(f"媒体地址返回了网页内容: {content_type.split(';', 1)[0]}")
-            total = int(response.headers.get('Content-Length', 0))
-            downloaded = 0
-            next_percent = 0
-            next_mb_report = 5
+                content_type = str(response.headers.get('Content-Type', '')).lower()
+                if 'text/html' in content_type or 'application/xhtml+xml' in content_type:
+                    raise ValueError(f"媒体地址返回了网页内容: {content_type.split(';', 1)[0]}")
+                total = int(response.headers.get('Content-Length', 0))
+                downloaded = 0
+                next_percent = 0
+                next_mb_report = 5
 
-            with open(output, 'wb') as f:
-                for chunk in response.iter_content(chunk_size=8192):
-                    if chunk:
-                        f.write(chunk)
-                        downloaded += len(chunk)
-                        if total > 0:
-                            percent = downloaded * 100 // total
-                            if percent >= next_percent or downloaded == total:
-                                print(
-                                    f"下载进度: {percent}% "
-                                    f"({downloaded//1024//1024}MB / {total//1024//1024}MB)"
-                                )
-                                next_percent += 10
-                        else:
-                            downloaded_mb = downloaded // 1024 // 1024
-                            if downloaded_mb >= next_mb_report:
-                                print(f"已下载: {downloaded_mb}MB")
-                                next_mb_report += 5
-            content_encoding = str(response.headers.get('Content-Encoding', '')).lower()
-            if total and not content_encoding and downloaded != total:
-                raise ValueError(f"Content-Length 不匹配: 预期 {total}，实际 {downloaded}")
-            if validator:
-                validator(output)
-            return str(output)
+                with open(output, 'wb') as f:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                            downloaded += len(chunk)
+                            if total > 0:
+                                percent = downloaded * 100 // total
+                                if percent >= next_percent or downloaded == total:
+                                    print(
+                                        f"下载进度: {percent}% "
+                                        f"({downloaded//1024//1024}MB / {total//1024//1024}MB)"
+                                    )
+                                    next_percent += 10
+                            else:
+                                downloaded_mb = downloaded // 1024 // 1024
+                                if downloaded_mb >= next_mb_report:
+                                    print(f"已下载: {downloaded_mb}MB")
+                                    next_mb_report += 5
+                content_encoding = str(response.headers.get('Content-Encoding', '')).lower()
+                if total and not content_encoding and downloaded != total:
+                    raise ValueError(f"Content-Length 不匹配: 预期 {total}，实际 {downloaded}")
+                if validator:
+                    validator(output)
+                return str(output)
         except Exception as exc:
             last_error = exc
             output.unlink(missing_ok=True)
             if index < len(candidates):
                 print("当前视频地址失败，尝试备用地址...")
-        finally:
-            close = getattr(response, 'close', None)
-            if callable(close):
-                close()
 
     raise RuntimeError(f"所有视频地址均下载失败（共 {len(candidates)} 个）") from last_error
 
@@ -686,6 +743,11 @@ def main():
     parser.add_argument("output_path", nargs="?", help="输出根目录，默认 ~/Downloads")
     parser.add_argument("--metadata-only", action="store_true", help="只检查元数据，不写入用户目录")
     parser.add_argument("--timeout", type=int, default=60, help="等待 aweme/detail 响应的秒数，默认 60")
+    parser.add_argument(
+        "--direct",
+        action="store_true",
+        help="显式绕过系统代理直连抖音；仅在用户允许后使用",
+    )
     args = parser.parse_args()
 
     url = args.url
@@ -696,7 +758,7 @@ def main():
     print("=" * 50)
 
     try:
-        info = fetch_video_info(url, timeout=args.timeout)
+        info = fetch_video_info(url, timeout=args.timeout, direct=args.direct)
         video_stream = info.get('video_stream') or {}
         video_url = video_stream.get('url') or info['video_url']
         video_urls = video_stream.get('urls') or [video_url]
@@ -736,6 +798,7 @@ def main():
                 str(part_path),
                 referer=url,
                 validator=require_1080p_file,
+                direct=args.direct,
             )
             os.replace(part_path, output_path)
             output_path.chmod(0o600)
@@ -748,6 +811,7 @@ def main():
             transcript_path,
             aweme_id,
             url,
+            direct=args.direct,
         )
 
         file_size = os.path.getsize(result_path) / 1024 / 1024

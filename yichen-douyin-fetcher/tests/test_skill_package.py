@@ -55,6 +55,10 @@ class SkillPackageTests(unittest.TestCase):
         for requirement in requirements:
             self.assertIn(f'"{requirement}"', pyproject)
 
+        dev_requirements = (ROOT / "requirements-dev.txt").read_text(encoding="utf-8")
+        self.assertIn("PyYAML==6.0.3", dev_requirements)
+        self.assertIn('"PyYAML==6.0.3"', pyproject)
+
     def test_release_uses_apache_2_license(self):
         license_text = (ROOT / "LICENSE").read_text(encoding="utf-8")
         notice = (ROOT / "NOTICE").read_text(encoding="utf-8")

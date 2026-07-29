@@ -1,3 +1,4 @@
+import os
 import sys
 import tempfile
 import unittest
@@ -32,6 +33,40 @@ class OutputContractTests(unittest.TestCase):
             ],
             playwright.chromium.launch.call_args_list,
         )
+
+    def test_direct_browser_launch_bypasses_system_proxy(self):
+        playwright = Mock()
+        browser = Mock()
+        playwright.chromium.launch.return_value = browser
+
+        launched = download.launch_compatible_browser(
+            playwright,
+            headless=True,
+            direct=True,
+        )
+
+        self.assertIs(browser, launched)
+        playwright.chromium.launch.assert_called_once_with(
+            headless=True,
+            args=["--no-proxy-server"],
+        )
+
+    def test_playwright_temp_environment_is_isolated_and_restored(self):
+        keys = ("TMPDIR", "TMP", "TEMP")
+        previous = {key: os.environ.get(key) for key in keys}
+        runtime_path = None
+
+        with patch.object(download, "sync_playwright") as factory:
+            expected = factory.return_value.__enter__.return_value
+            with download.isolated_sync_playwright() as playwright:
+                self.assertIs(expected, playwright)
+                runtime_path = Path(os.environ["TMPDIR"])
+                self.assertTrue(runtime_path.is_dir())
+                self.assertEqual({os.environ[key] for key in keys}, {str(runtime_path)})
+
+        self.assertIsNotNone(runtime_path)
+        self.assertFalse(runtime_path.exists())
+        self.assertEqual(previous, {key: os.environ.get(key) for key in keys})
 
     def test_selects_highest_compatible_1080p_stream(self):
         aweme = {
@@ -98,6 +133,28 @@ class OutputContractTests(unittest.TestCase):
 
         self.assertEqual("https://www.douyin.com/video/12345678", referer)
         self.assertNotIn("secret", referer)
+
+    def test_direct_http_ignores_environment_proxy_settings(self):
+        session = Mock()
+        response = Mock()
+        session.get.return_value = response
+
+        with (
+            patch.object(download.requests, "Session", return_value=session),
+            patch.object(download.requests, "get") as environment_request,
+        ):
+            with download.http_response(
+                "https://example.invalid/media",
+                direct=True,
+                timeout=10,
+            ) as actual:
+                self.assertIs(response, actual)
+
+        self.assertFalse(session.trust_env)
+        session.get.assert_called_once_with("https://example.invalid/media", timeout=10)
+        environment_request.assert_not_called()
+        response.close.assert_called_once_with()
+        session.close.assert_called_once_with()
 
     def test_private_metadata_persists_only_canonical_public_url(self):
         metadata = download.build_metadata(
@@ -314,7 +371,7 @@ class OutputContractTests(unittest.TestCase):
             },
         }
 
-        def fake_download(_urls, output_path, referer, validator=None):
+        def fake_download(_urls, output_path, referer, validator=None, direct=False):
             Path(output_path).write_bytes(b"test-video")
             if validator:
                 validator(Path(output_path))
@@ -562,7 +619,7 @@ class OutputContractTests(unittest.TestCase):
                 },
             }
 
-            def fake_download(_url, output_path, referer, validator=None):
+            def fake_download(_url, output_path, referer, validator=None, direct=False):
                 Path(output_path).write_bytes(b"test-video")
                 if validator:
                     validator(Path(output_path))

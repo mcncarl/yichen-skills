@@ -72,6 +72,7 @@ python3 "$SKILL_DIR/scripts/download_author.py" "<原链接>" --download --resum
 - `--delay 2`：相邻作品处理间隔秒数。
 - `--headed`：打开可见浏览器，供登录或验证码处理。
 - `--no-persistent-session`：本次忽略本机持久登录授权策略。
+- `--direct`：显式绕过系统代理直连抖音。默认尊重系统代理；只有页面在代理下空白、脚本明确提示，且用户确认允许本次直连后才使用，不得自动追加。
 
 重复运行时，只有视频和口播稿都完整才跳过；只有视频时继续获取平台字幕或执行 ASR，不重新下载。使用 `.part` 临时文件并在媒体校验通过后原子替换。
 
@@ -110,6 +111,8 @@ python3 "$SKILL_DIR/scripts/download_author.py" "<原链接>" --download --resum
 如本机存在 `~/.config/yichen-douyin-fetcher/policy.json` 且 `persistent_login_authorized` 为 `true`，脚本自动加载其中的 `storage_state_path`，并在可见登录成功后更新登录态。该授权只属于当前机器，不得随 Skill 分发。没有策略文件时，首次保存可复用 Cookie 前必须解释其持久性并取得明确确认。
 
 只访问受信任的抖音页面域名；向媒体 CDN 发送 Referer 前移除查询参数和片段，不发送 Cookie。媒体响应为 HTML、声明长度不匹配或下载后校验失败时尝试备用地址，所有地址失败才记录失败。
+
+若错误提示系统代理可能导致页面空白，先向用户说明 `--direct` 会绕过当前系统代理；获得明确确认后，才用相同命令追加 `--direct` 重试。不要自动禁用代理，也不要通过轮换代理规避平台限制。
 
 ## 依赖
 

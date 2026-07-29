@@ -6,6 +6,7 @@ from __future__ import annotations
 import importlib.util
 import shutil
 import sys
+import urllib.request
 from pathlib import Path
 
 MINIMUM_PYTHON = (3, 10)
@@ -33,6 +34,12 @@ def main() -> int:
             failures.append(f"系统命令 {command}")
         else:
             print(f"[通过] {command}: {executable}")
+
+    if urllib.request.getproxies():
+        print(
+            "[提示] 检测到系统代理；抓取默认尊重该代理。"
+            "若抖音页面空白，请先取得用户许可，再用 --direct 显式直连。"
+        )
 
     if importlib.util.find_spec("playwright") is not None:
         try:
