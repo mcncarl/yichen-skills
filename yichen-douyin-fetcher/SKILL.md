@@ -23,13 +23,23 @@ python3 "$SKILL_DIR/scripts/download_author.py" --help
 
 ## 输出契约
 
-用户可见目录只保留视频和中文口播稿：
+用户可见目录只保留视频和中文口播稿。单条下载直接在指定输出根目录下创建作品目录：
 
 ```text
-抖音_博主_<昵称>_[短UID]/
+<输出根目录>/
 └── YYYY-MM-DD_<视频标题>_[短视频ID]/
     ├── 视频.mp4
     └── 中文口播稿.txt
+```
+
+批量下载增加创作者目录：
+
+```text
+<输出根目录>/
+└── 抖音_博主_<昵称>_[短UID]/
+    └── YYYY-MM-DD_<视频标题>_[短视频ID]/
+        ├── 视频.mp4
+        └── 中文口播稿.txt
 ```
 
 将抓取清单、断点状态、ASR 音频、缓存和待查询任务保存在 `~/.local/share/yichen-douyin-fetcher/`，不要写入用户内容目录。标题中的文件系统保留字符转换为全角字符，并按 UTF-8 字节安全截断；短视频 ID 用于防止同名冲突。
@@ -143,7 +153,8 @@ python3 "$SKILL_DIR/scripts/download_author.py" "<原链接>" --download --resum
 修改或发布前运行：
 
 ```bash
+python3 -m pip install -r "$SKILL_DIR/requirements-dev.txt"
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s "$SKILL_DIR/tests" -v
-python3 "<skill-creator-dir>/scripts/quick_validate.py" "$SKILL_DIR"
+python3 -m ruff check "$SKILL_DIR/scripts" "$SKILL_DIR/tests"
 python3 "$SKILL_DIR/scripts/doctor.py"
 ```
