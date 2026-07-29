@@ -93,4 +93,4 @@ The design was informed by the public workflow in [`sudoHG/codex-grok-search`](h
 
 ## License
 
-This plugin follows the repository's [Personal Learning and Non-Commercial Use License](../../LICENSE).
+This plugin follows the repository's [Apache License 2.0](../../LICENSE).

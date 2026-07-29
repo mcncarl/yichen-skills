@@ -67,10 +67,11 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 详细文档见 [yichen-wechat-local-vault/README.md](./yichen-wechat-local-vault/README.md)
 
 ### 5) `yichen-douyin-fetcher`
-抓取抖音视频元数据并下载 MP4：
-- 支持 `/video/<id>` 链接和部分弹窗类链接
-- 下载视频旁边生成精简 `.metadata.json`
-- 支持 `--metadata-only`，只验证链接不下载视频
+通过 Playwright 网络拦截下载抖音单条视频或枚举博主公开作品：
+- 强制 H.264，短边至少 1080，并用 `ffprobe` 复验保存文件
+- 优先使用平台中文字幕；获得授权且配置齐全时才回退到独立的 `yichen-volc-asr` Skill
+- 用户目录只保留 `视频.mp4` 和 `中文口播稿.txt`；机器清单与登录态保存在私有状态区
+- 支持有界抽样、固定清单续跑和 `--metadata-only` 验证
 
 ### 6) `yichen-xiaohongshu-fetch`
 抓取小红书视频/图文笔记到本地：
@@ -236,6 +237,7 @@ yichen-skills/
 ├─ README.zh.md
 ├─ THIRD_PARTY_NOTICES.md
 ├─ LICENSE
+├─ NOTICE
 └─ .gitignore
 ```
 
@@ -244,11 +246,12 @@ yichen-skills/
 - Claude Code / Codex CLI（支持加载本地 skills）
 - Python Playwright（`yichen-x-article-draft-uploader` 必需）
 - Python 3.9+
+- 单个发行包可能要求更新且仍受支持的 Python；`yichen-douyin-fetcher` 要求 Python 3.10+
 - 依赖：
   - X 文章草稿：`pip install playwright pycryptodome && python3 -m playwright install chromium`
   - 微信本地解析：`pip install pycryptodome zstandard`
   - 微信双开：`pip install Pillow`
-  - 抖音抓取：`pip install playwright requests && python3 -m playwright install chromium`
+  - 抖音抓取：`python3 -m pip install -r yichen-douyin-fetcher/requirements.txt`，并安装本机 `ffmpeg` / `ffprobe`，以及 Google Chrome 或 Playwright Chromium
   - 小红书抓取：`pip install requests`
   - 火山 ASR 粗剪：`pip install requests`，并安装本机 `ffmpeg` / `ffprobe`
   - ChatGPT 官网调研：Chrome 已登录 ChatGPT，且当前 Agent 环境支持 Chrome/Computer Use 能力
@@ -418,19 +421,20 @@ rm -f /tmp/x_current_cookies.json
 - 可以，直接改 skill 里的示例路径
 - `<OBSIDIAN_VAULT>/...` 只是示例
 
-## 二次分发建议
+## 二次分发
 
-本仓库仅用于个人学习和非商业个人工作流使用。未经作者明确书面许可，不得用于商业服务、客户交付、付费产品、公司内部工具包、市场分发包、课程资料或任何营利目的。
+本仓库的原创贡献采用 Apache License 2.0。商业使用与再分发须遵守该许可证及所有适用的第三方许可证。
 
-如果你为了个人学习而 Fork，至少保留：
+再分发时至少保留：
 - `README.md`
 - `README.zh.md`
 - `LICENSE`
+- `NOTICE`
 - `.gitignore`
 - `THIRD_PARTY_NOTICES.md`
 - `yichen-x-article-draft-uploader/README.md`
 
-不要把本仓库重新打包或重新发布为公开 Skill 套件。并明确提醒用户不要上传真实凭据或隐私数据。
+再分发包不得包含真实凭据、隐私数据、浏览器登录态、已下载媒体或用户生成内容。
 
 ## 致谢
 
@@ -468,16 +472,15 @@ rm -f /tmp/x_current_cookies.json
 ## 合规边界
 
 - 本项目与 X、xAI、OpenAI、微信、腾讯、小红书、抖音或 Field Theory 上游无隶属、背书或合作关系。
-- 本仓库仅限个人学习和非商业个人工作流使用。
-- 未经作者书面许可，禁止商用、客户交付、转售、付费分发、市场打包、课程打包或公司内部部署。
+- 原创贡献采用 Apache-2.0；第三方组件继续受各自许可证约束。
 - 使用者需自行遵守 X 平台条款、自动化政策及当地法律法规。
 - 收藏导出只可用于用户本人有权访问的数据；不得绕过访问控制、验证码、限流或平台安全措施。
 - X 内部 GraphQL 和平台 DOM 抓取均为非官方兼容路线，可能变化或触发平台限制。
-- `yichen-wechat-local-vault` 仅限个人使用——仅可解密和读取本人的聊天数据，不得用于侵犯他人隐私。
+- `yichen-wechat-local-vault` 仅可解密和读取操作者拥有或已获明确授权访问的数据。
 - `yichen-wecom-local-vault` 仅限 owner 授权的本地数据；绝不上传 key、明文快照或聊天导出。
 - 请勿把真实账号凭据（如 `cookies.json`、`wechat-keys.json`）上传到公开仓库。
 - 请勿上传真实聊天记录、微信数据库、客户数据、私人笔记、API key、本机路径或其他个人隐私数据。
 
 ## License
 
-Personal Learning and Non-Commercial Use License。见 [LICENSE](./LICENSE)。
+Apache License 2.0。见 [LICENSE](./LICENSE) 与 [NOTICE](./NOTICE)。

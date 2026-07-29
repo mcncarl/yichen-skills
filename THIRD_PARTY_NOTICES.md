@@ -99,7 +99,7 @@ This repository references and adapts ideas/workflows from external projects.
 
 ## Notes
 
-- This repository maintains its own license (`LICENSE`) for original contributions. It is personal-learning and non-commercial only.
+- This repository's original contributions are licensed under the Apache License 2.0; see `LICENSE`.
 - The upstream projects listed above retain their original licenses and copyrights.
 - Upstream licenses and notices should be preserved when redistributing derived works.
 - `yichen-wechat-local-vault` is an independent implementation that adapts specific technical approaches from `wx-favorites-report`. It does not contain any code directly copied from the upstream project.
@@ -109,4 +109,4 @@ This repository references and adapts ideas/workflows from external projects.
 - `yichen-grok-consult` references the public isolation pattern from `sudoHG/codex-grok-search`, but includes an independently implemented MCP server and deterministic verification layer.
 - `yichen-social-bookmarks-exporter` calls Field Theory as an optional external runtime; Field Theory remains under its upstream MIT License, while this repository's independently implemented adapter remains under this repository's license.
 - `yichen-mac-wechat-dual-open` references public X/Twitter discussion and implements the copy + bundle-id + ad-hoc signing workflow locally.
-- Do not remove this file when forking for personal study. It is the attribution record for borrowed ideas, workflows, and license notices.
+- Preserve this file when redistributing the repository. It is the attribution record for borrowed ideas, workflows, and license notices.

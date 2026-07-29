@@ -1,0 +1,4 @@
+interface:
+  display_name: "抖音视频与中文口播稿"
+  short_description: "下载抖音单条或博主公开作品，校验1080p并生成中文口播稿"
+  default_prompt: "Use $yichen-douyin-fetcher to download this Douyin video or creator profile and produce Chinese transcripts."
