@@ -86,7 +86,7 @@ This repository references and adapts ideas/workflows from external projects.
 - Upstream: https://github.com/afar1/fieldtheory-cli
 - License: MIT
 - Local license copy: `licenses/afar1-fieldtheory-cli-LICENSE.txt`
-- Usage in this repo (`yichen-social-bookmarks-exporter`):
+- Usage in this repo (`yichen-bookmarks-export`):
   - Optional external runtime for syncing X bookmarks and reading the user's local Field Theory index through `ft list --json`.
   - The Skill requires a compatible build whose version contains `graphql-only` before it will export X links.
 - What was copied:
@@ -107,6 +107,6 @@ This repository references and adapts ideas/workflows from external projects.
 - `yichen-x-article-draft-uploader` references workflow and Markdown parsing ideas from `wshuyi/x-article-publisher-skill`; it stores no real credentials and writes cookies only to temporary runtime files.
 - `yichen-summary` and the broader skill packaging conventions reference public Claude skill community practices, including JimLiu/baoyu-skills.
 - `yichen-grok-consult` references the public isolation pattern from `sudoHG/codex-grok-search`, but includes an independently implemented MCP server and deterministic verification layer.
-- `yichen-social-bookmarks-exporter` calls Field Theory as an optional external runtime; Field Theory remains under its upstream MIT License, while this repository's independently implemented adapter remains under this repository's license.
+- `yichen-bookmarks-export` calls Field Theory as an optional external runtime; Field Theory remains under its upstream MIT License, while this repository's independently implemented adapter remains under this repository's license.
 - `yichen-mac-wechat-dual-open` references public X/Twitter discussion and implements the copy + bundle-id + ad-hoc signing workflow locally.
 - Do not remove this file when forking for personal study. It is the attribution record for borrowed ideas, workflows, and license notices.

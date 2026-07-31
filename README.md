@@ -27,11 +27,11 @@ Created and maintained by **逸尘 (Yichen)**.
 12. Batch-export WeChat Official Account article history, original-article lists, bodies, and optional read/comment metrics (`yichen-wechat-mp-batch-exporter`)
 13. Read and export local WeCom/企业微信 5.x database snapshots without controlling the app (`yichen-wecom-local-vault`)
 14. Let GPT call Grok for native X search or an independent second opinion without switching the main model (`yichen-grok-consult`)
-15. Export Xiaohongshu favorites, Douyin favorites, and X bookmarks as validated local URL files (`yichen-social-bookmarks-exporter`)
+15. Keep old bookmark-export calls compatible through a retired alias (`yichen-social-bookmarks-exporter`)
 16. Route multi-stage internet research through one safety-first entry point (`yichen-web-research`)
 17. Normalize public web and platform search into reviewable candidates (`yichen-unified-search`)
 18. Read, download, and archive only known or explicitly confirmed links (`yichen-content-archive`)
-19. Gate private bookmark export behind current-task authorization (`yichen-bookmarks-export`)
+19. Export private bookmarks directly behind current-task authorization (`yichen-bookmarks-export`)
 20. Choose between Step and Doubao/Volcengine ASR without duplicate submissions (`yichen-asr`)
 
 ## Included Skills
@@ -151,13 +151,8 @@ Use Grok from a GPT-led Codex task without switching the main model:
 See [plugins/yichen-grok-consult/README.md](./plugins/yichen-grok-consult/README.md) for installation, privacy boundaries, and verification limits.
 
 ### 15) `yichen-social-bookmarks-exporter`
-Read-only export for the currently accessible private collections on three platforms:
-- Reuses the user's authenticated Chrome tab for Xiaohongshu and Douyin, scrolling to a stable bottom and deduplicating links
-- Uses a separately installed Field Theory `ft` CLI build whose version contains `graphql-only` for the X route
-- Writes one URL per line and validates counts, blanks, duplicates, and malformed rows
-- Does not export cookies, browser storage, passwords, or token databases; Xiaohongshu `xsec_token` values stay only in the user-requested local link file
 
-See [yichen-social-bookmarks-exporter/README.md](./yichen-social-bookmarks-exporter/README.md) for installation, dependencies, and privacy boundaries.
+Deprecated compatibility entry for existing explicit calls. The maintained implementation now lives entirely in `yichen-bookmarks-export`; the retained legacy scripts are not executed by this entry.
 
 ### 16) `yichen-web-research`
 
@@ -189,11 +184,14 @@ Known-link and exact-container processing:
 
 ### 19) `yichen-bookmarks-export`
 
-Safety wrapper around `yichen-social-bookmarks-exporter`:
+Maintained private-bookmark export implementation:
 
 - Requires explicit authorization for each platform and scope in the current task
+- Bundles the Xiaohongshu/Douyin Chrome collectors and X local-index exporter
 - Exports links only and does not transfer that authorization to downloads
 - Produces a minimal handoff that references files without embedding private URLs
+
+See [yichen-bookmarks-export/README.md](./yichen-bookmarks-export/README.md) for installation, dependencies, and privacy boundaries.
 
 ### 20) `yichen-asr`
 
@@ -287,8 +285,10 @@ yichen-skills/
 │  └─ tests/
 ├─ yichen-bookmarks-export/
 │  ├─ SKILL.md
+│  ├─ README.md
 │  ├─ agents/
 │  ├─ references/
+│  ├─ scripts/
 │  └─ tests/
 ├─ yichen-asr/
 │  ├─ SKILL.md
@@ -441,9 +441,9 @@ codex plugin add yichen-grok-consult@yichen-skills
 4. Ask GPT to search public X posts with Grok or request a Grok second opinion
 5. See [plugins/yichen-grok-consult/README.md](./plugins/yichen-grok-consult/README.md) before configuring proxies or OpenCodex
 
-### K) Enable `yichen-social-bookmarks-exporter`
+### K) Enable `yichen-bookmarks-export`
 
-1. Ensure `yichen-social-bookmarks-exporter/SKILL.md` is available in your loaded skills path
+1. Ensure `yichen-bookmarks-export/SKILL.md` is available in your loaded skills path
 2. For Xiaohongshu or Douyin, sign in with the current Chrome session and open the intended favorites page
 3. For X, verify that the separately installed `ft --version` contains `graphql-only`
 4. Explicitly authorize the platforms, export scope, and output directory for the current task
@@ -556,7 +556,7 @@ The isolated Grok Build search design in `yichen-grok-consult` was informed by:
 
 - [`sudoHG/codex-grok-search`](https://github.com/sudoHG/codex-grok-search) — MIT-licensed public reference; no source code is vendored here
 
-The X bookmark route in `yichen-social-bookmarks-exporter` calls:
+The X bookmark route in `yichen-bookmarks-export` calls:
 
 - [`afar1/fieldtheory-cli`](https://github.com/afar1/fieldtheory-cli) — MIT-licensed optional external runtime; no Field Theory source or binary is vendored here
 - The required `graphql-only` marker refers to a user-maintained modified build, not an official upstream release name; that build is not distributed by this repository

@@ -4,24 +4,24 @@
     "platform": "xiaohongshu",
     "authorized_this_turn": true,
     "requested_action": "export_links",
-    "decision": "route",
-    "route_skill": "yichen-social-bookmarks-exporter"
+    "decision": "execute_local",
+    "execution": "integrated"
   },
   {
     "case": "authorized_douyin_export",
     "platform": "douyin",
     "authorized_this_turn": true,
     "requested_action": "export_links",
-    "decision": "route",
-    "route_skill": "yichen-social-bookmarks-exporter"
+    "decision": "execute_local",
+    "execution": "integrated"
   },
   {
     "case": "authorized_x_export",
     "platform": "x",
     "authorized_this_turn": true,
     "requested_action": "export_links",
-    "decision": "route",
-    "route_skill": "yichen-social-bookmarks-exporter"
+    "decision": "execute_local",
+    "execution": "integrated"
   },
   {
     "case": "prior_turn_authorization_rejected",
@@ -36,7 +36,7 @@
     "authorized_this_turn": true,
     "requested_action": "export_and_download",
     "decision": "export_only",
-    "route_skill": "yichen-social-bookmarks-exporter",
+    "execution": "integrated",
     "download_authorized": false
   },
   {
