@@ -1,0 +1,25 @@
+[project]
+name = "yichen-douyin-fetcher"
+version = "2.0.0"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = [
+    "requests==2.34.2",
+    "playwright==1.61.0",
+]
+
+[dependency-groups]
+dev = ["PyYAML==6.0.3", "ruff==0.16.0"]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["E402"]

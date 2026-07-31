@@ -79,10 +79,12 @@ WeChat digital-asset assistant for macOS:
 - See [yichen-wechat-local-vault/README.md](./yichen-wechat-local-vault/README.md) for full documentation
 
 ### 5) `yichen-douyin-fetcher`
-Fetch Douyin video metadata and download an MP4 through Playwright network interception:
-- Supports `/video/<id>` links and selected modal-style URLs
-- Writes a compact `.metadata.json` next to the downloaded video
-- Use `--metadata-only` to validate a link without downloading media
+Download a single Douyin video or enumerate a creator's public posts through Playwright network interception:
+- Enforces H.264 video with a short edge of at least 1080 and validates the saved file with `ffprobe`
+- Prefers native Chinese captions and falls back to the separate `yichen-volc-asr` Skill when authorized and configured
+- Keeps the visible output limited to `视频.mp4` and `中文口播稿.txt`; machine manifests and login state stay private
+- Supports bounded sampling, fixed-manifest resume, and `--metadata-only` validation
+- Respects the system proxy by default; `--direct` bypasses it only after the user explicitly permits direct access
 
 ### 6) `yichen-xiaohongshu-fetch`
 Fetch Xiaohongshu video/image posts into local files:
@@ -321,6 +323,7 @@ yichen-skills/
 ├─ README.zh.md
 ├─ THIRD_PARTY_NOTICES.md
 ├─ LICENSE
+├─ NOTICE
 └─ .gitignore
 ```
 
@@ -329,11 +332,12 @@ yichen-skills/
 - Claude Code / Codex CLI (with local skill loading)
 - Python Playwright (required by `yichen-x-article-draft-uploader`)
 - Python 3.9+
+- Individual release packages may require a newer supported Python; `yichen-douyin-fetcher` requires Python 3.10+
 - Dependencies:
   - X article drafts: `pip install playwright pycryptodome && python3 -m playwright install chromium`
   - WeChat local vault: `pip install pycryptodome zstandard`
   - WeChat dual open: `pip install Pillow`
-  - Douyin fetcher: `pip install playwright requests && python3 -m playwright install chromium`
+  - Douyin fetcher: `python3 -m pip install -r yichen-douyin-fetcher/requirements.txt`, local `ffmpeg` / `ffprobe`, and Google Chrome or Playwright Chromium
   - Xiaohongshu fetcher: `pip install requests`
   - Volc ASR rough cut: `pip install requests` plus local `ffmpeg` / `ffprobe`
   - ChatGPT Web research: Chrome signed in to ChatGPT, plus Chrome/Computer Use capability in your agent environment
@@ -532,17 +536,18 @@ If you ever exposed real cookies in a public repo, rotate them immediately.
 
 ## For Redistributors
 
-This repository is published for personal learning and non-commercial personal use only. Do not use it for commercial services, client delivery, paid products, internal company toolkits, marketplace packages, courses, or any other revenue-generating purpose without explicit written permission.
+The repository's original contributions are licensed under the Apache License 2.0. Commercial use and redistribution are permitted subject to that license and all applicable third-party licenses.
 
-If you fork for personal study, keep at least:
+When redistributing, keep at least:
 - `README.md`
 - `README.zh.md`
 - `LICENSE`
+- `NOTICE`
 - `.gitignore`
 - `THIRD_PARTY_NOTICES.md`
 - `yichen-x-article-draft-uploader/README.md`
 
-Do not republish or repackage this repository as a public skill bundle. Always remind users not to publish real credentials or private data.
+Do not include real credentials, private data, browser state, downloaded media, or generated user content in a redistributed package.
 
 ## Acknowledgments
 
@@ -580,16 +585,15 @@ See `THIRD_PARTY_NOTICES.md` for details.
 ## Compliance Boundary
 
 - This project is not affiliated with, endorsed by, or sponsored by X, xAI, OpenAI, WeChat, Tencent, Xiaohongshu, Douyin, or Field Theory.
-- This repository is for personal learning and non-commercial personal workflow use only.
-- Commercial use, client delivery, resale, paid redistribution, marketplace packaging, course bundling, and internal company deployment are prohibited without prior written permission.
+- Original contributions are available under Apache-2.0; third-party components remain under their respective licenses.
 - Users are responsible for complying with X platform terms/policies and local laws.
 - Collection-export workflows are only for data the user is authorized to access; do not bypass access controls, CAPTCHA, rate limits, or platform security measures.
 - X internal GraphQL and platform-DOM routes are unofficial compatibility methods and may change or trigger platform controls.
-- `yichen-wechat-local-vault` is for personal use only — only decrypt and read your own chat data.
+- `yichen-wechat-local-vault` may only decrypt and read data the operator owns or is explicitly authorized to access.
 - `yichen-wecom-local-vault` is for owner-authorized local data only — never upload keys, plaintext snapshots, or chat exports.
 - Never upload real account credentials (for example, `cookies.json`, `wechat-keys.json`) to public repositories.
 - Never upload real chat records, WeChat databases, customer data, private notes, API keys, local paths, or other personal data.
 
 ## License
 
-Personal Learning and Non-Commercial Use License. See [LICENSE](./LICENSE).
+Apache License 2.0. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE).

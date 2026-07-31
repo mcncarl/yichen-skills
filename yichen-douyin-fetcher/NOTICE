@@ -1,0 +1,12 @@
+yichen-douyin-fetcher 2.0.0
+
+Copyright (c) 2026 mcncarl
+
+Licensed under the Apache License, Version 2.0.
+See LICENSE for the full terms.
+
+Source project:
+https://github.com/mcncarl/yichen-skills/tree/main/yichen-douyin-fetcher
+
+This public package contains no Cookie, Token, login state, downloaded media,
+generated transcript, ASR credential, or other machine-local runtime data.

@@ -172,6 +172,6 @@ yichen-x-article-draft-uploader/
 
 ## License
 
-Personal Learning and Non-Commercial Use License. See the repository root `LICENSE`.
+Apache License 2.0. See the repository root `LICENSE` and `NOTICE`.
 
 部分 Markdown 解析流程参考并迁移自 `wshuyi/x-article-publisher-skill`，详见仓库根目录 `THIRD_PARTY_NOTICES.md`。
