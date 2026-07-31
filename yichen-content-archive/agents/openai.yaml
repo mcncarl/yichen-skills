@@ -1,4 +1,4 @@
 interface:
   display_name: "逸尘内容归档"
-  short_description: "归档已知网页、X 内容、视频、播客与精确内容容器，不执行搜索发现"
-  default_prompt: "Use $yichen-content-archive to read or archive these known URLs, including X posts and X Articles, without searching for additional content."
+  short_description: "读取归档已知链接，并抓取抖音与小红书内容"
+  default_prompt: "Use $yichen-content-archive to read, download, archive, or explicitly deposit these known URLs without searching for additional content."

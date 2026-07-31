@@ -52,7 +52,7 @@
     "platform": "xiaohongshu",
     "action": "read",
     "decision": "route",
-    "route_skill": "yichen-xiaohongshu-fetch",
+    "route_backend": "xiaohongshu-known-url",
     "allowed_branch": "skip-media"
   },
   {
@@ -61,7 +61,7 @@
     "platform": "douyin",
     "action": "download",
     "decision": "route",
-    "route_skill": "yichen-douyin-fetcher",
+    "route_backend": "douyin-known-url",
     "allowed_branch": "known-url-download"
   },
   {

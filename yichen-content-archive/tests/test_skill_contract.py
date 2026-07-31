@@ -26,6 +26,7 @@ class ContentArchiveContractTest(unittest.TestCase):
         self.assertIn("name: yichen-content-archive", match.group(1))
         self.assertTrue((ROOT / "references" / "platform-routes.md").is_file())
         self.assertTrue((ROOT / "references" / "handoff-contract.md").is_file())
+        self.assertTrue((ROOT / "references" / "xiaohongshu-bitable.md").is_file())
 
     def test_static_safety_gates(self):
         required = [
@@ -44,6 +45,9 @@ class ContentArchiveContractTest(unittest.TestCase):
             "`--resume-existing --output-dir",
             "同级新的 `<name>-resume-<run_id>`",
             "discovery_performed: false",
+            "`xiaohongshu_fetch.py`",
+            "`douyin_download.py`",
+            "写入飞书多维表格",
         ]
         for marker in required:
             self.assertIn(marker, SKILL)
@@ -55,13 +59,23 @@ class ContentArchiveContractTest(unittest.TestCase):
                 "xiaoyuzhou_stepfun.py",
                 "xiaoyuzhou_opencli.py",
                 "x_known_url.py",
+                "xiaohongshu_fetch.py",
+                "douyin_download.py",
             },
         )
 
+    def test_legacy_social_fetcher_skills_are_retired(self):
+        for name in (
+            "douyin-fetcher",
+            "xiaohongshu-fetch",
+            "yichen-douyin-fetcher",
+            "yichen-xiaohongshu-fetch",
+        ):
+            legacy = ROOT.parent / name
+            self.assertFalse(legacy.exists() or legacy.is_symlink(), str(legacy))
+
     def test_route_fixtures_are_closed(self):
         allowed_skills = {
-            "yichen-xiaohongshu-fetch",
-            "yichen-douyin-fetcher",
             "yichen-wechat-mp-batch-exporter",
         }
         allowed_backends = {
@@ -74,6 +88,8 @@ class ContentArchiveContractTest(unittest.TestCase):
             "xiaoyuzhou-opencli+xiaoyuzhou-stepfun",
             "wechat-mp-local",
             "x-public-known-url",
+            "xiaohongshu-known-url",
+            "douyin-known-url",
         }
         backend_markers = {
             "jina-reader": ("Jina Reader",),
@@ -88,6 +104,8 @@ class ContentArchiveContractTest(unittest.TestCase):
             ),
             "wechat-mp-local": ("wechat_mp_local.py",),
             "x-public-known-url": ("x_known_url.py",),
+            "xiaohongshu-known-url": ("xiaohongshu_fetch.py",),
+            "douyin-known-url": ("douyin_download.py",),
         }
         routable_decisions = {"route", "enumerate_then_route"}
         forbidden_branches = {

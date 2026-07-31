@@ -24,14 +24,14 @@ import requests
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
+from urllib.parse import urlparse
 
 try:
     from playwright.sync_api import Error as PlaywrightError
     from playwright.sync_api import sync_playwright
 except ImportError:
-    print("错误: 请先安装 playwright")
-    print("运行: pip install playwright && playwright install chromium")
-    sys.exit(1)
+    PlaywrightError = Exception
+    sync_playwright = None
 
 
 USER_AGENT = (
@@ -44,6 +44,17 @@ MISSING_BROWSER_HINTS = (
     "playwright install",
     "Looks like Playwright was just installed",
 )
+
+
+def validate_douyin_url(url: str) -> str:
+    """只接受抖音 HTTPS 链接，不把本执行器变成通用浏览器。"""
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme != "https" or not (
+        host == "douyin.com" or host.endswith(".douyin.com")
+    ):
+        raise ValueError("只接受 https://*.douyin.com 的已知视频链接")
+    return url
 
 
 def extract_video_id(url: str):
@@ -62,6 +73,7 @@ def extract_video_id(url: str):
 
 def normalize_url(url: str) -> str:
     """将各种抖音 URL 格式转换为标准的视频详情页 URL"""
+    validate_douyin_url(url)
     video_id = extract_video_id(url)
     if video_id:
         return f"https://www.douyin.com/video/{video_id}"
@@ -98,6 +110,11 @@ def fetch_video_info(url: str, timeout: int = 60):
     使用 Playwright 拦截 aweme/detail API 获取视频信息
     返回包含 video_url, title, author 等信息的字典
     """
+    if sync_playwright is None:
+        raise RuntimeError(
+            "缺少 playwright；请先运行 pip install playwright && "
+            "python3 -m playwright install chromium"
+        )
     try:
         return _fetch_video_info_once(url, timeout=timeout)
     except PlaywrightError as exc:
@@ -185,8 +202,22 @@ def write_metadata(info: dict, source_url: str, output_path: str) -> Path:
     metadata_path = Path(f"{output_path}.metadata.json")
     metadata_path.parent.mkdir(parents=True, exist_ok=True)
     metadata = build_metadata(info, source_url)
-    metadata_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2), encoding='utf-8')
+    with metadata_path.open("x", encoding="utf-8") as file:
+        file.write(json.dumps(metadata, ensure_ascii=False, indent=2))
     return metadata_path
+
+
+def choose_unique_output_path(output_path: str) -> Path:
+    """返回不与视频或相邻元数据冲突的输出路径。"""
+    requested = Path(output_path).expanduser()
+    candidate = requested
+    counter = 1
+    while candidate.exists() or Path(f"{candidate}.metadata.json").exists():
+        candidate = requested.with_name(
+            f"{requested.stem}-run-{counter}{requested.suffix}"
+        )
+        counter += 1
+    return candidate
 
 
 def download_video(video_url: str, output_path: str, referer: str = 'https://www.douyin.com/') -> str:
@@ -210,7 +241,7 @@ def download_video(video_url: str, output_path: str, referer: str = 'https://www
     next_percent = 0
     next_mb_report = 5
 
-    with open(output, 'wb') as f:
+    with open(output, 'xb') as f:
         for chunk in response.iter_content(chunk_size=8192):
             if chunk:
                 f.write(chunk)
@@ -259,6 +290,12 @@ def main():
             downloads_dir = Path.home() / 'Downloads'
             downloads_dir.mkdir(exist_ok=True)
             output_path = str(downloads_dir / f"douyin_{aweme_id}.mp4")
+
+        requested_output = Path(output_path).expanduser()
+        unique_output = choose_unique_output_path(str(requested_output))
+        if unique_output != requested_output:
+            print(f"目标已存在，改用不冲突路径: {unique_output}")
+        output_path = str(unique_output)
 
         metadata_path = write_metadata(info, url, output_path)
         print(f"元数据: {metadata_path}")

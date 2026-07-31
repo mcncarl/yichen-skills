@@ -17,8 +17,8 @@ Created and maintained by **逸尘 (Yichen)**.
 2. Upload Obsidian/Markdown articles to X Articles drafts (`yichen-x-article-draft-uploader`)
 3. Run two WeChat accounts on one Mac with a distinct blue icon (`yichen-mac-wechat-dual-open`)
 4. Turn WeChat chats, Moments, and Favorites into AI-powered digital assets (`yichen-wechat-local-vault`)
-5. Fetch benchmark videos from Douyin (`yichen-douyin-fetcher`)
-6. Fetch benchmark posts from Xiaohongshu (`yichen-xiaohongshu-fetch`)
+5. Fetch benchmark videos from known Douyin links (`yichen-content-archive`)
+6. Fetch benchmark posts from known Xiaohongshu links (`yichen-content-archive`)
 7. Transcribe, caption, and rough-cut talking-head videos with Volcengine ASR (`yichen-volc-asr`)
 8. Diagnose benchmark video transcripts (`yichen-video-content`)
 9. Run verified research through the official ChatGPT web page (`yichen-chatgpt-web-research`)
@@ -78,17 +78,12 @@ WeChat digital-asset assistant for macOS:
 - Requirements: macOS, WeChat Mac 4.x, Python 3.9+, `pycryptodome`, `zstandard`
 - See [yichen-wechat-local-vault/README.md](./yichen-wechat-local-vault/README.md) for full documentation
 
-### 5) `yichen-douyin-fetcher`
-Fetch Douyin video metadata and download an MP4 through Playwright network interception:
-- Supports `/video/<id>` links and selected modal-style URLs
-- Writes a compact `.metadata.json` next to the downloaded video
-- Use `--metadata-only` to validate a link without downloading media
-
-### 6) `yichen-xiaohongshu-fetch`
-Fetch Xiaohongshu video/image posts into local files:
-- Parses `window.__INITIAL_STATE__`
-- Downloads video, subtitles, images, and metadata when available
-- Keeps cookies, Feishu AppToken/TableID, and target table IDs out of the repo
+### 5–6) Social fetchers integrated into `yichen-content-archive`
+The former standalone Douyin and Xiaohongshu fetchers now have one source of truth:
+- `douyin_download.py` reads metadata or downloads a known Douyin video through Playwright interception
+- `xiaohongshu_fetch.py` anonymously reads known posts first, then downloads requested video, subtitles, or images
+- Existing outputs are never overwritten; a new `-run-N` path is selected instead
+- Xiaohongshu cookies require explicit current-task authorization, and optional Feishu deposition remains opt-in
 
 ### 7) `yichen-volc-asr`
 Transcribe local audio/video files and generate rough cuts:
@@ -188,6 +183,7 @@ Search-only orchestration across public web and platform-specific adapters:
 Known-link and exact-container processing:
 
 - Reads and archives confirmed web, Xiaohongshu, Douyin, WeChat Official Account, YouTube, Bilibili, and Xiaoyuzhou targets
+- Bundles the only maintained Douyin and Xiaohongshu known-link fetchers; optional Xiaohongshu-to-Feishu deposition remains explicit
 - Keeps search/discovery outside the archive layer
 - Uses collision-safe outputs, resumable checkpoints, and explicit overwrite guards
 
@@ -237,14 +233,6 @@ yichen-skills/
 │  │  └─ wechat_dual_open.py
 │  └─ references/
 │     └─ reliability-and-risks.md
-├─ yichen-douyin-fetcher/
-│  ├─ SKILL.md
-│  └─ scripts/
-│     └─ download.py
-├─ yichen-xiaohongshu-fetch/
-│  ├─ SKILL.md
-│  └─ scripts/
-│     └─ fetch.py
 ├─ yichen-volc-asr/
 │  ├─ SKILL.md
 │  └─ scripts/
@@ -333,8 +321,8 @@ yichen-skills/
   - X article drafts: `pip install playwright pycryptodome && python3 -m playwright install chromium`
   - WeChat local vault: `pip install pycryptodome zstandard`
   - WeChat dual open: `pip install Pillow`
-  - Douyin fetcher: `pip install playwright requests && python3 -m playwright install chromium`
-  - Xiaohongshu fetcher: `pip install requests`
+  - Content archive (Douyin): `pip install playwright requests && python3 -m playwright install chromium`
+  - Content archive (Xiaohongshu): `pip install requests`
   - Volc ASR rough cut: `pip install requests` plus local `ffmpeg` / `ffprobe`
   - ChatGPT Web research: Chrome signed in to ChatGPT, plus Chrome/Computer Use capability in your agent environment
   - WeChat MP batch export: Python 3 standard library for known URL downloads; `wechat-article-exporter` / `wxdown-service` only for account history, metrics, and comments
@@ -356,8 +344,6 @@ Keep directory names unchanged:
 - `yichen-x-article-draft-uploader`
 - `yichen-wechat-local-vault`
 - `yichen-mac-wechat-dual-open`
-- `yichen-douyin-fetcher`
-- `yichen-xiaohongshu-fetch`
 - `yichen-volc-asr`
 - `yichen-video-content`
 - `yichen-chatgpt-web-research`
@@ -414,7 +400,7 @@ codex plugin add yichen-grok-consult@yichen-skills
 ### E) Enable the creator video workflow
 
 1. Install Playwright, requests, and ffmpeg
-2. Use `yichen-douyin-fetcher` or `yichen-xiaohongshu-fetch` to save benchmark media locally
+2. Use `yichen-content-archive` to save known Douyin or Xiaohongshu benchmark media locally
 3. Use `yichen-volc-asr` to transcribe or rough-cut recorded talking-head videos
 4. Use `yichen-video-content` to diagnose benchmark transcripts
 5. Use `yichen-jianying-editor` for final Jianying/CapCut import, subtitle, polish, and export steps

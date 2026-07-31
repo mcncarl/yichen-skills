@@ -17,8 +17,8 @@
 2. 把 Obsidian/Markdown 长文上传为 X Articles 草稿（`yichen-x-article-draft-uploader`）
 3. Mac 微信双开，第二个微信带蓝色图标（`yichen-mac-wechat-dual-open`）
 4. 从微信聊天、朋友圈、收藏夹沉淀 AI 数字资产（`yichen-wechat-local-vault`）
-5. 抓取抖音对标视频（`yichen-douyin-fetcher`）
-6. 抓取小红书对标笔记（`yichen-xiaohongshu-fetch`）
+5. 抓取已知抖音链接的对标视频（`yichen-content-archive`）
+6. 抓取已知小红书链接的对标笔记（`yichen-content-archive`）
 7. 用火山 ASR 做转写、字幕和口播粗剪（`yichen-volc-asr`）
 8. 诊断对标视频口播稿（`yichen-video-content`）
 9. 通过 ChatGPT 官网完成可验证调研（`yichen-chatgpt-web-research`）
@@ -78,17 +78,12 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 依赖：macOS、微信 Mac 4.x、Python 3.9+、`pycryptodome`、`zstandard`
 - 详细文档见 [yichen-wechat-local-vault/README.md](./yichen-wechat-local-vault/README.md)
 
-### 5) `yichen-douyin-fetcher`
-抓取抖音视频元数据并下载 MP4：
-- 支持 `/video/<id>` 链接和部分弹窗类链接
-- 下载视频旁边生成精简 `.metadata.json`
-- 支持 `--metadata-only`，只验证链接不下载视频
-
-### 6) `yichen-xiaohongshu-fetch`
-抓取小红书视频/图文笔记到本地：
-- 解析 `window.__INITIAL_STATE__`
-- 尽量下载视频、字幕、图片和元数据
-- 不把 Cookie、飞书 AppToken/TableID、目标表 ID 写进仓库
+### 5–6) 已融合进 `yichen-content-archive` 的社交平台抓取器
+原先独立的抖音和小红书抓取器现在只保留一个事实源：
+- `douyin_download.py` 通过 Playwright 拦截读取元数据或下载已知抖音视频
+- `xiaohongshu_fetch.py` 默认匿名读取已知笔记，再按要求下载视频、字幕或图片
+- 旧产物不会被覆盖，目标冲突时自动使用新的 `-run-N` 路径
+- 小红书 Cookie 必须取得当前任务明确授权，可选飞书沉淀也只在用户明确要求时执行
 
 ### 7) `yichen-volc-asr`
 本地音视频转写和口播粗剪：
@@ -187,6 +182,7 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 已知链接与精确容器处理：
 
 - 读取并归档已确认的网页、小红书、抖音、公众号、YouTube、B站和小宇宙目标
+- 内置唯一维护的抖音/小红书已知链接抓取器；小红书沉淀飞书仍需用户明确要求
 - 搜索与开放式发现不进入归档层
 - 使用不冲突输出目录、续跑检查点和显式覆盖保护
 
@@ -236,14 +232,6 @@ yichen-skills/
 │  │  └─ wechat_dual_open.py
 │  └─ references/
 │     └─ reliability-and-risks.md
-├─ yichen-douyin-fetcher/
-│  ├─ SKILL.md
-│  └─ scripts/
-│     └─ download.py
-├─ yichen-xiaohongshu-fetch/
-│  ├─ SKILL.md
-│  └─ scripts/
-│     └─ fetch.py
 ├─ yichen-volc-asr/
 │  ├─ SKILL.md
 │  └─ scripts/
@@ -332,8 +320,8 @@ yichen-skills/
   - X 文章草稿：`pip install playwright pycryptodome && python3 -m playwright install chromium`
   - 微信本地解析：`pip install pycryptodome zstandard`
   - 微信双开：`pip install Pillow`
-  - 抖音抓取：`pip install playwright requests && python3 -m playwright install chromium`
-  - 小红书抓取：`pip install requests`
+  - 内容归档（抖音）：`pip install playwright requests && python3 -m playwright install chromium`
+  - 内容归档（小红书）：`pip install requests`
   - 火山 ASR 粗剪：`pip install requests`，并安装本机 `ffmpeg` / `ffprobe`
   - ChatGPT 官网调研：Chrome 已登录 ChatGPT，且当前 Agent 环境支持 Chrome/Computer Use 能力
   - 公众号批量导出：已知 URL 正文下载只需 Python 3 标准库；历史列表、阅读量和评论需要额外配置 `wechat-article-exporter` / `wxdown-service`
@@ -355,8 +343,6 @@ yichen-skills/
 - `yichen-x-article-draft-uploader`
 - `yichen-wechat-local-vault`
 - `yichen-mac-wechat-dual-open`
-- `yichen-douyin-fetcher`
-- `yichen-xiaohongshu-fetch`
 - `yichen-volc-asr`
 - `yichen-video-content`
 - `yichen-chatgpt-web-research`
@@ -413,7 +399,7 @@ codex plugin add yichen-grok-consult@yichen-skills
 ### E）启用自媒体视频工作流
 
 1. 安装 Playwright、requests 和 ffmpeg
-2. 用 `yichen-douyin-fetcher` 或 `yichen-xiaohongshu-fetch` 保存对标素材
+2. 用 `yichen-content-archive` 保存已知抖音或小红书对标素材
 3. 用 `yichen-volc-asr` 做转写、字幕或口播粗剪
 4. 用 `yichen-video-content` 诊断对标稿
 5. 用 `yichen-jianying-editor` 做剪映/CapCut 导入、字幕、精修和导出

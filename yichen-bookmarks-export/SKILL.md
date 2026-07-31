@@ -21,7 +21,7 @@ description: 在用户当轮明确授权后，只读导出其小红书收藏、�
 
 1. 保持只读：不点赞、不收藏、不评论、不关注、不发布，不修改平台状态。
 2. 不得执行搜索或发现；不按关键词查收藏内容，不浏览推荐，不扩展相似账号或候选。
-3. 不得下载媒体、正文、字幕或附件；不得调用 `$yichen-xiaohongshu-fetch`、`$yichen-douyin-fetcher`、`$yichen-wechat-mp-batch-exporter`、`yt-dlp` 或其他下载执行器。
+3. 不得下载媒体、正文、字幕或附件；不得直接调用 `$yichen-content-archive` 内置的小红书/抖音执行器、`$yichen-wechat-mp-batch-exporter`、`yt-dlp` 或其他下载执行器。
 4. 不得调用 `$yichen-content-archive` 或任何总路由；不得再次调用 `$yichen-bookmarks-export`。
 5. 导出授权不等于下载授权。即使用户同一句话包含“导出并下载”，本 Skill 也只完成链接导出，并把下载列为需要单独明确请求的下一步。
 6. 不读取、打印或保存 Cookie、Local Storage、密码、Token 数据库。含临时访问参数的 URL 只写入用户指定的本地导出文件。

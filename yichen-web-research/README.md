@@ -20,8 +20,8 @@ The family can use capabilities that are not bundled here:
 - `gh`, `yt-dlp`, `bili`, OpenCLI, Grok CLI, and `xreach`
 - the `yichen-grok-consult` plugin for Grok-first native X search, with anonymous
   FxTwitter fallback only after explicit Grok account-quota exhaustion
-- `yichen-social-bookmarks-exporter`, `yichen-xiaohongshu-fetch`,
-  `yichen-douyin-fetcher`, and `yichen-wechat-mp-batch-exporter`
+- `yichen-social-bookmarks-exporter` and `yichen-wechat-mp-batch-exporter`;
+  Xiaohongshu and Douyin known-link fetchers are bundled in `yichen-content-archive`
 - `yichen-volc-asr`, `ffmpeg`, and an optional compatible Step ASR executor
 - a loopback-only `wechat-article-exporter` for exact public-account containers
 

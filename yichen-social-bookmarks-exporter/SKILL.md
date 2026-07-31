@@ -109,8 +109,8 @@ python3 "<SKILL_DIR>/scripts/validate_link_file.py" \
 
 ## 下载媒体（仅按需）
 
-- 小红书：交给已安装的 `xiaohongshu-fetch` 或兼容下载 Skill。先用 `--skip-media` 预检，完整下载时去掉该参数；只有当轮另行授权后才允许 `--use-cookie`。
-- 抖音：交给已安装的 `douyin-fetcher` 或兼容下载 Skill，获得无水印 MP4 与 metadata；先用 `--metadata-only` 预检。
+- 小红书：交给 `$yichen-content-archive` 的 `xiaohongshu_fetch.py`。先用 `--skip-media` 预检，完整下载时去掉该参数；只有当轮另行授权后才允许 `--use-cookie`。
+- 抖音：交给 `$yichen-content-archive` 的 `douyin_download.py`，获得 MP4 与 metadata；先用 `--metadata-only` 预检。
 - X：`ft fetch-media` 只下载静态图片；只有用户明确要求后才执行，不承诺下载视频、评论或外链正文。
 
 批量下载采用低并发、断点续跑和失败清单，不因“导出了链接”自动开始下载。

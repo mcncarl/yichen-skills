@@ -2,8 +2,8 @@
 """
 小红书笔记抓取器。
 
-默认从网页的 window.__INITIAL_STATE__ 中提取元数据，并下载视频、字幕或图片。
-不写入飞书；可从子进程环境变量 XHS_COOKIE 读取登录态，但不会保存或输出 Cookie。
+默认先匿名请求网页，从 window.__INITIAL_STATE__ 中提取结构化元数据；失败时回退网页 meta。
+不写入飞书；只有显式传入 --use-cookie 时才允许从 XHS_COOKIE 读取登录态，而且仍先匿名尝试。
 """
 
 import argparse
@@ -13,6 +13,7 @@ import os
 import re
 import sys
 from datetime import datetime
+from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import urlparse
@@ -31,7 +32,22 @@ USER_AGENT = (
 )
 
 
-def request_headers(referer: Optional[str] = None) -> Dict[str, str]:
+def validate_xiaohongshu_url(url: str) -> str:
+    """只接受小红书 HTTPS 链接，不进行开放式站点访问。"""
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    allowed = (
+        host == "xiaohongshu.com"
+        or host.endswith(".xiaohongshu.com")
+        or host == "xhslink.com"
+        or host.endswith(".xhslink.com")
+    )
+    if parsed.scheme != "https" or not allowed:
+        raise ValueError("只接受 https://*.xiaohongshu.com 或 https://*.xhslink.com 链接")
+    return url
+
+
+def request_headers(referer: Optional[str] = None, include_cookie: bool = False) -> Dict[str, str]:
     headers = {
         "User-Agent": USER_AGENT,
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -39,13 +55,15 @@ def request_headers(referer: Optional[str] = None) -> Dict[str, str]:
     }
     if referer:
         headers["Referer"] = referer
-    cookie = os.environ.get("XHS_COOKIE", "").strip()
-    if cookie:
-        headers["Cookie"] = cookie
+    if include_cookie:
+        cookie = os.environ.get("XHS_COOKIE", "").strip()
+        if cookie:
+            headers["Cookie"] = cookie
     return headers
 
 
 def extract_note_id(url: str) -> str:
+    validate_xiaohongshu_url(url)
     patterns = [
         r"/explore/([0-9a-zA-Z]+)",
         r"/discovery/item/([0-9a-zA-Z]+)",
@@ -63,10 +81,31 @@ def extract_note_id(url: str) -> str:
     raise ValueError("无法从链接中识别 note_id")
 
 
-def fetch_html(url: str) -> str:
-    response = requests.get(url, headers=request_headers(), timeout=60)
+def fetch_html(url: str, include_cookie: bool = False) -> str:
+    response = requests.get(url, headers=request_headers(include_cookie=include_cookie), timeout=60)
     response.raise_for_status()
     return response.text
+
+
+class MetaParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.values: Dict[str, str] = {}
+
+    def handle_starttag(self, tag: str, attrs: List[tuple[str, Optional[str]]]) -> None:
+        if tag.lower() != "meta":
+            return
+        attributes = {key.lower(): value for key, value in attrs if value is not None}
+        key = (attributes.get("property") or attributes.get("name") or "").lower()
+        content = attributes.get("content", "").strip()
+        if key and content:
+            self.values.setdefault(key, html_lib.unescape(content))
+
+
+def extract_meta(page_html: str) -> Dict[str, str]:
+    parser = MetaParser()
+    parser.feed(page_html)
+    return parser.values
 
 
 def extract_initial_state(page_html: str) -> Dict[str, Any]:
@@ -110,6 +149,10 @@ def extract_note(state: Dict[str, Any], note_id: str) -> Dict[str, Any]:
                 return note
 
     raise ValueError("INITIAL_STATE 中没有找到目标笔记数据")
+
+
+def extract_note_from_html(page_html: str, note_id: str) -> Dict[str, Any]:
+    return extract_note(extract_initial_state(page_html), note_id)
 
 
 def safe_name(value: str) -> str:
@@ -244,6 +287,7 @@ def build_metadata(note: Dict[str, Any], source_url: str, note_id: str) -> Dict[
     return {
         "source_url": source_url,
         "fetched_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "extraction_source": "initial_state",
         "note_id": note_id,
         "title": note.get("title", ""),
         "desc": note.get("desc", ""),
@@ -265,7 +309,45 @@ def build_metadata(note: Dict[str, Any], source_url: str, note_id: str) -> Dict[
     }
 
 
-def download_file(urls: List[str], output_path: Path, label: str, referer: str) -> Optional[Path]:
+def build_metadata_from_meta(meta: Dict[str, str], source_url: str, note_id: str) -> Dict[str, Any]:
+    title = first_value(meta, ("og:title", "twitter:title")) or ""
+    description = first_value(meta, ("description", "og:description", "twitter:description")) or ""
+    image_url = first_value(meta, ("og:image", "twitter:image")) or ""
+    video_url = first_value(meta, ("og:video", "og:video:url", "twitter:player:stream")) or ""
+    images = [image_url] if image_url else []
+    note_type = "video" if video_url else ("normal" if image_url else "")
+    return {
+        "source_url": source_url,
+        "fetched_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+        "extraction_source": "meta_fallback",
+        "note_id": note_id,
+        "title": title,
+        "desc": description,
+        "type": note_type,
+        "author": "",
+        "user_id": "",
+        "time": None,
+        "last_update_time": None,
+        "ip_location": "",
+        "interact_info": {},
+        "tags": [],
+        "duration_ms": None,
+        "video_url": video_url,
+        "backup_urls": [],
+        "subtitle_urls": [],
+        "chapters": [],
+        "image_count": len(images),
+        "image_urls": images,
+    }
+
+
+def download_file(
+    urls: List[str],
+    output_path: Path,
+    label: str,
+    referer: str,
+    allow_cookie_fallback: bool = False,
+) -> Optional[Path]:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if output_path.exists() and output_path.stat().st_size > 0:
         print(f"{label} 已存在，跳过下载: {output_path}")
@@ -273,37 +355,48 @@ def download_file(urls: List[str], output_path: Path, label: str, referer: str) 
 
     last_error: Optional[Exception] = None
 
+    cookie_available = bool(os.environ.get("XHS_COOKIE", "").strip())
+    cookie_attempts = [False, True] if allow_cookie_fallback and cookie_available else [False]
+
     for index, url in enumerate(urls, start=1):
-        try:
-            response = requests.get(url, headers=request_headers(referer), stream=True, timeout=90)
-            response.raise_for_status()
-            total = int(response.headers.get("Content-Length", 0))
-            downloaded = 0
-            next_percent = 0
-            next_mb_report = 5
+        for include_cookie in cookie_attempts:
+            try:
+                if include_cookie:
+                    print(f"{label} 匿名下载失败，尝试使用已明确授权的登录态")
+                response = requests.get(
+                    url,
+                    headers=request_headers(referer, include_cookie=include_cookie),
+                    stream=True,
+                    timeout=90,
+                )
+                response.raise_for_status()
+                total = int(response.headers.get("Content-Length", 0))
+                downloaded = 0
+                next_percent = 0
+                next_mb_report = 5
 
-            with open(output_path, "wb") as file:
-                for chunk in response.iter_content(chunk_size=1024 * 256):
-                    if not chunk:
-                        continue
-                    file.write(chunk)
-                    downloaded += len(chunk)
-                    if total:
-                        percent = min(100, downloaded * 100 // total)
-                        if percent >= next_percent or downloaded == total:
-                            print(f"{label} 下载进度: {percent}% ({downloaded//1024//1024}MB / {total//1024//1024}MB)")
-                            next_percent += 10
-                    else:
-                        downloaded_mb = downloaded // 1024 // 1024
-                        if downloaded_mb >= next_mb_report:
-                            print(f"{label} 已下载: {downloaded_mb}MB")
-                            next_mb_report += 5
+                with open(output_path, "wb") as file:
+                    for chunk in response.iter_content(chunk_size=1024 * 256):
+                        if not chunk:
+                            continue
+                        file.write(chunk)
+                        downloaded += len(chunk)
+                        if total:
+                            percent = min(100, downloaded * 100 // total)
+                            if percent >= next_percent or downloaded == total:
+                                print(f"{label} 下载进度: {percent}% ({downloaded//1024//1024}MB / {total//1024//1024}MB)")
+                                next_percent += 10
+                        else:
+                            downloaded_mb = downloaded // 1024 // 1024
+                            if downloaded_mb >= next_mb_report:
+                                print(f"{label} 已下载: {downloaded_mb}MB")
+                                next_mb_report += 5
 
-            return output_path
-        except Exception as exc:
-            last_error = exc
-            if index < len(urls):
-                print(f"{label} 当前地址失败，尝试备用地址...")
+                return output_path
+            except Exception as exc:
+                last_error = exc
+        if index < len(urls):
+            print(f"{label} 当前地址失败，尝试备用地址...")
 
     print(f"{label} 下载失败: {last_error}")
     return None
@@ -326,7 +419,19 @@ def srt_to_transcript(srt_text: str) -> str:
 
 def write_text(path: Path, text: str):
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+    with path.open("x", encoding="utf-8") as file:
+        file.write(text)
+
+
+def choose_unique_output_dir(output_dir: Path) -> Path:
+    """目标目录存在时使用同级 run 目录，绝不覆盖旧归档。"""
+    requested = output_dir.expanduser()
+    candidate = requested
+    counter = 1
+    while candidate.exists():
+        candidate = requested.with_name(f"{requested.name}-run-{counter}")
+        counter += 1
+    return candidate
 
 
 def main():
@@ -334,10 +439,22 @@ def main():
     parser.add_argument("url", help="小红书笔记链接")
     parser.add_argument("output_dir", nargs="?", help="输出目录，默认 ~/Downloads/xhs_<note_id>")
     parser.add_argument("--skip-media", action="store_true", help="只保存 HTML 和元数据，不下载视频/字幕/图片")
+    parser.add_argument(
+        "--use-cookie",
+        action="store_true",
+        help="匿名解析失败后，允许使用 XHS_COOKIE 重试；必须由用户当轮明确授权",
+    )
     args = parser.parse_args()
 
     note_id = extract_note_id(args.url)
-    output_dir = Path(args.output_dir).expanduser() if args.output_dir else Path.home() / "Downloads" / f"xhs_{note_id}"
+    requested_output_dir = (
+        Path(args.output_dir).expanduser()
+        if args.output_dir
+        else Path.home() / "Downloads" / f"xhs_{note_id}"
+    )
+    output_dir = choose_unique_output_dir(requested_output_dir)
+    if output_dir != requested_output_dir:
+        print(f"目标已存在，改用不冲突目录: {output_dir}")
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print("=" * 50)
@@ -347,14 +464,46 @@ def main():
     print(f"输出目录: {output_dir}")
 
     try:
-        page_html = fetch_html(args.url)
+        try:
+            page_html = fetch_html(args.url, include_cookie=False)
+        except Exception as anonymous_fetch_error:
+            if args.use_cookie and os.environ.get("XHS_COOKIE", "").strip():
+                print(f"匿名页面请求失败，尝试使用已明确授权的登录态：{anonymous_fetch_error}")
+                page_html = fetch_html(args.url, include_cookie=True)
+            else:
+                raise
+        note: Optional[Dict[str, Any]] = None
+        state_error: Optional[Exception] = None
+
+        try:
+            note = extract_note_from_html(page_html, note_id)
+        except Exception as exc:
+            state_error = exc
+
+        if note is None and args.use_cookie and os.environ.get("XHS_COOKIE", "").strip():
+            print("匿名页面没有完整结构化笔记，尝试使用已明确授权的登录态")
+            page_html = fetch_html(args.url, include_cookie=True)
+            try:
+                note = extract_note_from_html(page_html, note_id)
+            except Exception as exc:
+                state_error = exc
+
         html_path = output_dir / f"xhs_{note_id}.html"
         write_text(html_path, page_html)
         print(f"网页快照: {html_path}")
 
-        state = extract_initial_state(page_html)
-        note = extract_note(state, note_id)
-        metadata = build_metadata(note, args.url, note_id)
+        if note is not None:
+            metadata = build_metadata(note, args.url, note_id)
+        else:
+            metadata = build_metadata_from_meta(extract_meta(page_html), args.url, note_id)
+            has_useful_meta = any(
+                [metadata["title"], metadata["desc"], metadata["video_url"], metadata["image_urls"]]
+            )
+            if not has_useful_meta:
+                cookie_hint = "；可在用户当轮明确授权后配置 XHS_COOKIE 并加 --use-cookie" if not args.use_cookie else ""
+                raise ValueError(f"INITIAL_STATE 与 meta 都没有可用笔记数据：{state_error}{cookie_hint}")
+            print(f"结构化状态解析失败，已回退网页 meta：{state_error}")
+
         metadata_path = output_dir / f"xhs_{note_id}.metadata.json"
         write_text(metadata_path, json.dumps(metadata, ensure_ascii=False, indent=2))
         print(f"元数据: {metadata_path}")
@@ -367,23 +516,36 @@ def main():
             return
 
         if metadata["type"] == "video":
-            video_urls = collect_video_urls(note)
+            video_urls = collect_video_urls(note) if note is not None else [metadata["video_url"]]
+            video_urls = [url for url in video_urls if url]
             if video_urls:
                 video_path = output_dir / f"xhs_{note_id}.mp4"
-                saved_video = download_file(video_urls, video_path, "视频", args.url)
+                saved_video = download_file(
+                    video_urls,
+                    video_path,
+                    "视频",
+                    args.url,
+                    allow_cookie_fallback=args.use_cookie,
+                )
                 if saved_video:
                     size_mb = saved_video.stat().st_size / 1024 / 1024
                     print(f"视频: {saved_video} ({size_mb:.2f} MB)")
             else:
                 print("未找到视频直链")
 
-            subtitles = collect_subtitles(note)
+            subtitles = collect_subtitles(note) if note is not None else []
             source_transcript_written = False
             fallback_srt: Optional[Path] = None
             for subtitle in subtitles:
                 label = safe_name(f"{subtitle['label']}_{subtitle['language']}")
                 srt_path = output_dir / f"xhs_{note_id}.{label}.srt"
-                saved_srt = download_file([subtitle["url"]], srt_path, f"字幕 {label}", args.url)
+                saved_srt = download_file(
+                    [subtitle["url"]],
+                    srt_path,
+                    f"字幕 {label}",
+                    args.url,
+                    allow_cookie_fallback=args.use_cookie,
+                )
                 if saved_srt:
                     print(f"字幕 {label}: {saved_srt}")
                     fallback_srt = fallback_srt or saved_srt
@@ -404,7 +566,7 @@ def main():
                 write_text(transcript_path, transcript)
                 print(f"口播文本: {transcript_path}")
         else:
-            image_urls = collect_images(note)
+            image_urls = collect_images(note) if note is not None else metadata["image_urls"]
             if not image_urls:
                 print("未找到图片地址")
                 return
@@ -412,7 +574,13 @@ def main():
             for index, image_url in enumerate(image_urls, start=1):
                 suffix = Path(urlparse(image_url).path).suffix or ".jpg"
                 image_path = images_dir / f"xhs_{note_id}_{index:02d}{suffix}"
-                saved_image = download_file([image_url], image_path, f"图片 {index}", args.url)
+                saved_image = download_file(
+                    [image_url],
+                    image_path,
+                    f"图片 {index}",
+                    args.url,
+                    allow_cookie_fallback=args.use_cookie,
+                )
                 if saved_image:
                     print(f"图片 {index}: {saved_image}")
 
