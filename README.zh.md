@@ -33,6 +33,7 @@
 18. 只读取、下载和归档已知或已确认链接（`yichen-content-archive`）
 19. 用当轮授权闸门包装私人收藏导出（`yichen-bookmarks-export`）
 20. 在 Step 与豆包/火山 ASR 之间安全路由并避免重复提交（`yichen-asr`）
+21. 通过企业微信官方 CLI 创建授权文档并管理待办、会议和日程，不操控客户端（`yichen-wecom-operations`）
 
 ## 包含的技能
 
@@ -201,6 +202,19 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 纯文本默认走兼容 Step 执行器，时间戳/SRT 默认走 `yichen-volc-asr`
 - App ID 与 Token 只从环境变量读取
 - 已经提交到某服务商的任务不会静默改投另一家
+
+### 21) `yichen-wecom-operations`
+
+通过官方 `@wecom/cli` 操作用户有权管理的企业微信云资源：
+
+- 创建普通文档和基于 Markdown 的智能文档
+- 只有完成权限检查和精确目标确认后才读取或覆写文档
+- 创建和管理待办；会议、日程只在当前企业开放对应授权时使用
+- 绝不操控企业微信客户端，也不发送消息
+- Git 中不保存凭证、内部 ID、回执、源文件或客户数据
+- 本地图片上传属于可选的外部 helper 能力，本仓库不分发该扩展
+
+安装、权限边界和本地图片限制见 [yichen-wecom-operations/README.md](./yichen-wecom-operations/README.md)。
 
 ## 目录结构
 
@@ -493,6 +507,7 @@ rm -f /tmp/x_current_cookies.json
 - 公众号 exporter auth-key、凭证文件、扫码登录秘密、捕获 cookies 和下载的文章归档必须只保存在本地
 - `yichen-grok-consult` 不包含固定代理或凭证；但查询和结果仍会发送给 xAI，并保存在隔离的本机会话目录
 - Web Research 家族不包含个人绝对路径、App ID、Token、固定钥匙串项或私人代理值；账号路线仍必须显式启用
+- `yichen-wecom-operations` 不包含 Bot ID、Secret、内部用户/资源 ID、回执、源文档或客户数据；权限范围由当前企业动态决定
 
 如果你曾在公开仓库暴露过 Cookie，请立即轮换。
 
@@ -558,6 +573,11 @@ rm -f /tmp/x_current_cookies.json
 - [`afar1/fieldtheory-cli`](https://github.com/afar1/fieldtheory-cli) — MIT 许可的可选外部运行时；本仓库未打包 Field Theory 源码或二进制
 - 所要求的 `graphql-only` 标识指用户自行维护的修改版，不是上游官方发布名称；该修改版未在本仓库分发
 
+`yichen-wecom-operations` 调用用户另行安装的企业微信官方 CLI：
+
+- [`WeComTeam/wecom-cli`](https://github.com/WecomTeam/wecom-cli) — MIT 许可的外部运行时；本仓库不打包上游源码、二进制、Bot 凭证或租户数据
+- 本地图片上传需要用户另行提供、暴露 `doc +doc_upload_image` 的可选 helper；该本地扩展未在本仓库分发，也不表述为上游官方能力
+
 详细说明见 `THIRD_PARTY_NOTICES.md`。
 
 ## 合规边界
@@ -570,6 +590,7 @@ rm -f /tmp/x_current_cookies.json
 - X 内部 GraphQL 和平台 DOM 抓取均为非官方兼容路线，可能变化或触发平台限制。
 - `yichen-wechat-local-vault` 仅限个人使用——仅可解密和读取本人的聊天数据，不得用于侵犯他人隐私。
 - `yichen-wecom-local-vault` 仅限 owner 授权的本地数据；绝不上传 key、明文快照或聊天导出。
+- `yichen-wecom-operations` 仅限 owner 授权的机器人资源；不得发送消息、操控客户端、绕过企业未开放的授权，也不得提交内部 ID、回执、源文档或客户数据。
 - 请勿把真实账号凭据（如 `cookies.json`、`wechat-keys.json`）上传到公开仓库。
 - 请勿上传真实聊天记录、微信数据库、客户数据、私人笔记、API key、本机路径或其他个人隐私数据。
 

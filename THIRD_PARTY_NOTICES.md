@@ -1,6 +1,6 @@
 ﻿# THIRD_PARTY_NOTICES
 
-Last updated: 2026-07-29
+Last updated: 2026-08-02
 
 This repository references and adapts ideas/workflows from external projects.
 
@@ -96,6 +96,18 @@ This repository references and adapts ideas/workflows from external projects.
   - `graphql-only` identifies a user-maintained compatibility and safety overlay, not an official upstream Field Theory release name.
   - The modified runtime is not distributed in this repository.
   - Any redistribution of a modified Field Theory build must preserve the upstream MIT copyright and license notice and must not be represented as an official upstream release.
+
+## 9) WeComTeam/wecom-cli
+
+- Upstream: https://github.com/WecomTeam/wecom-cli
+- Package: https://www.npmjs.com/package/@wecom/cli
+- License: MIT, Copyright (c) 2026 WeCom
+- Usage in this repo (`yichen-wecom-operations`):
+  - External runtime for owner-authorized document, todo, meeting, schedule, and contact operations.
+  - The public Skill invokes a separately installed `wecom-cli`; it does not vendor upstream source or binaries.
+- Local-image boundary:
+  - The public Skill can use an optional external helper exposing `doc +doc_upload_image` when the user explicitly configures `WECOM_UPLOAD_HELPER`.
+  - That helper capability comes from a local, unpublished extension and is not distributed by this repository or represented as an official upstream feature.
 
 ## Notes
 

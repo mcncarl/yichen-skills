@@ -33,6 +33,7 @@ Created and maintained by **逸尘 (Yichen)**.
 18. Read, download, and archive only known or explicitly confirmed links (`yichen-content-archive`)
 19. Gate private bookmark export behind current-task authorization (`yichen-bookmarks-export`)
 20. Choose between Step and Doubao/Volcengine ASR without duplicate submissions (`yichen-asr`)
+21. Create authorized WeCom documents and manage todos, meetings, and schedules through the official CLI without controlling the desktop app (`yichen-wecom-operations`)
 
 ## Included Skills
 
@@ -202,6 +203,19 @@ Unified ASR router:
 - Defaults text-only work to a compatible Step executor and timestamp/SRT work to `yichen-volc-asr`
 - Uses only environment-provided App IDs and tokens
 - Never silently resubmits an already submitted job to another provider
+
+### 21) `yichen-wecom-operations`
+
+Owner-authorized WeCom cloud operations through the official `@wecom/cli`:
+
+- Creates normal documents and Markdown-based smart documents
+- Reads or overwrites documents only after permission and exact-target checks
+- Creates and manages todos; meetings and schedules are available only when the enterprise grants those categories
+- Never controls the WeCom desktop app and never sends messages
+- Keeps credentials, internal IDs, receipts, source files, and customer data out of Git
+- Treats local-image upload as an optional external-helper capability that is not distributed in this repository
+
+See [yichen-wecom-operations/README.md](./yichen-wecom-operations/README.md) for installation, permission boundaries, and the local-image limitation.
 
 ## Project Structure
 
@@ -496,6 +510,7 @@ rm -f /tmp/x_current_cookies.json
 - WeChat exporter auth-keys, credential files, QR secrets, captured cookies, and downloaded article archives must stay local and private
 - `yichen-grok-consult` contains no fixed proxy or credentials; Grok queries and results are still sent to xAI and retained in an isolated local session directory
 - The Web Research family contains no personal absolute paths, App IDs, tokens, fixed Keychain items, or private proxy values; account-backed routes remain opt-in
+- `yichen-wecom-operations` contains no Bot ID, Secret, internal user/resource ID, receipt, source document, or customer data; authorization remains tenant-specific
 
 If you ever exposed real cookies in a public repo, rotate them immediately.
 
@@ -561,6 +576,11 @@ The X bookmark route in `yichen-social-bookmarks-exporter` calls:
 - [`afar1/fieldtheory-cli`](https://github.com/afar1/fieldtheory-cli) — MIT-licensed optional external runtime; no Field Theory source or binary is vendored here
 - The required `graphql-only` marker refers to a user-maintained modified build, not an official upstream release name; that build is not distributed by this repository
 
+`yichen-wecom-operations` calls the separately installed official WeCom CLI:
+
+- [`WeComTeam/wecom-cli`](https://github.com/WecomTeam/wecom-cli) — MIT-licensed external runtime; no upstream source, binary, Bot credential, or tenant data is vendored here
+- Local-image upload requires an optional user-provided helper exposing `doc +doc_upload_image`; that local extension is not distributed here or represented as an upstream feature
+
 See `THIRD_PARTY_NOTICES.md` for details.
 
 ## Compliance Boundary
@@ -573,6 +593,7 @@ See `THIRD_PARTY_NOTICES.md` for details.
 - X internal GraphQL and platform-DOM routes are unofficial compatibility methods and may change or trigger platform controls.
 - `yichen-wechat-local-vault` is for personal use only — only decrypt and read your own chat data.
 - `yichen-wecom-local-vault` is for owner-authorized local data only — never upload keys, plaintext snapshots, or chat exports.
+- `yichen-wecom-operations` is for owner-authorized bot resources only — never send messages, automate the client, bypass missing enterprise authorization, or commit IDs, receipts, source documents, and customer data.
 - Never upload real account credentials (for example, `cookies.json`, `wechat-keys.json`) to public repositories.
 - Never upload real chat records, WeChat databases, customer data, private notes, API keys, local paths, or other personal data.
 

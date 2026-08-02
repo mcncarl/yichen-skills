@@ -1,0 +1,4 @@
+interface:
+  display_name: "企业微信操作"
+  short_description: "创建企微图文文档，并管理待办及权限开放后的会议日程"
+  default_prompt: "使用 $yichen-wecom-operations 创建企微文档，或处理已授权的会议、日程和待办操作。"
