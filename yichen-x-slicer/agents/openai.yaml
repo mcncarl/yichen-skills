@@ -1,0 +1,4 @@
+interface:
+  display_name: "逸尘 X 切片"
+  short_description: "将 X Post 或 Thread 默认转为 3:4 图片组与固定节奏静音视频"
+  default_prompt: "使用 $yichen-x-slicer 把这条 X 链接直接生成默认落日琥珀版图片组和固定阅读节奏静音视频。"

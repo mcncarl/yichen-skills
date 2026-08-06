@@ -2,7 +2,7 @@
 
 English | [中文](./README.zh.md)
 
-A skill collection for creators who want to streamline writing, X Articles draft publishing, WeChat digital-asset capture, and local workflows with Claude Code and Codex.
+A skill collection for creators who want to streamline writing, X content slicing, X Articles draft publishing, WeChat digital-asset capture, and local workflows with Claude Code and Codex.
 
 ## Maintainer
 
@@ -34,6 +34,7 @@ Created and maintained by **逸尘 (Yichen)**.
 19. Gate private bookmark export behind current-task authorization (`yichen-bookmarks-export`)
 20. Choose between Step and Doubao/Volcengine ASR without duplicate submissions (`yichen-asr`)
 21. Create authorized WeCom documents and manage todos, meetings, and schedules through the official CLI without controlling the desktop app (`yichen-wecom-operations`)
+22. Turn one public X Post or Thread URL into verified 3:4 image slices and a silent fixed-reading video (`yichen-x-slicer`)
 
 ## Included Skills
 
@@ -217,6 +218,19 @@ Owner-authorized WeCom cloud operations through the official `@wecom/cli`:
 
 See [yichen-wecom-operations/README.md](./yichen-wecom-operations/README.md) for installation, permission boundaries, and the local-image limitation.
 
+### 22) `yichen-x-slicer` — Yichen X Slicer
+
+Turn one public X status URL into finished social assets:
+
+- Generates a verified 1080×1440 image sequence, a PNG-only ZIP, and a silent H.264 video by default
+- Uses the bundled Sunset Amber template by default and includes 11 visual templates
+- Keeps only the focal Post or verified same-author Thread; quoted content and unrelated replies are excluded
+- Gives every slide a fixed readable hold and limits motion to short four-frame page transitions
+- Reads public data anonymously through FxTwitter and never uses X login state or cookies
+- Never generates TTS, BGM, music, or any audio stream
+
+Install this Skill directly with `npx skills add mcncarl/yichen-skills --skill yichen-x-slicer`.
+
 ## Project Structure
 
 ```text
@@ -310,6 +324,18 @@ yichen-skills/
 │  ├─ references/
 │  ├─ scripts/
 │  └─ tests/
+├─ yichen-wecom-operations/
+│  ├─ SKILL.md
+│  ├─ README.md
+│  ├─ agents/
+│  ├─ references/
+│  └─ scripts/
+├─ yichen-x-slicer/
+│  ├─ SKILL.md
+│  ├─ agents/
+│  ├─ assets/
+│  ├─ references/
+│  └─ scripts/
 ├─ .agents/plugins/
 │  └─ marketplace.json
 ├─ plugins/yichen-grok-consult/
@@ -344,6 +370,7 @@ yichen-skills/
   - Grok Consult: Node.js 18+, the official Grok Build CLI, and an active `grok login`; local OpenCodex is optional for non-search consultation tools
   - Social bookmarks exporter: Xiaohongshu/Douyin require an agent environment with `chrome:control-chrome`; the X route optionally requires a Field Theory `ft` CLI build whose version contains `graphql-only`
   - Web research family: install all five family directories together; optional coverage uses AnySearch, OpenCLI, Grok CLI, `xreach`, `gh`, `yt-dlp`, `bili`, `ffmpeg`, and the companion Skills listed in its README
+  - Yichen X Slicer: Node.js 18+, Playwright, local Chrome, `ffmpeg`, and `ffprobe`
 
 ## Installation
 
@@ -371,6 +398,8 @@ Keep directory names unchanged:
 - `yichen-content-archive`
 - `yichen-bookmarks-export`
 - `yichen-asr`
+- `yichen-wecom-operations`
+- `yichen-x-slicer`
 
 `yichen-grok-consult` is a Codex plugin rather than a standalone copied skill. Install it through this repository's marketplace:
 

@@ -2,7 +2,7 @@
 
 [English](./README.md) | 中文
 
-一个面向内容创作者的技能仓库，帮助你用 Claude Code / Codex 打通”沉淀知识 + X 文章草稿上传 + 微信数字资产 + 本地解析”的完整流程。
+一个面向内容创作者的技能仓库，帮助你用 Claude Code / Codex 打通“沉淀知识 + X 内容切片 + X 文章草稿上传 + 微信数字资产 + 本地解析”的完整流程。
 
 ## 关于作者
 
@@ -34,6 +34,7 @@
 19. 用当轮授权闸门包装私人收藏导出（`yichen-bookmarks-export`）
 20. 在 Step 与豆包/火山 ASR 之间安全路由并避免重复提交（`yichen-asr`）
 21. 通过企业微信官方 CLI 创建授权文档并管理待办、会议和日程，不操控客户端（`yichen-wecom-operations`）
+22. 把一条公开 X Post 或 Thread 链接转成经过验收的 3:4 图片切片与固定阅读节奏静音视频（`yichen-x-slicer`）
 
 ## 包含的技能
 
@@ -216,6 +217,19 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 
 安装、权限边界和本地图片限制见 [yichen-wecom-operations/README.md](./yichen-wecom-operations/README.md)。
 
+### 22) `yichen-x-slicer` — 逸尘 X 切片
+
+把一条公开 X status 链接直接做成可发布素材：
+
+- 默认生成经过验收的 1080×1440 图片组、仅含最终 PNG 的压缩包，以及 H.264 静音视频
+- 默认使用“落日琥珀版”，并内置 11 套视觉模板
+- 普通 Post 只保留主贴；Thread 只保留经过验证的同作者连续内容；引用贴与无关回复均排除
+- 每张图片保留固定阅读时间，画面运动只发生在四帧换页转场中
+- 通过 FxTwitter 匿名读取公开内容，不使用 X 登录态或 Cookie
+- 不生成 TTS、BGM、音乐或任何音频流
+
+可直接运行 `npx skills add mcncarl/yichen-skills --skill yichen-x-slicer` 安装。
+
 ## 目录结构
 
 ```text
@@ -309,6 +323,18 @@ yichen-skills/
 │  ├─ references/
 │  ├─ scripts/
 │  └─ tests/
+├─ yichen-wecom-operations/
+│  ├─ SKILL.md
+│  ├─ README.md
+│  ├─ agents/
+│  ├─ references/
+│  └─ scripts/
+├─ yichen-x-slicer/
+│  ├─ SKILL.md
+│  ├─ agents/
+│  ├─ assets/
+│  ├─ references/
+│  └─ scripts/
 ├─ .agents/plugins/
 │  └─ marketplace.json
 ├─ plugins/yichen-grok-consult/
@@ -343,6 +369,7 @@ yichen-skills/
   - Grok Consult：Node.js 18+、官方 Grok Build CLI 和有效的 `grok login`；非搜索咨询工具可选依赖本机 OpenCodex
   - 社交收藏夹导出：小红书/抖音需要 Agent 环境支持 `chrome:control-chrome`；X 路线可选依赖版本标识包含 `graphql-only` 的 Field Theory `ft` CLI
   - Web Research 家族：五个家族目录必须一起安装；可选覆盖依赖 AnySearch、OpenCLI、Grok CLI、`xreach`、`gh`、`yt-dlp`、`bili`、`ffmpeg` 和其 README 中列出的配套 Skills
+  - 逸尘 X 切片：Node.js 18+、Playwright、本机 Chrome、`ffmpeg` 和 `ffprobe`
 
 ## 安装方式
 
@@ -370,6 +397,8 @@ yichen-skills/
 - `yichen-content-archive`
 - `yichen-bookmarks-export`
 - `yichen-asr`
+- `yichen-wecom-operations`
+- `yichen-x-slicer`
 
 `yichen-grok-consult` 是 Codex 插件，不是只复制目录即可工作的普通 Skill。请通过本仓库的 marketplace 安装：
 
