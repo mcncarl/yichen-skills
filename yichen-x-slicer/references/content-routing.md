@@ -26,7 +26,7 @@
 - 仅删除指向当前 `node.quote.id` 的 X status URL；保留其他普通网址。
 - 直链覆盖 `x.com`、`twitter.com`、`mobile.twitter.com` 以及 `/i/web/status/<id>` 变体；`t.co` 仅在帖子顶层 URL entity 明确展开到该 Quote ID 时删除。无法解析的短链必须停止，不能猜测。
 - 删除 Quote 专用 URL 后，若节点正文为空且没有节点自身媒体，标记 `quote_only` 并跳过。
-- 媒体只读取节点顶层 `node.media`；视频仅使用节点自身 `thumbnail_url` 作为静态内容图片。
+- 媒体只读取节点顶层 `node.media`。视频的 `thumbnail_url` 只用于 PNG/ZIP 的静态预览；默认静音成片还必须选择并下载节点自身安全 MP4，在该媒体页内完整播放视觉内容。不得读取 Quote 视频，也不得只用封面代替原生视频。
 
 ## 验收
 

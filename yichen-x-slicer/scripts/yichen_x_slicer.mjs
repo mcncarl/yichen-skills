@@ -14,6 +14,7 @@ const POSTER_CSS_PATH = path.join(SKILL_DIR, 'assets', 'poster.css');
 const CANVAS = Object.freeze({ width: 1080, height: 1440, ratio: '3:4' });
 const X_STATUS_HOSTS = new Set(['x.com', 'www.x.com', 'twitter.com', 'www.twitter.com', 'mobile.twitter.com']);
 const X_IMAGE_HOSTS = new Set(['pbs.twimg.com', 'video.twimg.com']);
+const X_VIDEO_HOSTS = new Set(['video.twimg.com']);
 
 export const DEFAULT_TEMPLATE = 'sunset';
 export const TEMPLATES = Object.freeze([
@@ -261,7 +262,90 @@ export function removeQuoteStatusUrl(text, id, node = null) {
     .trim();
 }
 
-export function ownMedia(node) {
+function videoVariantDimensions(value) {
+  try {
+    const pathname = new URL(String(value)).pathname;
+    const match = pathname.match(/\/(\d+)x(\d+)\//u);
+    if (!match) return { width: null, height: null, area: 0 };
+    const width = Number(match[1]);
+    const height = Number(match[2]);
+    return { width, height, area: width * height };
+  } catch {
+    return { width: null, height: null, area: 0 };
+  }
+}
+
+function safeNativeVideoUrl(value) {
+  try {
+    const parsed = new URL(String(value));
+    return parsed.protocol === 'https:'
+      && parsed.hostname.toLowerCase() === 'video.twimg.com'
+      && !parsed.username
+      && !parsed.password;
+  } catch {
+    return false;
+  }
+}
+
+export function selectNativeVideoVariant(item) {
+  const candidates = (Array.isArray(item?.formats) ? item.formats : [])
+    .filter((format) => {
+      if (!format?.url || !safeNativeVideoUrl(format.url)) return false;
+      const container = String(format.container ?? '').toLowerCase();
+      if (container === 'mp4') return true;
+      try {
+        return new URL(String(format.url)).pathname.toLowerCase().endsWith('.mp4');
+      } catch {
+        return false;
+      }
+    })
+    .map((format) => {
+      const dimensions = videoVariantDimensions(format.url);
+      const bitrate = Number(format.bitrate);
+      return {
+        url: String(format.url),
+        container: 'mp4',
+        codec: format.codec ? String(format.codec) : null,
+        bitrate: Number.isFinite(bitrate) && bitrate >= 0 ? bitrate : null,
+        width: dimensions.width,
+        height: dimensions.height,
+        area: dimensions.area
+      };
+    })
+    .sort((left, right) => (
+      (right.bitrate ?? -1) - (left.bitrate ?? -1)
+      || right.area - left.area
+      || right.url.localeCompare(left.url)
+    ));
+  if (candidates.length) {
+    const canvasMatched = candidates
+      .filter((candidate) => Math.max(candidate.width ?? 0, candidate.height ?? 0) >= 1080)
+      .sort((left, right) => (
+        (left.bitrate ?? Number.MAX_SAFE_INTEGER) - (right.bitrate ?? Number.MAX_SAFE_INTEGER)
+        || left.area - right.area
+        || left.url.localeCompare(right.url)
+      ));
+    const chosen = canvasMatched[0] ?? candidates[0];
+    const { area: ignoredArea, ...selected } = chosen;
+    return {
+      ...selected,
+      selection: canvasMatched.length ? 'canvas_matched_mp4' : 'highest_available_mp4'
+    };
+  }
+  if (!item?.url || String(item?.format ?? '').toLowerCase() !== 'video/mp4' || !safeNativeVideoUrl(item.url)) return null;
+  const dimensions = videoVariantDimensions(item.url);
+  return {
+    url: String(item.url),
+    container: 'mp4',
+    codec: null,
+    bitrate: null,
+    width: dimensions.width || Number(item?.width ?? 0) || null,
+    height: dimensions.height || Number(item?.height ?? 0) || null,
+    selection: 'validated_top_level_mp4_fallback'
+  };
+}
+
+export function ownMedia(node, { strictVideoPoster = true } = {}) {
   const media = Array.isArray(node?.media?.all)
     ? node.media.all
     : [
@@ -272,21 +356,38 @@ export function ownMedia(node) {
   const selected = [];
   for (const item of media) {
     const type = String(item?.type ?? '').toLowerCase();
-    const sourceUrl = type === 'photo' || type === 'image'
-      ? item?.url
-      : ['video', 'gif', 'animated_gif'].includes(type)
-        ? item?.thumbnail_url
-        : null;
-    if (!sourceUrl) continue;
+    const isImage = type === 'photo' || type === 'image';
+    const isVideo = ['video', 'gif', 'animated_gif'].includes(type);
+    const sourceUrl = isImage ? item?.url : isVideo ? item?.thumbnail_url : null;
+    if (!sourceUrl) {
+      if (isVideo && strictVideoPoster) throw new Error(`原生视频 ${String(item?.id ?? 'unknown')} 缺少 thumbnail_url；拒绝静默忽略`);
+      continue;
+    }
     const key = String(item?.id ?? sourceUrl);
     if (seen.has(key)) continue;
     seen.add(key);
+    if (isImage) {
+      selected.push({
+        id: item?.id != null ? String(item.id) : key,
+        type: 'photo',
+        url: String(sourceUrl),
+        width: Number(item?.width ?? item?.original_info?.width ?? 0) || null,
+        height: Number(item?.height ?? item?.original_info?.height ?? 0) || null
+      });
+      continue;
+    }
+    const variant = selectNativeVideoVariant(item);
+    const duration = Number(item?.duration);
     selected.push({
       id: item?.id != null ? String(item.id) : key,
-      type: type === 'photo' || type === 'image' ? 'photo' : 'video_thumbnail',
+      type: 'video',
       url: String(sourceUrl),
-      width: type === 'photo' || type === 'image' ? Number(item?.width ?? item?.original_info?.width ?? 0) || null : null,
-      height: type === 'photo' || type === 'image' ? Number(item?.height ?? item?.original_info?.height ?? 0) || null : null
+      poster_url: String(sourceUrl),
+      width: null,
+      height: null,
+      video_url: variant?.url ?? null,
+      video_duration_seconds: Number.isFinite(duration) && duration > 0 ? duration : null,
+      video_variant: variant
     });
   }
   return selected;
@@ -296,9 +397,10 @@ function quoteMediaMarkers(nodes) {
   const ids = [];
   const urlHashes = [];
   for (const node of nodes) {
-    for (const media of ownMedia(node?.quote)) {
+    for (const media of ownMedia(node?.quote, { strictVideoPoster: false })) {
       if (media.id != null) ids.push(String(media.id));
       if (media.url) urlHashes.push(sha256Buffer(Buffer.from(String(media.url))));
+      if (media.video_url) urlHashes.push(sha256Buffer(Buffer.from(String(media.video_url))));
     }
   }
   return {
@@ -431,6 +533,12 @@ export function routeThread(normalized, endpoint = null) {
       continue;
     }
     selectedNodes.push({ node, cleanedText, media });
+  }
+  for (const selected of selectedNodes) {
+    for (const media of selected.media) {
+      assertAllowedHttpsUrl(media.url, X_IMAGE_HOSTS, 'X 自身媒体封面');
+      if (media.type === 'video' && media.video_url) assertAllowedHttpsUrl(media.video_url, X_VIDEO_HOSTS, 'X 原生视频');
+    }
   }
 
   const isThread = verifiedChain.length > 1;
@@ -782,6 +890,10 @@ function supportedImageSignature(buffer) {
   return buffer.subarray(4, 12).toString('ascii').startsWith('ftypavi');
 }
 
+function supportedMp4Signature(buffer) {
+  return buffer.length >= 12 && buffer.subarray(4, 8).toString('ascii') === 'ftyp';
+}
+
 export async function materializeAsset(source, destination) {
   const value = String(source);
   if (!/^https:\/\//iu.test(value)) throw new Error('拒绝本地路径、file URL、data URL 或非 HTTPS 素材');
@@ -799,6 +911,27 @@ export async function materializeAsset(source, destination) {
   return { bytes: buffer.length, sha256: sha256Buffer(buffer) };
 }
 
+export async function materializeVideoAsset(source, destination) {
+  const value = String(source);
+  if (!/^https:\/\//iu.test(value)) throw new Error('拒绝本地路径、file URL、data URL 或非 HTTPS 视频素材');
+  const response = await fetchAllowedBuffer(value, {
+    allowedHosts: X_VIDEO_HOSTS,
+    allowedMimeTypes: new Set(['video/mp4']),
+    maximumBytes: 512 * 1024 * 1024,
+    timeoutMs: 180_000,
+    headers: { accept: 'video/mp4', 'user-agent': 'Mozilla/5.0' },
+    label: 'X 官方原生视频'
+  });
+  const buffer = response.buffer;
+  if (!supportedMp4Signature(buffer)) throw new Error('视频素材签名不是受支持的 MP4');
+  fs.writeFileSync(destination, buffer, { flag: 'wx' });
+  return {
+    bytes: buffer.length,
+    sha256: sha256Buffer(buffer),
+    content_type: response.contentType.split(';', 1)[0].trim().toLowerCase()
+  };
+}
+
 function normalizedAuthor(author) {
   return {
     id: author?.id != null ? String(author.id) : null,
@@ -808,7 +941,7 @@ function normalizedAuthor(author) {
   };
 }
 
-async function prepareContent(route, outputDirectory) {
+async function prepareContent(route, outputDirectory, { includeNativeVideo = true } = {}) {
   const assetsDirectory = safeOutputPath(outputDirectory, 'assets');
   fs.mkdirSync(assetsDirectory);
   const rootAuthor = normalizedAuthor(route.focal.author);
@@ -853,7 +986,7 @@ async function prepareContent(route, outputDirectory) {
     }
     for (let mediaIndex = 0; mediaIndex < selected.media.length; mediaIndex += 1) {
       const media = selected.media[mediaIndex];
-      const relativePath = `assets/media-${nodeIndex + 1}-${mediaIndex + 1}.jpg`;
+      const relativePath = `assets/media-${nodeIndex + 1}-${mediaIndex + 1}${media.type === 'video' ? '-poster' : ''}.jpg`;
       const destination = safeOutputPath(outputDirectory, relativePath);
       const integrity = await materializeAsset(media.url, destination);
       const asset = {
@@ -864,6 +997,21 @@ async function prepareContent(route, outputDirectory) {
         sha256: integrity.sha256,
         source_scope: 'own_media'
       };
+      if (media.type === 'video') asset.native_video_requested = includeNativeVideo;
+      if (media.type === 'video' && includeNativeVideo) {
+        if (!media.video_url) throw new Error(`原生视频 ${media.id} 没有可用的 MP4；拒绝退化为静态封面`);
+        const videoRelativePath = `assets/media-${nodeIndex + 1}-${mediaIndex + 1}-source.mp4`;
+        const videoDestination = safeOutputPath(outputDirectory, videoRelativePath);
+        const videoIntegrity = await materializeVideoAsset(media.video_url, videoDestination);
+        asset.native_video = {
+          relative_path: videoRelativePath,
+          bytes: videoIntegrity.bytes,
+          sha256: videoIntegrity.sha256,
+          content_type: videoIntegrity.content_type,
+          requested_duration_seconds: media.video_duration_seconds,
+          selected_variant: media.video_variant
+        };
+      }
       mediaAssets.push(asset);
       contentFrames.push({
         id: `${String(node.id)}-media-${mediaIndex + 1}`,
@@ -906,10 +1054,11 @@ function authorHeader(frame) {
 
 function frameCore(frame) {
   if (frame.kind === 'media') {
+    const mediaAlt = frame.media.type === 'video' ? '原生视频画面' : '内容图片';
     return [
       '<section class="source-card source-media" data-source-post-id="', escapeHtml(frame.source_post_id), '">',
       authorHeader(frame),
-      '<div class="media-stage"><img class="source-image" src="', escapeHtml(frame.media.relative_path), '" alt="内容图片"></div>',
+      '<div class="media-stage"><img class="source-image" src="', escapeHtml(frame.media.relative_path), '" alt="', mediaAlt, '"></div>',
       '</section>'
     ].join('');
   }
@@ -1014,14 +1163,26 @@ function calculateCoverage(outputs, templates, route) {
       const text = relevant.filter((output) => output.kind === 'text').map((output) => output.text).join('');
       const actualMediaIds = relevant.filter((output) => output.kind === 'media').map((output) => output.media.id);
       const expectedMediaIds = selected.media.map((media) => media.id);
+      const actualMediaDescriptors = relevant.filter((output) => output.kind === 'media').map((output) => ({
+        id: output.media.id,
+        type: output.media.type,
+        video_url_sha256: output.media.video_url ? sha256Buffer(Buffer.from(String(output.media.video_url))) : null
+      }));
+      const expectedMediaDescriptors = selected.media.map((media) => ({
+        id: media.id,
+        type: media.type,
+        video_url_sha256: media.video_url ? sha256Buffer(Buffer.from(String(media.video_url))) : null
+      }));
       const textMatches = normalizeText(text) === normalizeText(selected.cleanedText);
-      const mediaMatches = JSON.stringify(actualMediaIds) === JSON.stringify(expectedMediaIds);
+      const mediaMatches = JSON.stringify(actualMediaDescriptors) === JSON.stringify(expectedMediaDescriptors);
       allTextMatches &&= textMatches;
       allMediaMatches &&= mediaMatches;
       perNode[id] = {
         text_normalized_matches: textMatches,
         expected_media_ids: expectedMediaIds,
         output_media_ids: actualMediaIds,
+        expected_media_descriptors: expectedMediaDescriptors,
+        output_media_descriptors: actualMediaDescriptors,
         media_matches: mediaMatches,
         text_frames: relevant.filter((output) => output.kind === 'text').length,
         media_frames: actualMediaIds.length
@@ -1033,8 +1194,10 @@ function calculateCoverage(outputs, templates, route) {
   const ignoredQuoteMediaIds = new Set(route.audit.ignored_quote_media_ids ?? []);
   const ignoredQuoteMediaUrlHashes = new Set(route.audit.ignored_quote_media_url_sha256 ?? []);
   const quoteMediaCollisions = outputMedia.filter((media) => {
-    const urlHash = media.url ? sha256Buffer(Buffer.from(String(media.url))) : null;
-    return ignoredQuoteMediaIds.has(String(media.id)) || (urlHash && ignoredQuoteMediaUrlHashes.has(urlHash));
+    const urlHashes = [media.url, media.video_url]
+      .filter(Boolean)
+      .map((url) => sha256Buffer(Buffer.from(String(url))));
+    return ignoredQuoteMediaIds.has(String(media.id)) || urlHashes.some((urlHash) => ignoredQuoteMediaUrlHashes.has(urlHash));
   });
   return {
     all_text_normalized_matches: allTextMatches,
@@ -1297,6 +1460,13 @@ function browserProblems(checks, output) {
     if (!image || image.relativePath !== output.media.relative_path || !image.loaded || image.objectFit !== 'contain' || image.transform !== 'none' || !image.containedWithinStage) problems.push('媒体未完整适配或图片元素越过容器');
     if (image && output.media.width && image.naturalWidth !== output.media.width) problems.push('媒体原始宽度不一致');
     if (image && output.media.height && image.naturalHeight !== output.media.height) problems.push('媒体原始高度不一致');
+    if (output.media.type === 'video' && output.media.native_video_requested) {
+      const layout = output.media_layout;
+      if (!output.media.native_video) problems.push('原生视频未下载，不能只输出静态封面');
+      if (!layout || layout.x < 0 || layout.y < 0 || layout.width < 2 || layout.height < 2 || layout.x + layout.width > CANVAS.width || layout.y + layout.height > CANVAS.height) {
+        problems.push('原生视频嵌入区域无效');
+      }
+    }
   } else if (checks.sourceImages.length !== 0) {
     problems.push('正文帧混入媒体');
   }
@@ -1313,7 +1483,7 @@ async function renderAndInspect(outputs, previewSheet, outputDirectory, coverage
     args: ['--allow-file-access-from-files', '--disable-background-networking', '--disable-component-update', '--disable-sync']
   });
   const report = {
-    version: 'yichen-x-slicer-qa/v1',
+    version: 'yichen-x-slicer-qa/v2',
     created_at: new Date().toISOString(),
     canvas: CANVAS,
     playwright_runtime: modulePath === 'playwright' ? 'playwright' : 'bundled-playwright',
@@ -1332,6 +1502,17 @@ async function renderAndInspect(outputs, previewSheet, outputDirectory, coverage
       await page.evaluate(() => document.fonts.ready);
       await page.waitForFunction(() => Array.from(document.images).every((image) => image.complete), null, { timeout: 15_000 });
       const checks = await inspectPage(page, expectedFrameForBrowser(output));
+      if (output.kind === 'media' && output.media.type === 'video') {
+        const stage = checks.sourceImages[0]?.stageRect;
+        if (stage) {
+          output.media_layout = {
+            x: Math.round(stage.left) + 1,
+            y: Math.round(stage.top) + 1,
+            width: Math.max(2, Math.round(stage.width) - 2),
+            height: Math.max(2, Math.round(stage.height) - 2)
+          };
+        }
+      }
       const pngPath = safeOutputPath(outputDirectory, output.png_file);
       await page.screenshot({ path: pngPath, clip: { x: 0, y: 0, width: CANVAS.width, height: CANVAS.height } });
       const dimensions = readPngDimensions(pngPath);
@@ -1413,7 +1594,7 @@ function serializableOutput(output) {
 
 function manifestFor({ options, status, normalized, route, templates, outputs, assets, previewSheet, coverage, outputDirectory }) {
   const manifest = {
-    version: 'yichen-x-slicer-manifest/v1',
+    version: 'yichen-x-slicer-manifest/v2',
     created_at: new Date().toISOString(),
     output_directory: '.',
     template_requested: options.template,
@@ -1437,6 +1618,8 @@ function manifestFor({ options, status, normalized, route, templates, outputs, a
       ignore_all_quotes: true,
       exclude_other_author_replies: true,
       skip_quote_only_nodes: true,
+      embed_complete_own_native_video_in_mp4: options.video,
+      strip_all_source_video_audio: true,
       source_label: 'blank_zero_size',
       minimum_body_font_px: 36
     },
@@ -1466,6 +1649,7 @@ function assertPreRenderIntegrity(route, contentFrames, coverage) {
   if (coverage.quote_media_collision_count !== 0) problems.push('输出中存在引用媒体 ID 或来源碰撞');
   if (contentFrames.some((frame) => !selectedIds.has(frame.source_post_id))) problems.push('输出中存在未选中的帖子');
   if (contentFrames.some((frame) => frame.kind === 'media' && frame.media.source_scope !== 'own_media')) problems.push('输出中存在非帖子自身媒体');
+  if (contentFrames.some((frame) => frame.kind === 'media' && frame.media.type === 'video' && frame.media.native_video_requested && !frame.media.native_video?.relative_path)) problems.push('原生视频未准备完成，拒绝静态封面替代');
   if (contentFrames.some((frame) => frame.hook && !frame.source_full_text.includes(frame.hook))) problems.push('外围标题不是原文子串');
   if (problems.length) throw new Error(problems.join('；'));
 }
@@ -1478,7 +1662,7 @@ function selectedSourceForDelivery(status, normalized, route) {
     return Number.isFinite(number) && number >= 0 ? number : null;
   };
   return {
-    version: 'yichen-x-slicer-selected-source/v1',
+    version: 'yichen-x-slicer-selected-source/v2',
     source: {
       url: status.canonicalUrl,
       post_id: status.id,
@@ -1499,7 +1683,19 @@ function selectedSourceForDelivery(status, normalized, route) {
         screen_name: authorHandle(node.author),
         avatar_url: node.author?.avatar_url ? String(node.author.avatar_url) : null
       },
-      own_media: media.map(({ id, type, url, width, height }) => ({ id, type, url, width, height }))
+      own_media: media.map(({ id, type, url, poster_url, width, height, video_url, video_duration_seconds, video_variant }) => ({
+        id,
+        type,
+        url,
+        width,
+        height,
+        ...(type === 'video' ? {
+          poster_url,
+          video_url,
+          video_duration_seconds,
+          video_variant
+        } : {})
+      }))
     })),
     focal_metrics: {
       views: metricValue(focalMetrics.views),
@@ -1524,7 +1720,7 @@ export async function run(options) {
   fs.writeFileSync(safeOutputPath(outputDirectory, 'selected-source.json'), JSON.stringify(selectedSourceForDelivery(status, normalized, route), null, 2) + '\n', { encoding: 'utf8', flag: 'wx' });
   fs.writeFileSync(safeOutputPath(outputDirectory, 'routing-audit.json'), JSON.stringify(route.audit, null, 2) + '\n', { encoding: 'utf8', flag: 'wx' });
 
-  const prepared = await prepareContent(route, outputDirectory);
+  const prepared = await prepareContent(route, outputDirectory, { includeNativeVideo: options.video });
   const outputs = makeOutputs(prepared.contentFrames, templates, outputDirectory);
   const previewSheet = makePreviewFiles(outputs, templates, outputDirectory);
   const coverage = calculateCoverage(outputs, templates, route);
@@ -1552,12 +1748,13 @@ export async function run(options) {
       qa.videos = videoRecords;
       manifest.video.outputs = videoRecords;
     }
+    manifest.outputs = outputs.map(serializableOutput);
     manifest.qa = { pass: true, rendered_count: qa.rendered.length, failure_count: 0 };
     fs.writeFileSync(safeOutputPath(outputDirectory, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
     fs.writeFileSync(safeOutputPath(outputDirectory, 'qa-report.json'), JSON.stringify({ ...qa, pass: true }, null, 2) + '\n', { encoding: 'utf8', flag: 'wx' });
   } catch (error) {
     qa ??= {
-      version: 'yichen-x-slicer-qa/v1',
+      version: 'yichen-x-slicer-qa/v2',
       created_at: new Date().toISOString(),
       canvas: CANVAS,
       coverage,
@@ -1581,6 +1778,7 @@ export async function run(options) {
     frame_count: outputs.length,
     text_frame_count: outputs.filter((output) => output.kind === 'text').length,
     media_frame_count: outputs.filter((output) => output.kind === 'media').length,
+    native_video_frame_count: outputs.filter((output) => output.kind === 'media' && output.media.type === 'video').length,
     quote_frame_count: 0,
     quote_only_exclusions: route.audit.excluded_statuses.filter((statusItem) => statusItem.reason === 'quote_only'),
     index: path.join(outputDirectory, 'index.html'),

@@ -34,7 +34,7 @@ Created and maintained by **逸尘 (Yichen)**.
 19. Gate private bookmark export behind current-task authorization (`yichen-bookmarks-export`)
 20. Choose between Step and Doubao/Volcengine ASR without duplicate submissions (`yichen-asr`)
 21. Create authorized WeCom documents and manage todos, meetings, and schedules through the official CLI without controlling the desktop app (`yichen-wecom-operations`)
-22. Turn one public X Post or Thread URL into verified 3:4 image slices and a silent fixed-reading video (`yichen-x-slicer`)
+22. Turn one public X Post or Thread URL into verified 3:4 image slices and a silent finished video that embeds complete native video visuals (`yichen-x-slicer`)
 
 ## Included Skills
 
@@ -225,9 +225,9 @@ Turn one public X status URL into finished social assets:
 - Generates a verified 1080×1440 image sequence, a PNG-only ZIP, and a silent H.264 video by default
 - Uses the bundled Sunset Amber template by default and includes 11 visual templates
 - Keeps only the focal Post or verified same-author Thread; quoted content and unrelated replies are excluded
-- Gives every slide a fixed readable hold and limits motion to short four-frame page transitions
+- Keeps text and photo holds static, limits added motion to four-frame page transitions, and plays every selected native video in full inside its media stage instead of freezing its poster
 - Reads public data anonymously through FxTwitter and never uses X login state or cookies
-- Never generates TTS, BGM, music, or any audio stream
+- Never generates TTS, BGM, or music; source-video audio is stripped so the final MP4 has no audio stream
 
 Install this Skill directly with `npx skills add mcncarl/yichen-skills --skill yichen-x-slicer`.
 

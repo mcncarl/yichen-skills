@@ -7,6 +7,7 @@ import {
   deriveHook,
   formatMetric,
   materializeAsset,
+  materializeVideoAsset,
   normalizeSourcePayload,
   normalizeText,
   ownMedia,
@@ -14,6 +15,7 @@ import {
   parseStatusUrl,
   removeQuoteStatusUrl,
   routeThread,
+  selectNativeVideoVariant,
   splitText
 } from './yichen_x_slicer.mjs';
 import {
@@ -23,6 +25,7 @@ import {
   buildVideoFilter,
   buildVideoOutputArgs,
   buildVideoPlan,
+  isNativeVideoOutput,
   parseReadingSsimStats,
   readingStabilityPairIndices,
   videoFramesForOutput
@@ -178,6 +181,57 @@ test('视频 QA 排除转场后逐对检查所有阅读区相邻帧', () => {
   assert.throws(() => parseReadingSsimStats(failing, plan), /阅读区出现画面变化/u);
 });
 
+test('原生视频页使用混合输入并完整保留实际视觉帧数', () => {
+  const nativeOutput = {
+    template_id: 'sunset',
+    order: 2,
+    kind: 'media',
+    png_file: '02-video-poster.png',
+    media: {
+      type: 'video',
+      native_video: { relative_path: 'assets/source.mp4' }
+    },
+    media_layout: { x: 116, y: 296, width: 848, height: 952 }
+  };
+  assert.equal(isNativeVideoOutput(nativeOutput), true);
+  const outputs = [
+    { template_id: 'sunset', order: 1, kind: 'text', text: '字'.repeat(287), png_file: '01-text.png' },
+    nativeOutput
+  ];
+  const probe = {
+    decode_pass: true,
+    embedded_frames: 2620,
+    source_duration_seconds: 87.333333,
+    embedded_duration_seconds: 87.333333
+  };
+  const plan = buildVideoPlan(outputs, { id: 'sunset', name: '落日琥珀版' }, {
+    nativeVideoProbes: new Map([['assets/source.mp4', probe]])
+  });
+  assert.deepEqual(plan.slides.map(({ frames }) => frames), [66, 2620]);
+  assert.equal(plan.total_frames, 2682);
+  assert.equal(plan.duration_seconds, 89.4);
+  assert.equal(plan.input_count, 3);
+  assert.equal(plan.native_video_count, 1);
+  assert.equal(plan.slides[0].background_input_index, 0);
+  assert.equal(plan.slides[1].background_input_index, 1);
+  assert.equal(plan.slides[1].native_video_input_index, 2);
+  const filter = buildVideoFilter(plan);
+  assert.match(filter, /\[2:v\]fps=30/u);
+  assert.match(filter, /scale=w=848:h=952:force_original_aspect_ratio=decrease/u);
+  assert.match(filter, /overlay=x=116\+\(848-overlay_w\)\/2:y=296\+\(952-overlay_h\)\/2/u);
+  const indices = readingStabilityPairIndices(plan);
+  assert.equal(indices.transition.length, 4);
+  assert.equal(indices.dynamic_native_video.length, 2615);
+  assert.equal(indices.stable.length, 62);
+  assert.equal(indices.transition.length + indices.dynamic_native_video.length + indices.stable.length, plan.total_frames - 1);
+  const stats = Array.from({ length: plan.total_frames - 1 }, (_, index) => (
+    `n:${index + 1} Y:1.000000 U:1.000000 V:1.000000 All:1.000000 (inf)`
+  )).join('\n');
+  const audit = parseReadingSsimStats(stats, plan);
+  assert.equal(audit.dynamic_native_video_pair_count, 2615);
+  assert.equal(audit.stable_pair_count, 62);
+});
+
 test('单页视频不创建转场，缺少本地视频运行时会 fail closed', () => {
   const plan = buildVideoPlan([
     { template_id: 'sunset', order: 1, kind: 'text', text: '正文', png_file: '01.png' }
@@ -282,7 +336,7 @@ test('带 Quote 的 Thread 忽略 Quote 正文和 Quote 媒体但保留自身媒
     replyTo: 100,
     createdAt: '2026-08-05T00:01:00Z',
     quoteId: 900,
-    media: [{ id: 'own-photo', type: 'photo', url: 'data:image/png;base64,AA==', width: 10, height: 20 }]
+    media: [{ id: 'own-photo', type: 'photo', url: 'https://pbs.twimg.com/media/own-photo.jpg', width: 10, height: 20 }]
   });
   const route = routeThread(normalizeFixture(root, [root, child]));
   assert.equal(route.resolvedInputType, 'thread_with_quote');
@@ -359,15 +413,79 @@ test('缺失作者身份或非数字帖子 ID 时 fail closed', () => {
   assert.throws(() => normalizeFixture(missingAuthor), /缺少可核验的作者身份/u);
   const malicious = post('../../../outside', '正文。');
   assert.throws(() => normalizeFixture(malicious), /帖子 ID 不是有效数字 ID/u);
+  const unsafeMedia = post(101, '正文。', {
+    media: [{ id: 'unsafe', type: 'photo', url: 'file:///etc/passwd', width: 10, height: 10 }]
+  });
+  assert.throws(() => routeThread(normalizeFixture(unsafeMedia)), /拒绝非白名单/u);
 });
 
-test('视频只使用自身 thumbnail_url', () => {
+test('视频保留封面并选择无需上采样的安全 MP4 供成片完整嵌入', () => {
   const root = post(100, '视频帖子。', {
-    media: [{ id: 'video-1', type: 'video', url: 'https://video.invalid/file.mp4', thumbnail_url: 'https://video.invalid/cover.jpg', width: 1280, height: 720 }]
+    media: [{
+      id: 'video-1',
+      type: 'video',
+      url: 'https://video.twimg.com/video/high.mp4',
+      thumbnail_url: 'https://pbs.twimg.com/video_thumb/cover.jpg',
+      duration: 87.492,
+      width: 1920,
+      height: 1080,
+      format: 'video/mp4',
+      formats: [
+        { url: 'https://video.twimg.com/video/playlist.m3u8', container: 'm3u8' },
+        { url: 'https://video.twimg.com/video/640x360/low.mp4', container: 'mp4', codec: 'h264', bitrate: 832000 },
+        { url: 'https://video.twimg.com/video/1280x720/canvas.mp4', container: 'mp4', codec: 'h264', bitrate: 3000000 },
+        { url: 'https://video.twimg.com/video/1920x1080/high.mp4', container: 'mp4', codec: 'h264', bitrate: 6000000 },
+        { url: 'https://evil.invalid/video/3840x2160/unsafe.mp4', container: 'mp4', codec: 'h264', bitrate: 99999999 }
+      ]
+    }]
   });
   assert.deepEqual(ownMedia(root), [{
-    id: 'video-1', type: 'video_thumbnail', url: 'https://video.invalid/cover.jpg', width: null, height: null
+    id: 'video-1',
+    type: 'video',
+    url: 'https://pbs.twimg.com/video_thumb/cover.jpg',
+    poster_url: 'https://pbs.twimg.com/video_thumb/cover.jpg',
+    width: null,
+    height: null,
+    video_url: 'https://video.twimg.com/video/1280x720/canvas.mp4',
+    video_duration_seconds: 87.492,
+    video_variant: {
+      url: 'https://video.twimg.com/video/1280x720/canvas.mp4',
+      container: 'mp4',
+      codec: 'h264',
+      bitrate: 3000000,
+      width: 1280,
+      height: 720,
+      selection: 'canvas_matched_mp4'
+    }
   }]);
+  assert.equal(selectNativeVideoVariant({
+    url: 'file:///etc/passwd',
+    format: 'video/mp4',
+    formats: [{ url: 'https://video.invalid/a.mp4', container: 'mp4', bitrate: 1 }]
+  }), null);
+  assert.deepEqual(selectNativeVideoVariant({
+    url: 'https://video.twimg.com/video/1080x1920/fallback.mp4',
+    format: 'video/mp4',
+    width: 1080,
+    height: 1920
+  }), {
+    url: 'https://video.twimg.com/video/1080x1920/fallback.mp4',
+    container: 'mp4',
+    codec: null,
+    bitrate: null,
+    width: 1080,
+    height: 1920,
+    selection: 'validated_top_level_mp4_fallback'
+  });
+  const missingPoster = post(102, '缺封面视频。', {
+    media: [{
+      id: 'video-without-poster',
+      type: 'video',
+      url: 'https://video.twimg.com/video/1280x720/source.mp4',
+      format: 'video/mp4'
+    }]
+  });
+  assert.throws(() => ownMedia(missingPoster), /缺少 thumbnail_url；拒绝静默忽略/u);
 });
 
 test('长正文按顺序完整拆帧且外围标题来自原文', () => {
@@ -414,6 +532,7 @@ test('缺失指标不伪装成真实零，外部本地素材一律拒绝', async
   assert.equal(formatMetric(0, '收藏'), '0收藏');
   await assert.rejects(materializeAsset('/etc/passwd', '/tmp/yichen-x-slicer-never-written.jpg'), /拒绝本地路径/u);
   await assert.rejects(materializeAsset('data:image/png;base64,AA==', '/tmp/yichen-x-slicer-never-written.jpg'), /拒绝本地路径/u);
+  await assert.rejects(materializeVideoAsset('/etc/passwd', '/tmp/yichen-x-slicer-never-written.mp4'), /拒绝本地路径/u);
 });
 
 let passed = 0;

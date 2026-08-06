@@ -1,6 +1,6 @@
 ---
 name: yichen-x-slicer
-description: Convert a public X/Twitter Post, Quote Post, or Thread URL into a verified sequence of 1080×1440 Chinese image slices using one of 11 bundled visual templates and a fixed-timing silent slideshow video by default. Use when the user asks to use Yichen X Slicer（逸尘 X 切片）to turn an X link into image cards, tweet slices, a finished silent social video, 3:4 post graphics, or the 落日琥珀版/default style. Ignore quoted content, retain only the selected Post or same-author Thread body and its own media, and never create TTS, audio, Jianying drafts, or publish content.
+description: Convert a public X/Twitter Post, Quote Post, or Thread URL into a verified sequence of 1080×1440 Chinese image slices and a finished silent video using one of 11 bundled visual templates. Native videos attached to selected posts play in full inside their media frame instead of becoming frozen thumbnails, while all source audio is stripped. Use when the user asks to use Yichen X Slicer（逸尘 X 切片）to turn an X link into image cards, tweet slices, a finished silent social video, 3:4 post graphics, or the 落日琥珀版/default style. Ignore quoted content, retain only the selected Post or same-author Thread body and its own media, and never create TTS, audio, Jianying drafts, or publish content.
 ---
 
 # Yichen X Slicer（逸尘 X 切片）
@@ -51,6 +51,7 @@ The normal workflow appends one verified silent MP4 per selected template after 
 - For a Thread, include the verified same-author direct-reply chain and each selected node's own media.
 - For a Thread containing Quotes, ignore every Quote. Skip a node that becomes empty after its Quote-only URL is removed and has no own media.
 - Exclude other-author replies, side branches, comments, Quote media, and Quote metrics.
+- When a selected Post or Thread node has a native video, keep its poster in the PNG/ZIP deliverables but play the complete native video visual inside the same media stage in the final MP4. Never silently substitute the poster for the moving video.
 
 Read [content-routing.md](references/content-routing.md) when diagnosing routing, branches, missing Thread nodes, or `quote_only` exclusions.
 
@@ -78,18 +79,19 @@ Require all of the following before reporting completion:
 Unless `--images-only` was explicitly requested, also require:
 
 8. Every MP4 has one 1080×1440 H.264 video stream at 30fps and zero audio streams.
-9. The frame count and duration exactly match the fixed `fixed-reading-v1` plan in [video.md](references/video.md).
-10. Reading holds are completely static; motion appears only inside each four-frame page transition.
+9. The frame count and duration exactly match the `fixed-reading-v1` plan in [video.md](references/video.md), including the complete probed visual duration of every native video page.
+10. Text and photo reading holds are completely static; added motion appears only inside each four-frame page transition. Native video pages may contain only their source motion, with no added shake, pan, zoom, crop, or loop.
 11. The complete MP4 decodes without errors, and manifest/QA hashes match the delivered file.
+12. For every native video page, QA proves that the downloaded MP4 fully decodes, the final video still has zero audio streams, and transition-free near-start, middle, and near-end source frames match their corresponding embedded frames in the final timeline.
 
 Return links to `index.html`, `contact-sheet.png`, the final ZIP, and every verified MP4. State the selected template, frame count, routed input type, and any `quote_only` exclusions. Omit the MP4 only for an explicit `--images-only` request.
 
 ## Boundaries
 
 - Read only public X data anonymously through FxTwitter; do not use X login state or cookies.
-- Accept runtime media only from HTTPS `pbs.twimg.com` or `video.twimg.com`, including every redirect hop. Reject local paths, `file:`/`data:` URLs, oversized responses, wrong MIME types, and non-image signatures.
+- Accept runtime media only from HTTPS `pbs.twimg.com` or `video.twimg.com`, including every redirect hop. Native MP4 downloads must remain on exact host `video.twimg.com`. Reject local paths, `file:`/`data:` URLs, oversized responses, wrong MIME types, non-image signatures, and non-MP4 video signatures.
 - Fail closed when a Thread node has an invalid numeric status ID, the focal author identity is missing, or a Quote `t.co` URL cannot be resolved from top-level URL entities.
 - Do not operate WeChat, Jianying, or any publishing UI.
-- Do not generate TTS, voice, BGM, music, or any audio track.
+- Do not generate TTS, voice, BGM, music, or any audio track. Strip any audio carried by a source video; the final MP4 must have no audio stream.
 - Generate the fixed-timing silent video by default. Suppress it only through an explicit `--images-only` request; do not add other video pacing modes or free-form FFmpeg filters.
 - Do not delete prior outputs. If a target exists, let the script create a `-run-N` sibling.
