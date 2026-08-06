@@ -6,7 +6,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { renderSilentVideos, SILENT_VIDEO_PROFILE } from './silent_video.mjs';
+import { renderVideos, VIDEO_PROFILE } from './silent_video.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = path.dirname(SCRIPT_DIR);
@@ -123,7 +123,7 @@ function printHelp() {
     '  node yichen_x_slicer.mjs --list-templates',
     '',
     '默认模板：sunset（落日琥珀版）',
-    '默认产物：图片组、图片 ZIP 和固定阅读节奏静音视频',
+    '默认产物：图片组、图片 ZIP 和固定阅读节奏视频；原视频有音轨时保留原声',
     '--images-only：明确只生成图片和图片 ZIP，不生成视频',
     ''
   ].join('\n'));
@@ -1483,7 +1483,7 @@ async function renderAndInspect(outputs, previewSheet, outputDirectory, coverage
     args: ['--allow-file-access-from-files', '--disable-background-networking', '--disable-component-update', '--disable-sync']
   });
   const report = {
-    version: 'yichen-x-slicer-qa/v2',
+    version: 'yichen-x-slicer-qa/v3',
     created_at: new Date().toISOString(),
     canvas: CANVAS,
     playwright_runtime: modulePath === 'playwright' ? 'playwright' : 'bundled-playwright',
@@ -1594,7 +1594,7 @@ function serializableOutput(output) {
 
 function manifestFor({ options, status, normalized, route, templates, outputs, assets, previewSheet, coverage, outputDirectory }) {
   const manifest = {
-    version: 'yichen-x-slicer-manifest/v2',
+    version: 'yichen-x-slicer-manifest/v3',
     created_at: new Date().toISOString(),
     output_directory: '.',
     template_requested: options.template,
@@ -1619,7 +1619,9 @@ function manifestFor({ options, status, normalized, route, templates, outputs, a
       exclude_other_author_replies: true,
       skip_quote_only_nodes: true,
       embed_complete_own_native_video_in_mp4: options.video,
-      strip_all_source_video_audio: true,
+      preserve_selected_native_video_audio: options.video,
+      generated_tts: false,
+      bgm: false,
       source_label: 'blank_zero_size',
       minimum_body_font_px: 36
     },
@@ -1632,7 +1634,7 @@ function manifestFor({ options, status, normalized, route, templates, outputs, a
   if (options.video) {
     manifest.video = {
       requested: true,
-      profile: SILENT_VIDEO_PROFILE,
+      profile: VIDEO_PROFILE,
       outputs: []
     };
   }
@@ -1744,7 +1746,7 @@ export async function run(options) {
     }
     manifest.zip = { file: zip.file, count: zip.entry_count, sha256: zip.sha256 };
     if (options.video) {
-      videoRecords = renderSilentVideos({ outputs, templates, outputDirectory });
+      videoRecords = renderVideos({ outputs, templates, outputDirectory });
       qa.videos = videoRecords;
       manifest.video.outputs = videoRecords;
     }
@@ -1754,7 +1756,7 @@ export async function run(options) {
     fs.writeFileSync(safeOutputPath(outputDirectory, 'qa-report.json'), JSON.stringify({ ...qa, pass: true }, null, 2) + '\n', { encoding: 'utf8', flag: 'wx' });
   } catch (error) {
     qa ??= {
-      version: 'yichen-x-slicer-qa/v2',
+      version: 'yichen-x-slicer-qa/v3',
       created_at: new Date().toISOString(),
       canvas: CANVAS,
       coverage,
@@ -1787,7 +1789,7 @@ export async function run(options) {
     qa: safeOutputPath(outputDirectory, 'qa-report.json')
   };
   if (options.video) {
-    result.video_profile = SILENT_VIDEO_PROFILE.id;
+    result.video_profile = VIDEO_PROFILE.id;
     result.video_count = videoRecords.length;
     result.videos = videoRecords.map((record) => path.join(outputDirectory, record.file));
   }

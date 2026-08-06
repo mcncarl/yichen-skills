@@ -1,4 +1,4 @@
 interface:
   display_name: "逸尘 X 切片"
-  short_description: "将 X Post 或 Thread 转为 3:4 图片组与静音成片，完整嵌入原生视频"
-  default_prompt: "使用 $yichen-x-slicer 把这条 X 链接直接生成默认落日琥珀版图片组和静音成片；若原贴带原生视频，完整嵌入画面并去除全部音频。"
+  short_description: "将 X Post 或 Thread 转为 3:4 图片组与原声随页成片"
+  default_prompt: "使用 $yichen-x-slicer 把这条 X 链接直接生成默认落日琥珀版图片组和成片；若所选非 Quote 原生视频有源音轨，完整嵌入画面并只在对应视频页按时间轴保留原声，无源音轨则该段静音，禁止额外配音或音乐。"

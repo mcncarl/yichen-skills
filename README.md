@@ -34,7 +34,7 @@ Created and maintained by **逸尘 (Yichen)**.
 19. Gate private bookmark export behind current-task authorization (`yichen-bookmarks-export`)
 20. Choose between Step and Doubao/Volcengine ASR without duplicate submissions (`yichen-asr`)
 21. Create authorized WeCom documents and manage todos, meetings, and schedules through the official CLI without controlling the desktop app (`yichen-wecom-operations`)
-22. Turn one public X Post or Thread URL into verified 3:4 image slices and a silent finished video that embeds complete native video visuals (`yichen-x-slicer`)
+22. Turn one public X Post or Thread URL into verified 3:4 image slices and a finished video that embeds complete native video visuals and preserves their original audio when present (`yichen-x-slicer`)
 
 ## Included Skills
 
@@ -222,12 +222,12 @@ See [yichen-wecom-operations/README.md](./yichen-wecom-operations/README.md) for
 
 Turn one public X status URL into finished social assets:
 
-- Generates a verified 1080×1440 image sequence, a PNG-only ZIP, and a silent H.264 video by default
+- Generates a verified 1080×1440 image sequence, a PNG-only ZIP, and an H.264 video by default
 - Uses the bundled Sunset Amber template by default and includes 11 visual templates
 - Keeps only the focal Post or verified same-author Thread; quoted content and unrelated replies are excluded
 - Keeps text and photo holds static, limits added motion to four-frame page transitions, and plays every selected native video in full inside its media stage instead of freezing its poster
 - Reads public data anonymously through FxTwitter and never uses X login state or cookies
-- Never generates TTS, BGM, or music; source-video audio is stripped so the final MP4 has no audio stream
+- Never generates TTS, voice-over, BGM, or music; selected native-video audio stays aligned to its matching page, while source-silent intervals remain silent and all-source-silent runs contain no audio stream
 
 Install this Skill directly with `npx skills add mcncarl/yichen-skills --skill yichen-x-slicer`.
 
