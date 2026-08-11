@@ -11,6 +11,12 @@ Created and maintained by **逸尘 (Yichen)**.
 - WeChat: `yichen365ai`
 - When adding me, please include `GitHub` in the verification message
 
+## Personal Use and Commercial Authorization
+
+This repository is available only for personal learning and non-commercial personal use. Commercial use—including client delivery, paid products or services, internal company deployment, marketplace packaging, and course bundling—requires the author's prior explicit written authorization.
+
+To request commercial authorization, contact me on WeChat at `yichen365ai` and include `Commercial Authorization` in the verification message. Sending a contact request does not itself grant permission; commercial use is allowed only after you receive explicit written authorization.
+
 ## What This Repo Does
 
 1. Turn Claude Code conversations into structured Obsidian notes (`yichen-summary`)
@@ -562,7 +568,7 @@ If you ever exposed real cookies in a public repo, rotate them immediately.
 
 ## For Redistributors
 
-This repository is published for personal learning and non-commercial personal use only. Do not use it for commercial services, client delivery, paid products, internal company toolkits, marketplace packages, courses, or any other revenue-generating purpose without explicit written permission.
+This repository is published for personal learning and non-commercial personal use only. Do not use it for commercial services, client delivery, paid products, internal company toolkits, marketplace packages, courses, or any other revenue-generating purpose without explicit written permission. To request commercial authorization, contact the author on WeChat at `yichen365ai` and include `Commercial Authorization` in the verification message.
 
 If you fork for personal study, keep at least:
 - `README.md`
