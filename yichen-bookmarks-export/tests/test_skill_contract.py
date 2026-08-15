@@ -11,7 +11,7 @@ ROUTES = json.loads((ROOT / "tests" / "routes.json").read_text(encoding="utf-8")
 
 
 class BookmarksExportContractTest(unittest.TestCase):
-    def test_frontmatter_and_reference(self):
+    def test_frontmatter_and_resources(self):
         match = re.match(r"^---\n(.*?)\n---\n", SKILL, re.S)
         self.assertIsNotNone(match)
         keys = {
@@ -24,6 +24,13 @@ class BookmarksExportContractTest(unittest.TestCase):
         for platform in ("小红书", "抖音", "X/Twitter"):
             self.assertIn(platform, match.group(1))
         self.assertTrue((ROOT / "references" / "handoff-contract.md").is_file())
+        self.assertTrue((ROOT / "references" / "chrome-collections.md").is_file())
+        for script in (
+            "chrome_collectors.mjs",
+            "export_x_links.py",
+            "validate_link_file.py",
+        ):
+            self.assertTrue((ROOT / "scripts" / script).is_file())
 
     def test_static_safety_gates(self):
         required = [
@@ -32,21 +39,21 @@ class BookmarksExportContractTest(unittest.TestCase):
             "不得下载媒体、正文、字幕或附件",
             "不得调用 `$yichen-content-archive`",
             "不得再次调用 `$yichen-bookmarks-export`",
-            "~/.agents/skills/yichen-social-bookmarks-exporter",
+            "<SKILL_DIR>/scripts",
             "download_authorized_this_turn",
             "不删除文件",
         ]
         for marker in required:
             self.assertIn(marker, SKILL)
-        self.assertFalse((ROOT / "scripts").exists())
+        self.assertNotIn("social-bookmarks-exporter", SKILL)
 
-    def test_only_one_execution_route(self):
-        execution_routes = {
-            row["route_skill"]
+    def test_integrated_execution_route(self):
+        execution_modes = {
+            row["execution"]
             for row in ROUTES
-            if "route_skill" in row
+            if "execution" in row
         }
-        self.assertEqual(execution_routes, {"yichen-social-bookmarks-exporter"})
+        self.assertEqual(execution_modes, {"integrated"})
         for row in ROUTES:
             if not row["authorized_this_turn"]:
                 self.assertEqual(row["decision"], "ask_authorization")

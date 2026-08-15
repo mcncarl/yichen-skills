@@ -1,4 +1,6 @@
 interface:
-  display_name: "社交收藏夹导出"
-  short_description: "批量导出小红书、抖音和 X 收藏夹链接到本地文件并验证"
-  default_prompt: "Use $yichen-social-bookmarks-exporter to export my Xiaohongshu, Douyin, and X bookmarks into verified local link files."
+  display_name: "收藏导出旧名兼容入口"
+  short_description: "旧名兼容入口，能力已合并到 yichen-bookmarks-export"
+  default_prompt: "Use $yichen-bookmarks-export because the old $yichen-social-bookmarks-exporter implementation has been merged into it."
+policy:
+  allow_implicit_invocation: false

@@ -33,11 +33,11 @@
 12. 批量导出公众号历史文章、原创列表、正文，以及可选阅读量/评论数据（`yichen-wechat-mp-batch-exporter`）
 13. 只读解析并导出本机企业微信 5.x 数据库快照，不操控客户端（`yichen-wecom-local-vault`）
 14. 在 GPT 主导的 Codex 对话中调用 Grok 原生搜索 X 或提供第二意见，不切换主模型（`yichen-grok-consult`）
-15. 只读导出小红书收藏、抖音收藏与 X 书签链接，并做数量和格式核验（`yichen-social-bookmarks-exporter`）
+15. 通过已退役别名兼容旧的收藏导出调用（`yichen-social-bookmarks-exporter`）
 16. 用一个安全优先的总入口编排跨阶段互联网研究（`yichen-web-research`）
 17. 把公共网页和平台搜索统一成可核验候选（`yichen-unified-search`）
 18. 只读取、下载和归档已知或已确认链接（`yichen-content-archive`）
-19. 用当轮授权闸门包装私人收藏导出（`yichen-bookmarks-export`）
+19. 在当轮授权闸门后直接执行私人收藏导出（`yichen-bookmarks-export`）
 20. 在 Step 与豆包/火山 ASR 之间安全路由并避免重复提交（`yichen-asr`）
 21. 通过企业微信官方 CLI 创建授权文档并管理待办、会议和日程，不操控客户端（`yichen-wecom-operations`）
 22. 把一条公开 X Post 或 Thread 链接转成经过验收的 3:4 图片切片与成片，完整嵌入原生视频并在有源音轨时保留原声（`yichen-x-slicer`）
@@ -158,13 +158,8 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 安装、隐私边界和校验限制见 [plugins/yichen-grok-consult/README.zh.md](./plugins/yichen-grok-consult/README.zh.md)。
 
 ### 15) `yichen-social-bookmarks-exporter`
-只读导出三个平台当前可访问的私人收藏链接：
-- 小红书和抖音复用用户已登录的 Chrome 页面会话，滚动到稳定底部并去重
-- X 通过另行安装、版本标识包含 `graphql-only` 的 Field Theory `ft` CLI 读取本地索引
-- 输出一行一个 URL，并校验有效条数、空行、重复和非法行
-- 不导出 Cookie、Local Storage、密码或 Token 数据库；小红书 `xsec_token` 只保存在用户指定的本地链接文件
 
-安装、依赖和隐私边界见 [yichen-social-bookmarks-exporter/README.md](./yichen-social-bookmarks-exporter/README.md)。
+为已有显式调用保留的兼容入口。当前维护实现已完整迁移到 `yichen-bookmarks-export`；兼容入口不会再执行目录中保留的旧脚本。
 
 ### 16) `yichen-web-research`
 
@@ -196,11 +191,14 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 
 ### 19) `yichen-bookmarks-export`
 
-`yichen-social-bookmarks-exporter` 的安全包装层：
+当前维护的私人收藏导出实现：
 
 - 每个平台和范围都要求当前任务明确授权
+- 内置小红书/抖音 Chrome 采集器和 X 本地索引导出器
 - 只导出链接，不把授权自动转移到下载
 - 交接文件只引用本地文件，不内嵌私人 URL
+
+安装、依赖和隐私边界见 [yichen-bookmarks-export/README.md](./yichen-bookmarks-export/README.md)。
 
 ### 20) `yichen-asr`
 
@@ -320,8 +318,10 @@ yichen-skills/
 │  └─ tests/
 ├─ yichen-bookmarks-export/
 │  ├─ SKILL.md
+│  ├─ README.md
 │  ├─ agents/
 │  ├─ references/
+│  ├─ scripts/
 │  └─ tests/
 ├─ yichen-asr/
 │  ├─ SKILL.md
@@ -489,9 +489,9 @@ codex plugin add yichen-grok-consult@yichen-skills
 4. 让 GPT 调用 Grok 搜索公开 X 帖子，或要求 Grok 提供第二意见
 5. 配置代理或 OpenCodex 前先看 [plugins/yichen-grok-consult/README.zh.md](./plugins/yichen-grok-consult/README.zh.md)
 
-### K）启用 `yichen-social-bookmarks-exporter`
+### K）启用 `yichen-bookmarks-export`
 
-1. 确保 `yichen-social-bookmarks-exporter/SKILL.md` 在已加载的 skills 路径里
+1. 确保 `yichen-bookmarks-export/SKILL.md` 在已加载的 skills 路径里
 2. 小红书或抖音导出前，在当前 Chrome 登录目标账号并打开收藏页
 3. X 导出前，确认另行安装的 `ft --version` 包含 `graphql-only`
 4. 明确指定本轮授权的平台、导出范围和输出目录
@@ -603,7 +603,7 @@ rm -f /tmp/x_current_cookies.json
 
 - [`sudoHG/codex-grok-search`](https://github.com/sudoHG/codex-grok-search) — MIT 许可的公开参考；本仓库未复制其源码
 
-`yichen-social-bookmarks-exporter` 的 X 书签路线调用：
+`yichen-bookmarks-export` 的 X 书签路线调用：
 
 - [`afar1/fieldtheory-cli`](https://github.com/afar1/fieldtheory-cli) — MIT 许可的可选外部运行时；本仓库未打包 Field Theory 源码或二进制
 - 所要求的 `graphql-only` 标识指用户自行维护的修改版，不是上游官方发布名称；该修改版未在本仓库分发
