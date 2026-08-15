@@ -54,12 +54,14 @@
 
 ### 2) `yichen-x-article-draft-uploader`
 把 Obsidian/Markdown 长文上传到 X Articles 草稿：
-- 第一张图片自动作为 X Article 封面
+- 文章开头有图片时作为可选 5:2 封面；没有时保持草稿封面为空
 - Markdown 转成 X 编辑器可识别的 rich text
-- 正文图片按原文位置插入
+- 将受支持的 pipe 表格转换成 X 原生表格块
+- 最多 25 个正文媒体按原文位置插入
 - 使用独立 Playwright 浏览器，不抢占用户当前 Chrome
-- 通过临时导出的 cookies 复用 Chrome 登录态
-- 只保存草稿，不点击最终 `发布`
+- 把 Chrome 登录态导入私有 Cookie 文件，不写入仓库
+- 刷新同一草稿，核验正文、表格、媒体身份、数量、顺序和位置
+- 只保存草稿，绝不点击最终 `发布`
 
 完整说明见 [yichen-x-article-draft-uploader/README.md](./yichen-x-article-draft-uploader/README.md)。
 
@@ -423,11 +425,12 @@ codex plugin add yichen-grok-consult@yichen-skills
 
 ### B）启用 `yichen-x-article-draft-uploader`
 
-1. 安装 Python Playwright：`pip3 install playwright pycryptodome && python3 -m playwright install chromium`
-2. 确认 Chrome 已经登录 X
-3. 直接说“把这篇 Markdown 上传到 X Articles 草稿”，或手动运行脚本
-4. Skill 会新建干净草稿，第一张图作为封面，正文图片按原文位置插入
-5. 详细命令见 [yichen-x-article-draft-uploader/README.md](./yichen-x-article-draft-uploader/README.md)
+1. 按 Skill README 的防覆盖命令安装固定 tag `x-article-draft-uploader-v1.0.0`
+2. 从 Skill 的 `requirements.txt` 安装精确 Python 依赖，再执行 `python3 -m playwright install chromium`
+3. 确认 Chrome 已经登录 X；Ailu 用户可在设置页选择从 Chrome 导入、粘贴 JSON 或选择 JSON
+4. 直接说“把这篇 Markdown 上传到 X Articles 草稿”，或手动运行脚本
+5. Skill 会新建并核验草稿，不会正式发布
+6. 固定版本安装命令和验收方法见 [yichen-x-article-draft-uploader/README.md](./yichen-x-article-draft-uploader/README.md)
 
 ### C）启用 `yichen-mac-wechat-dual-open`
 
@@ -519,19 +522,14 @@ codex plugin add yichen-grok-consult@yichen-skills
 
 本仓库不包含真实凭据，也不再提供需要手动填写的 cookie 模板。
 
-`yichen-x-article-draft-uploader` 会从本机 Chrome 临时导出 X cookies 到 Playwright 可用的 JSON 文件：
+`yichen-x-article-draft-uploader` 可从本机 Chrome 导出 X Cookie 到私有的 Playwright JSON。Ailu 用户通常应直接使用设置页里的三种导入方式：
 
 ```bash
-python3 ~/.codex/skills/yichen-x-article-draft-uploader/scripts/export_x_cookies_from_chrome.py --output /tmp/x_current_cookies.json
+python3 ~/.agents/skills/x-article-draft-uploader/scripts/export_x_cookies_from_chrome.py \
+  --output ~/.ailu/secrets/x/cookies.json
 ```
 
-这个临时文件是敏感文件，用完可以删除：
-
-```bash
-rm -f /tmp/x_current_cookies.json
-```
-
-`.gitignore` 已默认忽略 `**/cookies.json`。
+规范目录权限为 `0700`，文件权限为 `0600`。Cookie 文件仍是敏感文件：不要提交到 Git、上传到 issue，或附进诊断包。`.gitignore` 已默认忽略 Cookie JSON。
 
 ## 安全说明
 

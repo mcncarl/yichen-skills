@@ -54,12 +54,14 @@ To request commercial authorization, contact me on WeChat at `yichen365ai` and i
 
 ### 2) `yichen-x-article-draft-uploader`
 Upload Obsidian/Markdown long-form articles to X Articles drafts:
-- Uses the first image as the X Article cover
+- Uses a leading image as the optional 5:2 cover; otherwise keeps the draft cover empty
 - Converts Markdown into rich text for the X editor
-- Inserts body images at their original Markdown positions
+- Converts supported pipe tables into native X table blocks
+- Inserts up to 25 body media items at their original Markdown positions
 - Runs in an independent Playwright browser so it does not take over the user's current Chrome window
-- Reuses Chrome login state through temporary exported cookies
-- Saves drafts only and does not click the final `发布` button
+- Imports Chrome login state into a private cookie file without committing it to the repository
+- Reloads the same draft and verifies text, tables, media identity, count, order, and position
+- Saves drafts only and never clicks the final `发布` button
 
 See [yichen-x-article-draft-uploader/README.md](./yichen-x-article-draft-uploader/README.md) for installation, privacy notes, and troubleshooting.
 
@@ -424,11 +426,12 @@ codex plugin add yichen-grok-consult@yichen-skills
 
 ### B) Enable `yichen-x-article-draft-uploader`
 
-1. Install Python Playwright: `pip3 install playwright pycryptodome && python3 -m playwright install chromium`
-2. Make sure Chrome is already logged in to X
-3. Say "upload this Markdown article to X Articles draft" or run the script directly
-4. The skill creates a fresh draft, preserves the first image as the cover, and inserts body images in place
-5. See [yichen-x-article-draft-uploader/README.md](./yichen-x-article-draft-uploader/README.md) for commands
+1. Install the pinned `x-article-draft-uploader-v1.0.0` tag by following the fail-safe command in the Skill README
+2. Install the exact Python dependencies from the Skill's `requirements.txt`, then run `python3 -m playwright install chromium`
+3. Make sure Chrome is already logged in to X; Ailu users can import cookies from Chrome, paste JSON, or choose a JSON file in Settings
+4. Say "upload this Markdown article to X Articles draft" or run the script directly
+5. The Skill creates and verifies a fresh draft; it does not publish it
+6. See [yichen-x-article-draft-uploader/README.md](./yichen-x-article-draft-uploader/README.md) for the pinned install command and checks
 
 ### C) Enable `yichen-mac-wechat-dual-open`
 
@@ -522,19 +525,14 @@ technical-support, feature-delivery, or response-time commitment.
 
 This repo does not include real credentials or cookie templates.
 
-`yichen-x-article-draft-uploader` exports current X cookies from the user's local Chrome profile into a temporary Playwright cookie file:
+`yichen-x-article-draft-uploader` can export current X cookies from the user's local Chrome profile into a private Playwright cookie file. Ailu users should normally use the three import choices in Ailu Settings instead of handling the file directly:
 
 ```bash
-python3 ~/.codex/skills/yichen-x-article-draft-uploader/scripts/export_x_cookies_from_chrome.py --output /tmp/x_current_cookies.json
+python3 ~/.agents/skills/x-article-draft-uploader/scripts/export_x_cookies_from_chrome.py \
+  --output ~/.ailu/secrets/x/cookies.json
 ```
 
-The temporary file is sensitive and should be deleted after use:
-
-```bash
-rm -f /tmp/x_current_cookies.json
-```
-
-`.gitignore` already ignores `**/cookies.json`.
+The canonical directory is mode `0700` and the file is mode `0600`. The file remains sensitive: never commit it, upload it to an issue, or attach it to a diagnostic report. `.gitignore` already ignores cookie JSON files.
 
 ## Security Notes
 

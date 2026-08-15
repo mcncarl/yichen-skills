@@ -1,4 +1,4 @@
 interface:
   display_name: "X 文章草稿上传器"
-  short_description: "把 Markdown 上传为 X Articles 草稿，保留封面和正文图片位置。"
-  default_prompt: "把这篇 Markdown 文章上传到 X Articles 草稿，第一张图作为封面，正文图片按原文位置插入。"
+  short_description: "把 Markdown 上传为 X Articles 草稿，支持 5:2 封面、无封面上传和 X 原生表格块。"
+  default_prompt: "先 dry-run 预检图片文件、锚点和表格尺寸；如果文章最上方有图片，就作为 5:2 封面上传；如果没有封面图，就跳过封面区域，直接上传标题、正文、表格和正文图片，完成后提醒用户补一张 5:2 封面图。"

@@ -1,0 +1,46 @@
+name: X Article draft uploader
+
+on:
+  push:
+    paths:
+      - 'yichen-x-article-draft-uploader/**'
+      - '.github/workflows/x-article-draft-uploader.yml'
+  pull_request:
+    paths:
+      - 'yichen-x-article-draft-uploader/**'
+      - '.github/workflows/x-article-draft-uploader.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: x-article-draft-uploader-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.9'
+          cache: pip
+          cache-dependency-path: yichen-x-article-draft-uploader/requirements.txt
+
+      - name: Install locked dependencies
+        run: python -m pip install --requirement yichen-x-article-draft-uploader/requirements.txt
+
+      - name: Compile and run local contracts
+        working-directory: yichen-x-article-draft-uploader
+        run: |
+          python -m py_compile scripts/*.py tests/*.py
+          python tests/test_local_contracts.py
+          python tests/test_cookie_exporter.py
+          python scripts/upload_markdown_to_x_article.py examples/smoke-test.md --dry-run > /dev/null
+          python -m pip check

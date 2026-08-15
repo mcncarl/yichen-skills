@@ -1,0 +1,161 @@
+{
+  "normalization_vectors": [
+    {
+      "name": "long-bold-anchor-with-merged-prefix",
+      "source": "这个公开测试段落用于说明插件会创建可编辑的流程图，然后**保留完整的粗体锚点文本**，并在编辑器合并前缀后继续精确定位正文图片。",
+      "actual": "更早的测试段落。 这个公开测试段落用于说明插件会创建可编辑的流程图，然后保留完整的粗体锚点文本，并在编辑器合并前缀后继续精确定位正文图片。",
+      "normalized_source": "这个公开测试段落用于说明插件会创建可编辑的流程图，然后保留完整的粗体锚点文本，并在编辑器合并前缀后继续精确定位正文图片。",
+      "normalized_actual": "更早的测试段落。 这个公开测试段落用于说明插件会创建可编辑的流程图，然后保留完整的粗体锚点文本，并在编辑器合并前缀后继续精确定位正文图片。",
+      "matches": true
+    },
+    {
+      "name": "paired-formatting",
+      "source": "**粗体** __粗体二__ *斜体* _斜体二_ ~~删除~~",
+      "actual": "粗体 粗体二 斜体 斜体二 删除",
+      "normalized_source": "粗体 粗体二 斜体 斜体二 删除",
+      "normalized_actual": "粗体 粗体二 斜体 斜体二 删除",
+      "matches": true
+    },
+    {
+      "name": "blockquote-structural-prefix",
+      "source": "> 引用锚点",
+      "actual": "引用锚点",
+      "normalized_source": "引用锚点",
+      "normalized_actual": "引用锚点",
+      "matches": true
+    },
+    {
+      "name": "nbsp-and-numeric-entities",
+      "source": "空格&nbsp;测试 &#169; &#x1F43C;",
+      "actual": "空格\u00a0测试 © 🐼",
+      "normalized_source": "空格 测试 © 🐼",
+      "normalized_actual": "空格 测试 © 🐼",
+      "matches": true
+    },
+    {
+      "name": "named-and-unknown-entities",
+      "source": "实体 &CounterClockwiseContourIntegral; &zzzz;",
+      "actual": "实体 ∳ &zzzz;",
+      "normalized_source": "实体 ∳ &zzzz;",
+      "normalized_actual": "实体 ∳ &zzzz;",
+      "matches": true
+    },
+    {
+      "name": "code-span-protects-literal-markup",
+      "source": "` **literal** &copy; `",
+      "actual": "**literal** &copy;",
+      "normalized_source": "**literal** &copy;",
+      "normalized_actual": "**literal** &copy;",
+      "matches": true
+    },
+    {
+      "name": "escaped-ascii-punctuation",
+      "source": "这是\\*字面星号\\*，保留\\&copy; 和 \\[方括号\\]",
+      "actual": "这是*字面星号*，保留&copy; 和 [方括号]",
+      "normalized_source": "这是*字面星号*，保留&copy; 和 [方括号]",
+      "normalized_actual": "这是*字面星号*，保留&copy; 和 [方括号]",
+      "matches": true
+    },
+    {
+      "name": "balanced-inline-link",
+      "source": "[同文](https://example.com/a_(b))",
+      "actual": "同文",
+      "normalized_source": "同文",
+      "normalized_actual": "同文",
+      "matches": true
+    },
+    {
+      "name": "full-reference-link",
+      "source": "[同文][ref]",
+      "actual": "同文",
+      "normalized_source": "同文",
+      "normalized_actual": "同文",
+      "matches": true
+    },
+    {
+      "name": "collapsed-reference-link",
+      "source": "[同文][]",
+      "actual": "同文",
+      "normalized_source": "同文",
+      "normalized_actual": "同文",
+      "matches": true
+    },
+    {
+      "name": "uri-and-email-autolinks",
+      "source": "<https://example.com/a> <me@example.com>",
+      "actual": "https://example.com/a me@example.com",
+      "normalized_source": "https://example.com/a me@example.com",
+      "normalized_actual": "https://example.com/a me@example.com",
+      "matches": true
+    },
+    {
+      "name": "nfc-and-zero-width",
+      "source": "Café A​‌‍⁠﻿B",
+      "actual": "Café AB",
+      "normalized_source": "Café AB",
+      "normalized_actual": "Café AB",
+      "matches": true
+    },
+    {
+      "name": "zero-width-before-combining-mark",
+      "source": "Cafe​́",
+      "actual": "Café",
+      "normalized_source": "Café",
+      "normalized_actual": "Café",
+      "matches": true
+    },
+    {
+      "name": "visible-pipe-and-backticks-are-not-deleted",
+      "source": "A \\| B 和 \\`literal\\`",
+      "actual": "A | B 和 `literal`",
+      "normalized_source": "A | B 和 `literal`",
+      "normalized_actual": "A | B 和 `literal`",
+      "matches": true
+    },
+    {
+      "name": "outer-pipes-after-leading-space",
+      "source": " | **text** | ",
+      "actual": " | text | ",
+      "normalized_source": "text",
+      "normalized_actual": "text",
+      "matches": true
+    },
+    {
+      "name": "wrong-paragraph-remains-rejected",
+      "source": "**正确锚点段落**",
+      "actual": "正确锚点段落 后续错误段落",
+      "normalized_source": "正确锚点段落",
+      "normalized_actual": "正确锚点段落 后续错误段落",
+      "matches": false
+    }
+  ],
+  "binding_vectors": [
+    {
+      "name": "synthetic-after-anchor",
+      "source_signature": "visual-dhash-v1:1111111111111111111111111111111111111111111111111111111111111111",
+      "occurrence": 1,
+      "anchor": "这个公开测试段落用于说明插件会创建可编辑的流程图，然后**保留完整的粗体锚点文本**，并在编辑器合并前缀后继续精确定位正文图片。",
+      "dom_order": 10,
+      "placement": "after-anchor",
+      "binding_key": "media-v1-1fda7ab97c67d748d671eb933065610abdb6012daae3899fbedac5b29fffd88c"
+    },
+    {
+      "name": "composer-start",
+      "source_signature": "visual-dhash-v1:1111111111111111111111111111111111111111111111111111111111111111",
+      "occurrence": 1,
+      "anchor": "",
+      "dom_order": 0,
+      "placement": "composer-start",
+      "binding_key": "media-v1-86a84cf33977eb4c88d4e9284b13b0a915f05ca79c5197fb6529608aa515109d"
+    },
+    {
+      "name": "blockquote-second-occurrence",
+      "source_signature": "visual-dhash-v1:1111111111111111111111111111111111111111111111111111111111111111",
+      "occurrence": 2,
+      "anchor": "> 引用锚点",
+      "dom_order": 4,
+      "placement": "after-anchor",
+      "binding_key": "media-v1-796ff23fdfdaaf49a81f44d01247548279fb3980993837c2972d12e186151605"
+    }
+  ]
+}
