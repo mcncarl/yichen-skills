@@ -27,8 +27,8 @@
 
 ## 版本与兼容性
 
-- 当前固定版本：`1.0.0`
-- Git tag：`x-article-draft-uploader-v1.0.0`
+- 当前固定版本：`1.0.1`
+- Git tag：`x-article-draft-uploader-v1.0.1`
 - 已按 Ailu `0.2.0` 的 `x-article-persistence-v1` 结果契约核对
 - 固定版本只创建 X Article 草稿，不包含最终发布动作
 
@@ -48,7 +48,7 @@ Ailu 能从 `~/.agents/skills/x-article-draft-uploader/` 或
     exit 1
   fi
   npx --yes skills@1.5.22 add \
-    "https://github.com/mcncarl/yichen-skills/tree/x-article-draft-uploader-v1.0.0/yichen-x-article-draft-uploader" \
+    "https://github.com/mcncarl/yichen-skills/tree/x-article-draft-uploader-v1.0.1/yichen-x-article-draft-uploader" \
     --skill x-article-draft-uploader --global --agent codex --copy --yes
 )
 ```
@@ -228,6 +228,7 @@ X 会弹出媒体编辑层。必须点击 `应用`，否则编辑器会被 mask 
 x-article-draft-uploader/
 ├── SKILL.md
 ├── README.md
+├── LICENSE
 ├── VERSION
 ├── requirements.txt
 ├── agents/
@@ -246,6 +247,14 @@ x-article-draft-uploader/
 
 ## License
 
-Personal Learning and Non-Commercial Use License. See the repository root `LICENSE`.
+本 Skill 仅允许个人学习、研究和非商业个人工作流使用。客户交付、付费产品或服务、
+公司内部部署、市场打包、课程打包及其他商业用途，必须事先取得作者明确的书面授权。
+
+如需申请商业授权，请添加微信 `yichen365ai`，并在验证信息中备注 `商业授权`。
+仅发送好友申请或咨询不代表已经获得授权；收到明确书面授权后方可商用。
+
+完整条款见本目录的 [`LICENSE`](LICENSE)。该限制只适用于
+`x-article-draft-uploader` Skill，不改变 Ailu 核心的 AGPL-3.0-or-later 许可；
+第三方材料继续适用各自许可证和仓库根目录的 `THIRD_PARTY_NOTICES.md`。
 
 部分 Markdown 解析流程参考并迁移自 `wshuyi/x-article-publisher-skill`，详见仓库根目录 `THIRD_PARTY_NOTICES.md`。

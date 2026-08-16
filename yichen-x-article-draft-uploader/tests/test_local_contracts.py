@@ -59,10 +59,17 @@ class PublicReleaseSafetyTests(unittest.TestCase):
         version = (SKILL_ROOT / "VERSION").read_text(encoding="utf-8").strip()
         readme = (SKILL_ROOT / "README.md").read_text(encoding="utf-8")
 
-        self.assertEqual(version, "1.0.0")
-        self.assertIn("x-article-draft-uploader-v1.0.0", readme)
+        self.assertEqual(version, "1.0.1")
+        self.assertIn("x-article-draft-uploader-v1.0.1", readme)
         self.assertIn("skills@1.5.22", readme)
         self.assertNotIn("tree/main/yichen-x-article-draft-uploader", readme)
+
+        license_text = (SKILL_ROOT / "LICENSE").read_text(encoding="utf-8")
+        instructions = (SKILL_ROOT / "SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("Commercial use requires prior explicit written authorization", license_text)
+        self.assertIn("yichen365ai", license_text)
+        self.assertIn("商业用途，必须事先取得作者明确的书面授权", instructions)
+        self.assertIn("不改变 Ailu 核心的 AGPL-3.0-or-later 许可", instructions)
 
         requirements = (SKILL_ROOT / "requirements.txt").read_text(encoding="utf-8").splitlines()
         self.assertEqual(requirements, ["playwright==1.58.0", "pycryptodome==3.23.0"])
