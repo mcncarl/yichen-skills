@@ -1,0 +1,43 @@
+X Article Draft Uploader Personal Learning and Non-Commercial Use License
+
+Copyright (c) 2026 Yichen
+
+This Skill is source-available for personal learning, research, and
+non-commercial personal workflow use only.
+
+Permission is granted to view, copy, study, and modify this Skill for personal
+non-commercial purposes, subject to all of the following conditions:
+
+1. Commercial use requires prior explicit written authorization from the
+   copyright holder. Commercial use includes client delivery, paid products or
+   services, internal company deployment, marketplace packaging, course
+   bundling, agency work, and any revenue-generating or business-operational
+   purpose.
+
+   To request commercial authorization, contact the copyright holder on
+   WeChat at `yichen365ai` and include `Commercial Authorization` in the
+   verification message. A request or inquiry does not grant permission;
+   commercial use is allowed only after explicit written authorization is
+   received.
+
+2. You may not publicly redistribute, mirror, package, sublicense, or market
+   this Skill or a derivative as a competing Skill, marketplace item, SaaS
+   component, course asset, agency deliverable, or company toolkit without
+   prior written authorization.
+
+3. Preserve this license and the applicable third-party notices in any
+   permitted private copy or modification.
+
+4. Third-party portions remain governed by their original licenses. Nothing in
+   this license removes rights granted directly by those third-party licenses.
+   See the repository root `THIRD_PARTY_NOTICES.md` for details.
+
+5. This license applies only to the `x-article-draft-uploader` Skill. It does
+   not alter the GNU AGPL-3.0-or-later license of the separately distributed
+   Ailu project.
+
+THE SKILL IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, SECURITY, OR FITNESS FOR
+A PARTICULAR WORKFLOW. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM,
+DAMAGE, LOSS, OR OTHER LIABILITY ARISING FROM USE OF THIS SKILL.

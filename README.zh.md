@@ -425,7 +425,7 @@ codex plugin add yichen-grok-consult@yichen-skills
 
 ### B）启用 `yichen-x-article-draft-uploader`
 
-1. 按 Skill README 的防覆盖命令安装固定 tag `x-article-draft-uploader-v1.0.0`
+1. 按 Skill README 的防覆盖命令安装固定 tag `x-article-draft-uploader-v1.0.1`
 2. 从 Skill 的 `requirements.txt` 安装精确 Python 依赖，再执行 `python3 -m playwright install chromium`
 3. 确认 Chrome 已经登录 X；Ailu 用户可在设置页选择从 Chrome 导入、粘贴 JSON 或选择 JSON
 4. 直接说“把这篇 Markdown 上传到 X Articles 草稿”，或手动运行脚本

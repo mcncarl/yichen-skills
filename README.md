@@ -426,7 +426,7 @@ codex plugin add yichen-grok-consult@yichen-skills
 
 ### B) Enable `yichen-x-article-draft-uploader`
 
-1. Install the pinned `x-article-draft-uploader-v1.0.0` tag by following the fail-safe command in the Skill README
+1. Install the pinned `x-article-draft-uploader-v1.0.1` tag by following the fail-safe command in the Skill README
 2. Install the exact Python dependencies from the Skill's `requirements.txt`, then run `python3 -m playwright install chromium`
 3. Make sure Chrome is already logged in to X; Ailu users can import cookies from Chrome, paste JSON, or choose a JSON file in Settings
 4. Say "upload this Markdown article to X Articles draft" or run the script directly
