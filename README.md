@@ -23,6 +23,7 @@ To request commercial authorization, contact me on WeChat at `yichen365ai` and i
 2. Upload Obsidian/Markdown articles to X Articles drafts (`yichen-x-article-draft-uploader`)
 3. Run two WeChat accounts on one Mac with a distinct blue icon (`yichen-mac-wechat-dual-open`)
 4. Turn WeChat chats, Moments, and Favorites into AI-powered digital assets (`yichen-wechat-local-vault`)
+4a. Query and process the current user's local Windows WeChat data without uploading it (`yichen-wechat-windows-vault`)
 5. Fetch benchmark videos from known Douyin links (`yichen-content-archive`)
 6. Fetch benchmark posts from known Xiaohongshu links (`yichen-content-archive`)
 7. Transcribe, caption, and rough-cut talking-head videos with Volcengine ASR (`yichen-volc-asr`)
@@ -87,6 +88,13 @@ WeChat digital-asset assistant for macOS:
 - Typical triggers: "微信解析", "微信全量", "微信增量", "导出聊天", "朋友圈解析", "收藏夹整理", "客户跟进", "yichen-wechat-local-vault"
 - Requirements: macOS, WeChat Mac 4.x, Python 3.9+, `pycryptodome`, `zstandard`
 - See [yichen-wechat-local-vault/README.md](./yichen-wechat-local-vault/README.md) for full documentation
+
+### 4a) `yichen-wechat-windows-vault`
+Windows WeChat local-vault skill:
+- Queries only the current user's local Windows desktop WeChat data and keeps keys, databases, exports, and media caches private
+- Supports sessions, contacts, chat history, search, statistics, Favorites, Moments, and resumable voice/image processing through local MCP tools
+- Supports Windows 10/11 with WeChat Desktop, Python 3.10+, and Node.js 18+
+- See [yichen-wechat-windows-vault/README.md](./yichen-wechat-windows-vault/README.md) for setup, supported WeChat builds, and privacy rules
 
 ### 5–6) Social fetchers integrated into `yichen-content-archive`
 The former standalone Douyin and Xiaohongshu fetchers now have one source of truth:
@@ -261,6 +269,12 @@ yichen-skills/
 │     ├─ list_contacts.py
 │     ├─ search_sns.py
 │     └─ wechat_digest.py
+├─ yichen-wechat-windows-vault/
+│  ├─ SKILL.md
+│  ├─ README.md
+│  ├─ agents/
+│  ├─ references/
+│  └─ scripts/
 ├─ yichen-mac-wechat-dual-open/
 │  ├─ SKILL.md
 │  ├─ scripts/
@@ -392,6 +406,7 @@ Keep directory names unchanged:
 - `yichen-summary`
 - `yichen-x-article-draft-uploader`
 - `yichen-wechat-local-vault`
+- `yichen-wechat-windows-vault`
 - `yichen-mac-wechat-dual-open`
 - `yichen-volc-asr`
 - `yichen-video-content`
@@ -448,6 +463,12 @@ codex plugin add yichen-grok-consult@yichen-skills
 4. If unsure, start with the recommended trio: group chat digest + Moments report + Favorites cleanup
 5. Subsequent runs generate the selected digest, report, or draft workflow
 6. See [yichen-wechat-local-vault/README.md](./yichen-wechat-local-vault/README.md) for details
+
+### D1) Enable `yichen-wechat-windows-vault`
+
+1. On Windows 10/11 with WeChat Desktop, Python 3.10+, and Node.js 18+, run `scripts\setup.ps1` from the skill directory.
+2. Keep the local data private; the skill only queries the current user's authorized local WeChat data.
+3. See [yichen-wechat-windows-vault/README.md](./yichen-wechat-windows-vault/README.md) for supported builds, setup, and troubleshooting.
 
 ### E) Enable the creator video workflow
 
@@ -625,6 +646,7 @@ See `THIRD_PARTY_NOTICES.md` for details.
 - Collection-export workflows are only for data the user is authorized to access; do not bypass access controls, CAPTCHA, rate limits, or platform security measures.
 - X internal GraphQL and platform-DOM routes are unofficial compatibility methods and may change or trigger platform controls.
 - `yichen-wechat-local-vault` is for personal use only — only decrypt and read your own chat data.
+- `yichen-wechat-windows-vault` is for the current user's authorized local Windows data only — never commit keys, plaintext databases, exports, or media caches.
 - `yichen-wecom-local-vault` is for owner-authorized local data only — never upload keys, plaintext snapshots, or chat exports.
 - `yichen-wecom-operations` is for owner-authorized bot resources only — never send messages, automate the client, bypass missing enterprise authorization, or commit IDs, receipts, source documents, and customer data.
 - Never upload real account credentials (for example, `cookies.json`, `wechat-keys.json`) to public repositories.
