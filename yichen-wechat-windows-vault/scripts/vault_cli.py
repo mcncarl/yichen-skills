@@ -33,6 +33,7 @@ except Exception:  # pragma: no cover - optional runtime dependency
 DEFAULT_VAULT_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / "wechat-windows-vault"
 CONFIG_FILE = DEFAULT_VAULT_DIR / "config.json"
 DEFAULT_DECRYPTED_DIR = DEFAULT_VAULT_DIR / "vault/decrypted"
+DEFAULT_DIGESTS_DIR = DEFAULT_VAULT_DIR / "digests"
 DEFAULT_EXPORTS_DIR = Path.home() / "Documents/WeChat Vault Exports"
 STATE_FILE = DEFAULT_VAULT_DIR / "state/vault_cli_last_check.json"
 
@@ -112,6 +113,10 @@ def resolve_decrypted_dir(value: str | None = None) -> Path:
 def resolve_exports_dir(value: str | None = None) -> Path:
     config = load_config()
     return Path(value or config.get("exports_dir") or DEFAULT_EXPORTS_DIR).expanduser()
+
+
+def resolve_digest_data_root(value: str | None = None) -> Path:
+    return Path(value).expanduser() if value else DEFAULT_DIGESTS_DIR
 
 
 def resolve_db_dir() -> Path | None:
@@ -1007,7 +1012,7 @@ def command_digest_source(args: argparse.Namespace) -> None:
     if not group or not group.get("is_group"):
         raise SystemExit(f"找不到群聊: {args.group}")
 
-    data_root = Path(args.data_root).expanduser() if args.data_root else Path.cwd() / "wechat"
+    data_root = resolve_digest_data_root(args.data_root)
     folder = digest_folder(data_root, group)
     folder.mkdir(parents=True, exist_ok=True)
     for child in ("profiles", "profiles-roast", "imgs", "sources"):
@@ -1335,7 +1340,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--start", help="开始时间 YYYY-MM-DD [HH:MM[:SS]]")
     p.add_argument("--end", help="结束时间 YYYY-MM-DD [HH:MM[:SS]]")
     p.add_argument("--since-last", action="store_true", help="优先从该群 history.json 的上次摘要时间继续")
-    p.add_argument("--data-root", help="摘要归档根目录，默认当前项目的 wechat/")
+    p.add_argument("--data-root", help="摘要归档根目录，默认 %LOCALAPPDATA%\\wechat-windows-vault\\digests")
     p.add_argument("--limit", type=int, default=5000)
     p.add_argument("--media", action="store_true", help="尝试附带本地文件路径提示")
     p.add_argument("--format", choices=["json", "text"], default="json")

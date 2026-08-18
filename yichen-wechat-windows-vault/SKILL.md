@@ -14,6 +14,7 @@ Use the bundled scripts and MCP tools to access only the current user's own loca
 - Keep keys and derived data under `%LOCALAPPDATA%\wechat-windows-vault`.
 - Treat `xwechat_files\*\db_storage` and `msg\attach` as read-only.
 - Refuse requests involving another person's account or data without authorization.
+- MCP tool results and decoded images are passed to the configured MCP client, which may relay them to a model service. Before returning chats, transcripts, or images, confirm that the user explicitly consents to that disclosure and use the narrowest requested scope.
 
 ## Setup
 
@@ -46,6 +47,8 @@ Never bypass fingerprint or prologue verification for an unsupported WeChat buil
 ## Preferred MCP Workflow
 
 Use MCP tools instead of shell or direct filesystem access when they are available.
+
+Before calling any MCP tool that can return chat content, transcripts, or images, state that the configured MCP client may relay those results to a model service and obtain the user's explicit consent. A request to inspect only local files does not authorize this disclosure.
 
 - `wechat_vault_query`: query status, sessions, contacts, history, search, statistics, Favorites, and Moments. Use bounded limits and explicit dates for large requests.
 - `wechat_vault_media`: decode one voice or image identified by `db` and `local_id`.

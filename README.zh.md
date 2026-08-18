@@ -23,7 +23,7 @@
 2. 把 Obsidian/Markdown 长文上传为 X Articles 草稿（`yichen-x-article-draft-uploader`）
 3. Mac 微信双开，第二个微信带蓝色图标（`yichen-mac-wechat-dual-open`）
 4. 从微信聊天、朋友圈、收藏夹沉淀 AI 数字资产（`yichen-wechat-local-vault`）
-4a. 在本机离线查询与处理当前用户的 Windows 微信数据（`yichen-wechat-windows-vault`）
+4a. 在本机处理当前用户的 Windows 微信数据；仅在确认后经 MCP 客户端分享结果（`yichen-wechat-windows-vault`）
 5. 抓取已知抖音链接的对标视频（`yichen-content-archive`）
 6. 抓取已知小红书链接的对标笔记（`yichen-content-archive`）
 7. 用火山 ASR 做转写、字幕和口播粗剪（`yichen-volc-asr`）
@@ -93,6 +93,7 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 Windows 微信本地资料库技能：
 - 只查询当前用户有权访问的本机 Windows 微信数据；密钥、数据库、导出结果与媒体缓存均留在本机私有目录
 - 通过本地 MCP 工具支持会话、联系人、聊天记录、搜索、统计、收藏、朋友圈，以及可续跑的语音/图片处理
+- MCP 客户端可能把返回的聊天内容、转写结果或图片传给其配置的模型服务；调用这些工具前必须取得明确确认
 - 支持 Windows 10/11、Windows 桌面微信、Python 3.10+ 与 Node.js 18+
 - 安装、支持的微信版本与隐私规则见 [yichen-wechat-windows-vault/README.md](./yichen-wechat-windows-vault/README.md)
 
@@ -466,7 +467,7 @@ codex plugin add yichen-grok-consult@yichen-skills
 ### D1）启用 `yichen-wechat-windows-vault`
 
 1. 在 Windows 10/11、Windows 桌面微信、Python 3.10+ 和 Node.js 18+ 环境中，从技能目录运行 `scripts\setup.ps1`。
-2. 数据始终留在本机私有目录；该技能仅查询当前用户有权访问的本地微信数据。
+2. 数据始终留在本机私有目录；如果查询会返回聊天、转写或图片，先确认 MCP 客户端可能把结果传给其配置的模型服务。
 3. 支持的微信版本、安装与排障说明见 [yichen-wechat-windows-vault/README.md](./yichen-wechat-windows-vault/README.md)。
 
 ### E）启用自媒体视频工作流
@@ -644,6 +645,7 @@ python3 ~/.agents/skills/x-article-draft-uploader/scripts/export_x_cookies_from_
 - X 内部 GraphQL 和平台 DOM 抓取均为非官方兼容路线，可能变化或触发平台限制。
 - `yichen-wechat-local-vault` 仅限个人使用——仅可解密和读取本人的聊天数据，不得用于侵犯他人隐私。
 - `yichen-wechat-windows-vault` 仅限当前用户有权访问的本机 Windows 数据；不得提交密钥、明文数据库、导出结果或媒体缓存。
+- MCP 客户端可能把已授权的 Windows 资料库查询结果传给其配置的模型服务；调用会返回聊天、转写或图片的工具前必须取得明确确认。
 - `yichen-wecom-local-vault` 仅限 owner 授权的本地数据；绝不上传 key、明文快照或聊天导出。
 - `yichen-wecom-operations` 仅限 owner 授权的机器人资源；不得发送消息、操控客户端、绕过企业未开放的授权，也不得提交内部 ID、回执、源文档或客户数据。
 - 请勿把真实账号凭据（如 `cookies.json`、`wechat-keys.json`）上传到公开仓库。

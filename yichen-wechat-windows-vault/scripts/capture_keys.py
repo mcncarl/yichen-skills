@@ -11,6 +11,7 @@ from vault_common import (
     choose_db_root,
     choose_profile,
     collect_databases,
+    keys_for_db_root,
     load_keys,
     save_keys,
     verify_key,
@@ -82,7 +83,7 @@ def main() -> int:
         raise RuntimeError("Weixin.exe is not running")
 
     existing = load_keys()
-    verified = {k: v for k, v in existing.items() if not k.startswith("_")}
+    verified = keys_for_db_root(existing, root)
     lock = threading.Lock()
     calls = 0
     ready = 0

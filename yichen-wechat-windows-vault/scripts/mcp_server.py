@@ -322,7 +322,9 @@ mcp = FastMCP(
     "wechat-windows-vault",
     instructions=(
         "Read-only access to the current user's private local Windows WeChat vault. "
-        "Never expose keys or access media paths outside the private media cache."
+        "Never expose keys or access media paths outside the private media cache. "
+        "Tool results can contain private chats, transcripts, or images; invoke those tools only after "
+        "the user explicitly consents to the configured MCP client receiving that content."
     ),
 )
 
@@ -338,7 +340,7 @@ def wechat_vault_query(
     end: str = "",
     refresh: bool = True,
 ) -> str:
-    """Refresh and query local chats, contacts, Favorites, or Moments."""
+    """After explicit consent, refresh and query local chats, contacts, Favorites, or Moments."""
     return _run_query(command, query, chat, limit, offset, start, end, refresh)
 
 
@@ -349,7 +351,7 @@ def wechat_vault_media(
     db: str = "",
     transcribe: bool = True,
 ) -> str:
-    """Extract one voice or image message from the private local vault."""
+    """After explicit consent, extract one voice or image message from the private local vault."""
     return _run_media(chat, local_id, db, transcribe)
 
 
@@ -362,13 +364,13 @@ def wechat_vault_media_batch(
     end: str = "",
     refresh: bool = True,
 ) -> str:
-    """Process up to five media messages and return a resumable next_offset."""
+    """After explicit consent, process up to five media messages and return a resumable next_offset."""
     return _run_media_batch(chat, offset, limit, start, end, refresh)
 
 
 @mcp.tool()
 def wechat_vault_image(image_path: str) -> Image:
-    """Load a decoded private-vault image into the model's visual context."""
+    """After explicit consent, load a decoded private-vault image into the model's visual context."""
     path = Path(image_path).expanduser().resolve()
     root = MEDIA_ROOT.resolve()
     try:

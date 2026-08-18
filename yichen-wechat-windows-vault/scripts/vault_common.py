@@ -168,6 +168,19 @@ def load_keys(path: Path = KEYS_FILE) -> dict:
     return value if isinstance(value, dict) else {}
 
 
+def keys_for_db_root(existing: dict, root: Path) -> dict:
+    """Return verified keys only when they were captured for this exact database root."""
+    recorded_root = existing.get("_db_dir")
+    if not isinstance(recorded_root, str) or not recorded_root:
+        return {}
+    try:
+        if Path(recorded_root).expanduser().resolve() != root.expanduser().resolve():
+            return {}
+    except OSError:
+        return {}
+    return {key: value for key, value in existing.items() if not key.startswith("_")}
+
+
 def save_keys(value: dict, path: Path = KEYS_FILE) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, name = tempfile.mkstemp(prefix="keys-", suffix=".tmp", dir=path.parent)

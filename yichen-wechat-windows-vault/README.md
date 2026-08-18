@@ -8,7 +8,7 @@ Windows 微信本地资料库 MCP 技能 — 安全查询本机微信聊天记�
 - **语音解码**：SILK V3 → WAV + faster-whisper 本地中文转写（离线，不上传）
 - **图片解码**：legacy XOR / V1 AES / V2 AES-XOR / WXGF-HEVC 全格式
 - **批量处理**：resumable 分批处理媒体消息，每批最多 5 条
-- **隐私保护**：所有数据本地处理，密钥不外泄，原始数据库只读
+- **隐私保护**：解密、媒体解码和语音转写在本机运行；密钥不外泄，原始数据库只读
 
 ## 系统要求
 
@@ -42,16 +42,21 @@ powershell -ExecutionPolicy Bypass -File scripts\setup.ps1
 #### 1. 创建 Python venv 并安装依赖
 
 ```powershell
-python -m venv "%LOCALAPPDATA%\wechat-windows-vault\venv"
-"%LOCALAPPDATA%\wechat-windows-vault\venv\Scripts\pip.exe" install -r scripts\requirements.txt
+$AppDir = Join-Path $env:LOCALAPPDATA "wechat-windows-vault"
+$VenvDir = Join-Path $AppDir "venv"
+python -m venv $VenvDir
+$VaultPython = Join-Path $VenvDir "Scripts\python.exe"
+& $VaultPython -m pip install -r scripts\requirements.txt
 ```
 
 #### 2. 安装 Node.js SILK 解码器
 
 ```powershell
-mkdir "%LOCALAPPDATA%\wechat-windows-vault\node-runtime"
-npm install --prefix "%LOCALAPPDATA%\wechat-windows-vault\node-runtime" silk-wasm@3.7.1
-copy node.exe "%LOCALAPPDATA%\wechat-windows-vault\node-runtime\node.exe"
+$NodeRuntime = Join-Path $env:LOCALAPPDATA "wechat-windows-vault\node-runtime"
+New-Item -ItemType Directory -Path $NodeRuntime -Force | Out-Null
+npm install --prefix $NodeRuntime silk-wasm@3.7.1
+$NodeSource = (Get-Command node -ErrorAction Stop).Source
+Copy-Item -LiteralPath $NodeSource -Destination (Join-Path $NodeRuntime "node.exe")
 ```
 
 #### 3. 注册 MCP Server
@@ -135,8 +140,8 @@ $VaultPython = Join-Path $env:LOCALAPPDATA "wechat-windows-vault\venv\Scripts\py
 
 - 密钥、数据库、解码媒体仅存储在 `%LOCALAPPDATA%\wechat-windows-vault`
 - 原始微信数据库目录（`xwechat_files`）保持只读
-- 不向任何外部服务上传数据
-- 语音转写使用本地 faster-whisper 模型，离线运行
+- 解密、媒体解码和语音转写使用本地运行时；语音转写使用本地 faster-whisper 模型，离线运行
+- MCP 客户端可能将工具返回的聊天内容、转写结果或图片发送给所选模型服务；调用前确认用户同意该数据流向，并尽量使用最小范围和最小条数。
 
 ## 卸载
 
