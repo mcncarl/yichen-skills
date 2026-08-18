@@ -1,0 +1,4 @@
+interface:
+  display_name: "Windows 微信本地资料库"
+  short_description: "安全查询本机微信聊天记录并识别语音、图片、朋友圈与收藏内容"
+  default_prompt: "Use the wechat-windows-vault MCP tools to query my own local Windows WeChat data and process relevant voice and image messages in resumable batches."

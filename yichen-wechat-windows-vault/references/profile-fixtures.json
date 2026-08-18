@@ -1,0 +1,21 @@
+{
+  "AB35CFBD7AA9514EC0530747CFC59CAE9DEB0DD46D953548D3CF01919C62A577": {
+    "version": "4.1.10.53",
+    "pbkdf2_rva": "0x68831B0",
+    "prologue": "40535556574154415541564157",
+    "status": "verified"
+  },
+  "4914A621A810ECBC0A132B6FF8F612658CFCE323D3989B3E5FE32D4FF343BA46": {
+    "version": "4.1.12.26",
+    "pbkdf2_rva": "0x561D730",
+    "prologue": "415741564155415456575553B8A8000000",
+    "status": "verified",
+    "reference_sqlcipher_wrapper_rva": "0x502BEB0",
+    "matched_sqlcipher_wrapper_rva": "0x552F350",
+    "wrapper_bytes": 158,
+    "wrapper_instructions": 51,
+    "wrapper_order_score": 1.0,
+    "hmac_verified_databases": 20,
+    "verified_at": "2026-07-26"
+  }
+}
