@@ -1,0 +1,24 @@
+# Provenance
+
+## Contribution boundary
+
+- Clean upstream baseline: `ca8281900412e2256e5a45f4d6995fa340af5a71` from `mcncarl/yichen-skills`.
+- Authorization: the repository author approved a new, clean, reduced-scope Windows contribution, as recorded in the contributor's private execution handoff.
+- Functional and documentation reference: the clean-baseline `yichen-wechat-local-vault` documentation and its read-only query entry point only.
+- Excluded sources: every earlier Windows implementation and audit bundle, and every third-party Windows WeChat extraction/decryption implementation.
+
+No excluded source was opened, copied, translated, adapted, or used to produce these files.
+
+## File-by-file record
+
+| File | Origin |
+| --- | --- |
+| `README.md` | New text written for this contribution from the approved scope and safety requirements. |
+| `SKILL.md` | New minimal skill instructions written for this contribution from the approved scope and safety requirements. |
+| `PROVENANCE.md` | New audit record written for this contribution. |
+| `THIRD_PARTY.md` | New dependency and license record written for this contribution. |
+| `tests/README.md` | New test plan derived from the approved acceptance gates. |
+| `tests/fixtures/README.md` | New synthetic-fixture policy written for this contribution. |
+| `tests/fixtures/build_synthetic_vault.py` | New Python standard-library fixture generator. Table and command semantics are limited to the clean-baseline Mac skill's read-only query interface. All records are fictional. |
+
+Every file added in later commits must be appended to this table before pull request creation.
