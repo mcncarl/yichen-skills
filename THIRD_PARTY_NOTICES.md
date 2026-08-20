@@ -127,6 +127,22 @@ This repository references and adapts ideas/workflows from external projects.
   - The protocol and implementation in this repository have been adapted for this Skill family and are not represented as an official upstream release.
   - The upstream copyright and complete MIT license text are preserved in the local license copy above.
 
+## 11) Windows WeChat vault runtime and protocol references
+
+- Usage in this repo: `yichen-wechat-windows-vault`.
+- Runtime dependencies:
+  - Frida Python bindings 17.15.4, wxWindows Library Licence 3.1.
+  - PyCryptodome 3.23.0, BSD / public-domain components.
+  - python-zstandard 0.23.0, BSD-3-Clause.
+- Reference-only sources:
+  - SQLCipher official source and verification utility for public page-layout and HMAC behavior.
+  - OpenSSL 1.1.1 source for identification of the public `PKCS5_PBKDF2_HMAC` function structure.
+  - Frida official JavaScript API documentation for finite `Interceptor.attach` usage.
+- What was copied:
+  - No third-party source is vendored in this Skill.
+  - The Windows process adapter, exact-version profile, DPAPI store, page verifier, schema queries, and synthetic tests are independently implemented.
+- Full dependency links and scope notes are recorded in `yichen-wechat-windows-vault/THIRD_PARTY_NOTICES.md` and `PROVENANCE.md`.
+
 ## Notes
 
 - This repository maintains its own license (`LICENSE`) for original contributions. It is personal-learning and non-commercial only.

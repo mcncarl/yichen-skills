@@ -1,0 +1,4 @@
+interface:
+  display_name: "Yichen WeChat Windows Vault"
+  short_description: "Windows WeChat local vault capture and analysis"
+  default_prompt: "Use $yichen-wechat-windows-vault to refresh and query my authorized local Windows WeChat vault."

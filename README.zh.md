@@ -88,6 +88,15 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 依赖：macOS、微信 Mac 4.x、Python 3.9+、`pycryptodome`、`zstandard`
 - 详细文档见 [yichen-wechat-local-vault/README.md](./yichen-wechat-local-vault/README.md)
 
+### 4W) `yichen-wechat-windows-vault`
+Mac 本地 Vault Skill 的独立 Windows 对应实现：
+- 采用限时、精确版本密钥捕获和逐页 HMAC 验证的 SQLCipher 解密
+- 支持会话、联系人、群成员、历史、搜索、统计、导出、收藏、朋友圈和摘要素材包
+- 使用 Windows DPAPI 保存已验证密钥，明文数据只进入本机私有 Vault
+- 必须显式指定数据库路径，不修改 Codex、Hermes、MCP、启动项或微信配置
+- 依赖：Windows 10/11、受支持的微信 4.x、Python 3.11+、`frida`、`pycryptodome`、`zstandard`
+- 详细文档见 [yichen-wechat-windows-vault/README.md](./yichen-wechat-windows-vault/README.md)
+
 ### 5–6) 已融合进 `yichen-content-archive` 的社交平台抓取器
 原先独立的抖音和小红书抓取器现在只保留一个事实源：
 - `douyin_download.py` 通过 Playwright 拦截读取元数据或下载已知抖音视频
@@ -260,6 +269,12 @@ yichen-skills/
 │     ├─ list_contacts.py
 │     ├─ search_sns.py
 │     └─ wechat_digest.py
+├─ yichen-wechat-windows-vault/
+│  ├─ SKILL.md
+│  ├─ README.md
+│  ├─ references/
+│  ├─ scripts/
+│  └─ tests/
 ├─ yichen-mac-wechat-dual-open/
 │  ├─ SKILL.md
 │  ├─ scripts/
@@ -367,6 +382,7 @@ yichen-skills/
 - 依赖：
   - X 文章草稿：`pip install playwright pycryptodome && python3 -m playwright install chromium`
   - 微信本地解析：`pip install pycryptodome zstandard`
+  - Windows 微信本地 Vault：运行 `yichen-wechat-windows-vault/scripts/setup.ps1`
   - 微信双开：`pip install Pillow`
   - 内容归档（抖音）：`pip install playwright requests && python3 -m playwright install chromium`
   - 内容归档（小红书）：`pip install requests`
@@ -391,6 +407,7 @@ yichen-skills/
 - `yichen-summary`
 - `yichen-x-article-draft-uploader`
 - `yichen-wechat-local-vault`
+- `yichen-wechat-windows-vault`
 - `yichen-mac-wechat-dual-open`
 - `yichen-volc-asr`
 - `yichen-video-content`

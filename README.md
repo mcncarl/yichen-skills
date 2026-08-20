@@ -88,6 +88,15 @@ WeChat digital-asset assistant for macOS:
 - Requirements: macOS, WeChat Mac 4.x, Python 3.9+, `pycryptodome`, `zstandard`
 - See [yichen-wechat-local-vault/README.md](./yichen-wechat-local-vault/README.md) for full documentation
 
+### 4W) `yichen-wechat-windows-vault`
+Independent Windows counterpart to the Mac local-vault Skill:
+- Uses finite, exact-version key capture and page-HMAC-verified SQLCipher decryption
+- Supports sessions, contacts, members, history, search, statistics, exports, Favorites, Moments, and digest-source packs
+- Stores verified keys with Windows DPAPI and keeps all decrypted data in a private local vault
+- Requires an explicit database path and never changes Codex, Hermes, MCP, startup, or WeChat configuration
+- Requirements: Windows 10/11, WeChat 4.x with a supported profile, Python 3.11+, `frida`, `pycryptodome`, `zstandard`
+- See [yichen-wechat-windows-vault/README.md](./yichen-wechat-windows-vault/README.md) for full documentation
+
 ### 5–6) Social fetchers integrated into `yichen-content-archive`
 The former standalone Douyin and Xiaohongshu fetchers now have one source of truth:
 - `douyin_download.py` reads metadata or downloads a known Douyin video through Playwright interception
@@ -261,6 +270,12 @@ yichen-skills/
 │     ├─ list_contacts.py
 │     ├─ search_sns.py
 │     └─ wechat_digest.py
+├─ yichen-wechat-windows-vault/
+│  ├─ SKILL.md
+│  ├─ README.md
+│  ├─ references/
+│  ├─ scripts/
+│  └─ tests/
 ├─ yichen-mac-wechat-dual-open/
 │  ├─ SKILL.md
 │  ├─ scripts/
@@ -368,6 +383,7 @@ yichen-skills/
 - Dependencies:
   - X article drafts: `pip install playwright pycryptodome && python3 -m playwright install chromium`
   - WeChat local vault: `pip install pycryptodome zstandard`
+  - Windows WeChat vault: run `yichen-wechat-windows-vault/scripts/setup.ps1`
   - WeChat dual open: `pip install Pillow`
   - Content archive (Douyin): `pip install playwright requests && python3 -m playwright install chromium`
   - Content archive (Xiaohongshu): `pip install requests`
@@ -392,6 +408,7 @@ Keep directory names unchanged:
 - `yichen-summary`
 - `yichen-x-article-draft-uploader`
 - `yichen-wechat-local-vault`
+- `yichen-wechat-windows-vault`
 - `yichen-mac-wechat-dual-open`
 - `yichen-volc-asr`
 - `yichen-video-content`
