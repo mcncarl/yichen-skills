@@ -19,10 +19,10 @@ All tests use temporary directories and synthetic SQLite databases generated loc
 13. Source files contain no prohibited runtime capability or disallowed dependency.
 14. `git diff --check` and the complete unit-test suite pass on Windows.
 
-## Planned commands
+## Commands
 
 ```powershell
-python tests/fixtures/build_synthetic_vault.py --output <temporary-directory>
-python -m unittest discover -s tests -v
+python yichen-wechat-windows-readonly/tests/fixtures/build_synthetic_vault.py --output <temporary-directory>
+python -m unittest discover -s yichen-wechat-windows-readonly/tests -v
 git diff --check
 ```

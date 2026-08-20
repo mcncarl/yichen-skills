@@ -1,0 +1,55 @@
+name: Windows read-only adapter
+
+on:
+  push:
+    paths:
+      - 'yichen-wechat-windows-readonly/**'
+      - '.github/workflows/windows-readonly-adapter.yml'
+  pull_request:
+    paths:
+      - 'yichen-wechat-windows-readonly/**'
+      - '.github/workflows/windows-readonly-adapter.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-readonly-adapter-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.11'
+
+      - name: Build synthetic fixture
+        shell: pwsh
+        run: |
+          $fixture = Join-Path $env:RUNNER_TEMP 'windows-readonly-synthetic-vault'
+          python yichen-wechat-windows-readonly/tests/fixtures/build_synthetic_vault.py --output $fixture
+
+      - name: Run unit tests
+        shell: pwsh
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: python -m unittest discover -s yichen-wechat-windows-readonly/tests -v
+
+      - name: Check pull request whitespace
+        shell: pwsh
+        run: |
+          $base = '${{ github.event.pull_request.base.sha }}'
+          if (-not $base) {
+            $base = git merge-base HEAD origin/main
+          }
+          git diff --check "$base..HEAD"

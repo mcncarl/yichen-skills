@@ -20,5 +20,8 @@ No excluded source was opened, copied, translated, adapted, or used to produce t
 | `tests/README.md` | New test plan derived from the approved acceptance gates. |
 | `tests/fixtures/README.md` | New synthetic-fixture policy written for this contribution. |
 | `tests/fixtures/build_synthetic_vault.py` | New Python standard-library fixture generator. Table and command semantics are limited to the clean-baseline Mac skill's read-only query interface. All records are fictional. |
+| `scripts/windows_readonly_adapter.py` | New Python standard-library implementation written for this contribution. Command and table semantics use only the clean-baseline Mac skill's read-only query interface; Windows path, consent, snapshot, redaction, and fail-closed controls are new. |
+| `tests/test_windows_readonly_adapter.py` | New unit and integration tests written for this contribution using only generated fictional data and temporary directories. |
+| `.github/workflows/windows-readonly-adapter.yml` | New Windows CI workflow. Structure and pinned official action versions follow the clean-baseline `.github/workflows/x-article-draft-uploader.yml`. |
 
-Every file added in later commits must be appended to this table before pull request creation.
+No earlier Windows implementation, binary, package, fork, mirror, or audit bundle was used.

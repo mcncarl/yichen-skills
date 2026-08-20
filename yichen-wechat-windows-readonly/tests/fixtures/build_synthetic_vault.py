@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 
 
@@ -23,7 +24,7 @@ def message_table(username: str) -> str:
 
 
 def create_contact_database(path: Path) -> None:
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection, connection:
         connection.execute(
             """
             CREATE TABLE contact (
@@ -43,7 +44,7 @@ def create_contact_database(path: Path) -> None:
 
 
 def create_session_database(path: Path) -> None:
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection, connection:
         connection.execute(
             """
             CREATE TABLE SessionTable (
@@ -80,7 +81,7 @@ def create_session_database(path: Path) -> None:
 
 
 def create_message_database(path: Path) -> None:
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection, connection:
         connection.execute("CREATE TABLE Name2Id (user_name TEXT NOT NULL)")
         connection.executemany(
             "INSERT INTO Name2Id (rowid, user_name) VALUES (?, ?)",
