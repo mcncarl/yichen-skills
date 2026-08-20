@@ -12,6 +12,47 @@ Install all five directories together. The router does not duplicate the child
 implementations and is intentionally unable to complete their work when a child
 Skill is missing.
 
+## Research modes
+
+Single-stage search still routes directly to `yichen-unified-search`. Known-link
+reading or archiving, private bookmark export, and existing-media transcription
+continue to use their dedicated child Skills.
+
+For requests that require both historical development and a current
+cross-sectional comparison, `yichen-web-research` adds a bounded
+horizontal-and-vertical research protocol:
+
+1. Normalize a dated research brief and build a canonical plan before browsing.
+2. Search by bounded longitudinal and cross-sectional workstreams, with explicit
+   geography and language coverage.
+3. Verify claims against opened original sources and record a claim-source
+   ledger; search snippets and AI summaries remain discovery aids only.
+4. Assemble the evidence offline, reject structurally invalid bundles, and stop
+   valid but incomplete bundles with `blocking` when scope, coverage,
+   contradictions, cross-axis synthesis, or scenario gates fail.
+
+From the repository root, the deterministic helpers are:
+
+```bash
+python3 yichen-web-research/scripts/plan_hengzong_research.py --brief brief.json
+python3 yichen-web-research/scripts/assemble_hengzong_evidence.py --bundle bundle.json
+```
+
+The complete contract is in
+[`references/hengzong-research.md`](references/hengzong-research.md). Search does
+not authorize persistence: the archive route is used only when the user
+explicitly requests it and supplies a bounded scope.
+
+### Provenance
+
+This mode is based on, inspired by, and extends the `hv-analysis` Skill from
+[KKKKhazix/khazix-skills](https://github.com/KKKKhazix/khazix-skills/tree/7a5c4934be4106ac740ffdb95280bb81b3f4b83c/hv-analysis),
+authored by 数字生命卡兹克 and pinned at upstream commit
+`7a5c4934be4106ac740ffdb95280bb81b3f4b83c`. The upstream MIT license is
+preserved in
+[`licenses/KKKKhazix-khazix-skills-LICENSE.txt`](../licenses/KKKKhazix-khazix-skills-LICENSE.txt),
+with the adaptation record in [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md).
+
 ## Optional backends
 
 The family can use capabilities that are not bundled here:
@@ -76,6 +117,7 @@ loopback exporter at `127.0.0.1`.
 From the repository root:
 
 ```bash
+python3 -m unittest discover -s yichen-web-research/tests -p 'test_*.py'
 python3 yichen-web-research/scripts/validate_family.py
 python3 yichen-web-research/scripts/validate_family.py --doctor
 ```

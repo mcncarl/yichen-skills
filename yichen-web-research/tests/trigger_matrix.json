@@ -21,6 +21,13 @@
     "expected_skill": "yichen-web-research"
   },
   {
+    "case": "horizontal_vertical_deep_research",
+    "stages": ["scope", "plan", "search", "verify", "evidence_synthesis", "report"],
+    "platform_count": 3,
+    "deliverable": "evidence_grounded_research_report",
+    "expected_skill": "yichen-web-research"
+  },
+  {
     "case": "known_url_archive",
     "stages": ["archive"],
     "platform_count": 1,
