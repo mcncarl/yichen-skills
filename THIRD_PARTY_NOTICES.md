@@ -1,6 +1,6 @@
 ﻿# THIRD_PARTY_NOTICES
 
-Last updated: 2026-08-15
+Last updated: 2026-08-20
 
 This repository references and adapts ideas/workflows from external projects.
 
@@ -109,6 +109,24 @@ This repository references and adapts ideas/workflows from external projects.
   - The public Skill can use an optional external helper exposing `doc +doc_upload_image` when the user explicitly configures `WECOM_UPLOAD_HELPER`.
   - That helper capability comes from a local, unpublished extension and is not distributed by this repository or represented as an official upstream feature.
 
+## 10) KKKKhazix/khazix-skills (`hv-analysis`)
+
+- Upstream: https://github.com/KKKKhazix/khazix-skills
+- Upstream component: https://github.com/KKKKhazix/khazix-skills/tree/7a5c4934be4106ac740ffdb95280bb81b3f4b83c/hv-analysis
+- Author: 数字生命卡兹克
+- Upstream commit: `7a5c4934be4106ac740ffdb95280bb81b3f4b83c`
+- License: MIT
+- Local copy of license: `licenses/KKKKhazix-khazix-skills-LICENSE.txt`
+- Usage in this repo (`yichen-web-research`):
+  - The horizontal-and-vertical research mode is based on, inspired by, and extends the upstream `hv-analysis` Skill.
+  - It adopts the core idea of combining longitudinal development with a cross-sectional current-state comparison for entities and industries.
+- Local extensions:
+  - A canonical research brief and plan, bounded workstreams and localized query groups, claim-source ledgers, source-independence and temporal rules, scope and contradiction gates, retained-gap disclosure, cross-axis evidence chains, and bounded scenarios.
+  - Explicit routing boundaries between public search, original-source verification, optional archive, private bookmark export, and ASR.
+- What is included:
+  - The protocol and implementation in this repository have been adapted for this Skill family and are not represented as an official upstream release.
+  - The upstream copyright and complete MIT license text are preserved in the local license copy above.
+
 ## Notes
 
 - This repository maintains its own license (`LICENSE`) for original contributions. It is personal-learning and non-commercial only.
@@ -120,5 +138,6 @@ This repository references and adapts ideas/workflows from external projects.
 - `yichen-summary` and the broader skill packaging conventions reference public Claude skill community practices, including JimLiu/baoyu-skills.
 - `yichen-grok-consult` references the public isolation pattern from `sudoHG/codex-grok-search`, but includes an independently implemented MCP server and deterministic verification layer.
 - `yichen-bookmarks-export` calls Field Theory as an optional external runtime; Field Theory remains under its upstream MIT License, while this repository's independently implemented adapter remains under this repository's license.
+- The horizontal-and-vertical research mode in `yichen-web-research` is based on, inspired by, and extends KKKKhazix/khazix-skills `hv-analysis`; the upstream author, pinned commit, and MIT license are preserved above.
 - `yichen-mac-wechat-dual-open` references public X/Twitter discussion and implements the copy + bundle-id + ad-hoc signing workflow locally.
 - Do not remove this file when forking for personal study. It is the attribution record for borrowed ideas, workflows, and license notices.

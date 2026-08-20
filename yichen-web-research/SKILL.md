@@ -1,6 +1,6 @@
 ---
 name: yichen-web-research
-description: 逸尘自用的互联网研究总入口。用于跨平台且跨阶段，或用户尚未确定工具的研究任务，把“搜索发现、候选核验、内容归档、按需转写分析”路由到 yichen-unified-search、yichen-content-archive、yichen-bookmarks-export 与 yichen-asr。若用户只要求搜索、只处理已知链接、只导出私人收藏或只转写已有音视频，应直接使用对应子 Skill。Use when an internet-research request spans multiple stages, the correct child route is unclear, or the user explicitly invokes $yichen-web-research.
+description: 逸尘自用的互联网研究总入口。用于跨平台且跨阶段、用户尚未确定工具，或明确要求对公司、产品、人物、技术、行业和领域做横纵分析、发展史加现状对比或有来源约束的系统深度研究；先生成有截止日期和证据闸门的计划，再把搜索发现、候选核验、有限归档、按需转写和证据综合路由到 yichen-unified-search、yichen-content-archive、yichen-bookmarks-export 与 yichen-asr。若用户只要求搜索、只处理已知链接、只导出私人收藏或只转写已有音视频，应直接使用对应子 Skill。Use when an internet-research request spans multiple stages, requires evidence-grounded longitudinal and cross-sectional synthesis, the correct child route is unclear, or the user explicitly invokes $yichen-web-research.
 ---
 
 # 逸尘互联网研究
@@ -15,6 +15,7 @@ description: 逸尘自用的互联网研究总入口。用于跨平台且跨阶�
 - 请求跨越多个平台且不止搜索，还需要候选确认、归档、转写或后续分析。
 - 用户只描述研究目标，尚未指定搜索、归档或收藏导出。
 - 需要先体检多个后端，再决定安全可用路线。
+- 用户明确要求横纵分析、发展史与当前格局交叉、竞品或行业全景，以及有来源约束的系统深度研究。
 
 单一明确动作直接路由：
 
@@ -22,6 +23,7 @@ description: 逸尘自用的互联网研究总入口。用于跨平台且跨阶�
 
 | 用户意图 | 目标 Skill |
 |---|---|
+| 横纵分析、发展史 + 当前格局、证据账本、交汇洞察或三情景深度研究 | `$yichen-web-research` |
 | 关键词搜索、批量发现、平台站内搜索、候选核验 | `$yichen-unified-search` |
 | 已知 URL、URL 文件、已确认候选或明确容器的读取、下载、归档（含 X Post、Quote、Article） | `$yichen-content-archive` |
 | 导出小红书、抖音或 X/Twitter 的私人收藏与书签链接 | `$yichen-bookmarks-export` |
@@ -33,12 +35,44 @@ description: 逸尘自用的互联网研究总入口。用于跨平台且跨阶�
 研究目标
   -> yichen-unified-search
   -> 标准候选清单
-  -> 用户确认或原请求已明确选择范围
-  -> yichen-content-archive
-  -> 按需交给 yichen-asr、视觉分析或知识库 Skill
+  -> 是否由用户明确要求归档且范围已经限定？
+       ├─ 否：返回候选，或继续获准的原文核验与分析
+       └─ 是：yichen-content-archive
+              -> 按需交给 yichen-asr、视觉分析或知识库 Skill
 ```
 
-搜索结束后不得自动下载。收藏导出结束后也不得自动读取正文或下载媒体；下载需要独立、明确的当轮请求。
+仅在用户明确要求归档且范围已限定时进入 `$yichen-content-archive`。搜索结束后不得自动归档或下载；收藏导出结束后也不得自动读取正文或下载媒体。归档与下载都需要独立、明确的当轮请求。
+
+## 横纵研究模式
+
+只有任务同时需要历史演进、当前横向结构和综合判断时才进入本模式。单个事实查证、搜索候选、已知链接读取或快速总结不得为了显得深入而扩展成横纵研究。
+
+触发后完整读取 [references/hengzong-research.md](references/hengzong-research.md)，并按下列顺序执行：
+
+1. 建立研究 brief，固定 `subject`、`goal`、`object_type`、`subtype`、`as_of`、`start_date`、`geography`、`audience` 和 `languages`。这些 key 必须出现；未知值保持 `unknown`，不得猜测。`start_date`、`geography`、`audience`、`languages` 是 scope keys，任一为 `unknown` 都进入不可保留的 scope gap，并阻止正式报告就绪。
+2. 联网前运行纯离线计划器：
+
+   ```bash
+   python3 "${YICHEN_SKILLS_ROOT:-$HOME/.agents/skills}/yichen-web-research/scripts/plan_hengzong_research.py" --brief -
+   ```
+
+3. 只有 `coverage_dimensions.query_group_matrix.status=ready` 时，才把计划中各 workstream 的 `query_groups` 交给 `$yichen-unified-search`。`query_text` 必须是可直接搜索的自然语言，不得把 `facet:`、`axis:`、`search_language:`、`time_scope:` 或 `evidence_intent:` 伪装成搜索操作符。每个已知地区和语言都要形成有界覆盖；只有 subject 与 geography 都可靠本地化时才能标为 `localization_status=native`，否则保留原文并输出 localization gap。
+4. 搜索 envelope 只是候选交接包。只有打开原文并逐主张核对后才标为 verified；搜索摘要、AI 摘要、排名和 `opened_original=true` 均不能单独证明事实。
+5. 只有用户明确要求持久化原文或下载媒体，且范围已限定时，才通过 `$yichen-content-archive` 的独立安全门。搜索完成本身绝不转移归档授权。
+6. 写作前把 canonical plan、绑定同一 `plan_id` 与 workstream 的 envelopes、来源 annotations、原子 claims 和 retained gaps 组成 bundle，运行纯离线整理器：
+
+   ```bash
+   python3 "${YICHEN_SKILLS_ROOT:-$HOME/.agents/skills}/yichen-web-research/scripts/assemble_hengzong_evidence.py" --bundle -
+   ```
+
+7. 只有 `scope_complete`、逐 workstream 基础 claim、非空 timeline、非空 cross-sectional matrix、逐地区/语言 coverage、矛盾处理、横纵交汇和三情景等结构门全部满足时才写正式报告。任何 `supports`/`contradicts` link 都必须含 `locator`、`event_date` 和 `scope`；`notes` 可选但提供后必须保留。缺少必填 link 字段的输入是 `invalid_bundle`，不是可披露 gap；缺少 `published_at` 的来源不具 temporal eligibility。
+8. 普通缺口输出 `blocking`。只有真实的 coverage/claim gap 已执行至少两条结构化补搜，且每条 `query_or_path` 与 `route` 均彼此不同，并提供 `impact`、`disclosure`、`bounded_conclusion`，才可输出 `ready_with_disclosure`；retained disclosure 不得豁免任何结构门。固定 1–3 万字不是完成标准，完成度只由范围、证据与结构闸门决定。
+
+`start_date` 之前的材料默认越界；只有明确标为 `pre_scope_context` 时才可作为透明前史保留，且不能计入 claim、coverage、timeline、交汇、情景或机会地图的证据资格。任何决策原因只允许 `explicit`、`supported_inference` 或 `unknown`；每条横纵交汇必须可回溯为 `past_event -> present_effect -> implication`。三情景必须包含 `horizon`、可观察 `triggers` 与 `invalidators`，不得编造概率。
+
+行业研究的 `goal` 含未来、机会、机遇、前景或对应英文意图时，计划与报告必须包含非空 `opportunity_map`；其 evidence basis 必须绑定 ready claim IDs 并同时覆盖纵向与横向基础 claim。指定两种交付语言时，`report_contract` 必须把双语输出设为硬要求。
+
+本模式基于、受启发并扩展 KKKKhazix/khazix-skills 的 `hv-analysis`，作者为数字生命卡兹克，固定参考上游提交 `7a5c4934be4106ac740ffdb95280bb81b3f4b83c`。完整归属与 MIT 许可见仓库根目录 `THIRD_PARTY_NOTICES.md` 及 `licenses/KKKKhazix-khazix-skills-LICENSE.txt`。
 
 ## 后端定位
 
@@ -68,7 +102,7 @@ description: 逸尘自用的互联网研究总入口。用于跨平台且跨阶�
 跨平台或登录态任务开始前运行：
 
 ```bash
-python3 ~/.agents/skills/yichen-web-research/scripts/doctor_yichen.py
+python3 "${YICHEN_SKILLS_ROOT:-$HOME/.agents/skills}/yichen-web-research/scripts/doctor_yichen.py"
 ```
 
 OpenCLI 相关任务再运行：
@@ -99,10 +133,11 @@ opencli doctor
 ## 唯一入口与子 Skill 调用
 
 - 本 Skill 是唯一的互联网研究总入口，不保留旧名称兼容入口。
+- 横纵研究是本总入口的一种显式研究协议，不新增兼容入口，也不改变 `$yichen-unified-search` 的候选搜索职责。
 - 用户显式调用 `$yichen-web-research` 时，先按上表判断任务阶段；需要子 Skill 时，必须完整读取对应当前文件后再执行：
-  - `~/.agents/skills/yichen-unified-search/SKILL.md`
-  - `~/.agents/skills/yichen-content-archive/SKILL.md`
-  - `~/.agents/skills/yichen-bookmarks-export/SKILL.md`
-  - `~/.agents/skills/yichen-asr/SKILL.md`
+  - `${YICHEN_SKILLS_ROOT:-$HOME/.agents/skills}/yichen-unified-search/SKILL.md`
+  - `${YICHEN_SKILLS_ROOT:-$HOME/.agents/skills}/yichen-content-archive/SKILL.md`
+  - `${YICHEN_SKILLS_ROOT:-$HOME/.agents/skills}/yichen-bookmarks-export/SKILL.md`
+  - `${YICHEN_SKILLS_ROOT:-$HOME/.agents/skills}/yichen-asr/SKILL.md`
 - 子 Skill 是独立的执行规则，不是可递归调用的函数。路由后直接按目标 Skill 执行，目标 Skill 不得再回到本总入口。
 - 若子 Skill、必要后端、登录态或额度不可用，如实报告具体缺口；不得把“已经正确路由”表述成“外部平台必然成功”。
