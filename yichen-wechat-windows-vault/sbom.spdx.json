@@ -1,0 +1,92 @@
+{
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "name": "yichen-wechat-windows-vault-sbom",
+  "documentNamespace": "https://github.com/mcncarl/yichen-skills/sbom/yichen-wechat-windows-vault/1.0.0",
+  "creationInfo": {
+    "created": "2026-08-24T00:00:00Z",
+    "creators": [
+      "Tool: Codex"
+    ]
+  },
+  "packages": [
+    {
+      "SPDXID": "SPDXRef-Package-Skill",
+      "name": "yichen-wechat-windows-vault",
+      "versionInfo": "1.0.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-Cryptography",
+      "name": "cryptography",
+      "versionInfo": "50.0.0",
+      "downloadLocation": "https://pypi.org/project/cryptography/50.0.0/",
+      "filesAnalyzed": false,
+      "licenseConcluded": "Apache-2.0 OR BSD-3-Clause",
+      "licenseDeclared": "Apache-2.0 OR BSD-3-Clause",
+      "copyrightText": "Copyright The Python Cryptographic Authority and contributors"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-Zstandard",
+      "name": "zstandard",
+      "versionInfo": "0.25.0",
+      "downloadLocation": "https://pypi.org/project/zstandard/0.25.0/",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "copyrightText": "Copyright Gregory Szorc and contributors"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-CFFI",
+      "name": "cffi",
+      "versionInfo": "2.1.1",
+      "downloadLocation": "https://pypi.org/project/cffi/2.1.1/",
+      "filesAnalyzed": false,
+      "licenseConcluded": "MIT-0",
+      "licenseDeclared": "MIT-0",
+      "copyrightText": "Copyright CFFI contributors"
+    },
+    {
+      "SPDXID": "SPDXRef-Package-Pycparser",
+      "name": "pycparser",
+      "versionInfo": "3.0",
+      "downloadLocation": "https://pypi.org/project/pycparser/3.0/",
+      "filesAnalyzed": false,
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "copyrightText": "Copyright Eli Bendersky and contributors"
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-Package-Skill"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-Skill",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-Cryptography"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-Skill",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-Zstandard"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-Cryptography",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-CFFI"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-CFFI",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-Pycparser"
+    }
+  ]
+}
