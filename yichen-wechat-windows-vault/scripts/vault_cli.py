@@ -10,6 +10,7 @@ and does not modify WeChat databases.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 from datetime import datetime
 import hashlib
 import json
@@ -18,12 +19,16 @@ from pathlib import Path
 import re
 import sqlite3
 import sys
+import tempfile
+from typing import Iterator
 from xml.etree import ElementTree as ET
 
 try:
     import zstandard as zstd
+    ZSTD_DECODER = zstd.ZstdDecompressor()
 except Exception:  # pragma: no cover - optional runtime dependency
     zstd = None
+    ZSTD_DECODER = None
 
 
 PRIVATE_ROOT = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / "YichenWeChatVault"
@@ -34,7 +39,6 @@ DEFAULT_EXPORTS_DIR = Path.home() / "Documents/YichenWeChatVault/exports"
 STATE_FILE = DEFAULT_VAULT_DIR / "state/vault_cli_last_check.json"
 
 ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
-ZSTD_DECODER = zstd.ZstdDecompressor() if zstd else None
 
 MESSAGE_TYPE_FILTERS = {
     "text": (1,),
@@ -89,12 +93,23 @@ def load_json(path: Path) -> dict:
 
 def save_json(path: Path, data: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+    )
+    temporary = Path(temporary_name)
     try:
-        os.chmod(path, 0o600)
-    except OSError:
-        pass
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            json.dump(data, stream, ensure_ascii=False, indent=2)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        try:
+            os.chmod(temporary, 0o600)
+        except OSError:
+            pass
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def load_config() -> dict:
@@ -130,10 +145,38 @@ def resolve_db_dir() -> Path | None:
     return None
 
 
-def connect(path: Path) -> sqlite3.Connection:
-    con = sqlite3.connect(path)
-    con.row_factory = sqlite3.Row
-    return con
+@contextmanager
+def connect(path: Path) -> Iterator[sqlite3.Connection]:
+    """Open a snapshot database in enforced read-only/query-only mode."""
+    uri = Path(path).resolve().as_uri() + "?mode=ro"
+    connection = sqlite3.connect(uri, uri=True)
+    try:
+        connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA query_only=ON")
+        yield connection
+    finally:
+        connection.close()
+
+
+def write_text_atomic(path: Path, text: str, *, overwrite: bool = False) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if path.exists() and not overwrite:
+        raise SystemExit(f"输出文件已存在；如需替换请显式传 --overwrite: {path}")
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            stream.write(text)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if path.exists() and not overwrite:
+            raise SystemExit(f"输出文件已存在；如需替换请显式传 --overwrite: {path}")
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def table_columns(con: sqlite3.Connection, table: str) -> set[str]:
@@ -927,8 +970,7 @@ def command_export(args: argparse.Namespace) -> None:
         body = render_messages_text(rows)
         suffix = "txt"
     out_path = Path(args.output).expanduser() if args.output else exports_dir / "cli_exports" / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}-{safe_name(chat['display_name'])}.{suffix}"
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    out_path.write_text(body.rstrip() + "\n", encoding="utf-8")
+    write_text_atomic(out_path, body.rstrip() + "\n", overwrite=args.overwrite)
     print(out_path)
     print(f"Exported {len(rows)} messages.")
 
@@ -1027,6 +1069,11 @@ def command_digest_source(args: argparse.Namespace) -> None:
     stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     source_json = folder / "sources" / f"{stamp}-{range_text}.json"
     source_md = folder / "sources" / f"{stamp}-{range_text}.md"
+    collision = 1
+    while source_json.exists() or source_md.exists():
+        collision += 1
+        source_json = folder / "sources" / f"{stamp}-{range_text}-run-{collision}.json"
+        source_md = folder / "sources" / f"{stamp}-{range_text}-run-{collision}.md"
     payload = {
         "group": {"name": group["display_name"], "username": group["username"]},
         "range": {"start": args.start or "", "end": args.end or "", "since_last": args.since_last},
@@ -1039,8 +1086,8 @@ def command_digest_source(args: argparse.Namespace) -> None:
             "history_file": str(folder / "history.json"),
         },
     }
-    source_json.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    source_md.write_text(render_digest_source_markdown(group, rows, stats, range_text) + "\n", encoding="utf-8")
+    write_text_atomic(source_json, json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+    write_text_atomic(source_md, render_digest_source_markdown(group, rows, stats, range_text) + "\n")
     result = {
         "folder": str(folder),
         "source_json": str(source_json),
@@ -1327,6 +1374,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--limit", type=int, default=500)
     p.add_argument("--type", choices=sorted(MESSAGE_TYPE_FILTERS))
     p.add_argument("--media", action="store_true")
+    p.add_argument("--overwrite", action="store_true", help="显式允许替换已存在的目标文件")
     p.set_defaults(func=command_export)
 
     p = sub.add_parser("digest-source", help="生成群聊摘要素材包")

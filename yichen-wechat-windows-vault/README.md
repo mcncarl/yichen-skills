@@ -12,6 +12,7 @@ An independent Windows counterpart to `yichen-wechat-local-vault`. It creates lo
 - Validates SQLite WAL header/frame checksums and applies only frames through the last valid commit.
 - Runs `quick_check` and `integrity_check` before atomically promoting a snapshot.
 - Supports contacts, sessions, unread/new messages, history, global search, statistics, Markdown export, group digest sources, Favorites, and Moments.
+- Opens plaintext snapshot databases with SQLite `mode=ro` plus `PRAGMA query_only`; exports are atomic and refuse to replace an existing file unless `--overwrite` is explicitly supplied.
 
 It does not use `wx-cli`, Frida, injection, hooks, drivers, Weixin UI automation, or process-control APIs.
 
@@ -56,6 +57,8 @@ python .\scripts\vault_cli.py sessions --limit 20 --format text
 ```
 
 Run `python .\scripts\vault_cli.py --help` for all query commands.
+
+An explicit export path is collision-safe by default. If the target already exists, choose a new path or deliberately add `--overwrite`; group digest-source filenames automatically receive a `-run-N` suffix on same-second collisions.
 
 For later runs, `refresh --mode incremental` is the default. It still creates a new immutable generation and re-copies and hashes every encrypted DB/WAL/SHM set, but it reuses an integrity-checked plaintext database when the encrypted set and DPAPI key fingerprint are unchanged. Use `--mode full` to force decryption of every database.
 

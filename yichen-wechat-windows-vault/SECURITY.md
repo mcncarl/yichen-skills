@@ -31,6 +31,8 @@ Exports may contain plaintext personal data. Confirm the destination and scope b
 ## Source integrity and rollback
 
 - Source DB/WAL/SHM files are opened only for reading.
+- Plaintext query connections use SQLite URI `mode=ro` and `PRAGMA query_only`.
+- Export writes are atomic and refuse existing destinations unless the caller explicitly supplies `--overwrite`.
 - Snapshot promotion is atomic and occurs only after all databases pass integrity checks.
 - An incomplete generation never replaces `current.json`.
 - Old generations are retained, allowing rollback without destructive commands.

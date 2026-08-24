@@ -31,6 +31,7 @@ from wal_snapshot import (  # noqa: E402
     wal_checksum,
 )
 import windows_vault  # noqa: E402
+import windows_memory  # noqa: E402
 
 
 def encrypt_page(clear_page: bytes, page_number: int, key: bytes, salt: bytes) -> bytes:
@@ -261,6 +262,52 @@ class CodecWalTests(unittest.TestCase):
             )
             third_manifest = json.loads(Path(third["manifest"]).read_text(encoding="utf-8"))
             self.assertFalse(third_manifest["records"][0]["incremental_reuse"])
+
+    def test_public_codec_geometry_finds_and_validates_a_read_only_key_buffer(self) -> None:
+        clear = self.root / "clear.db"
+        encrypted = self.root / "message_0.db"
+        self.make_database(clear, ["scanner"])
+        encrypt_database(clear, encrypted, self.key, self.salt)
+        target = windows_memory.DatabaseTarget.from_path("message/message_0.db", encrypted)
+
+        context_address = 0x2000
+        salt_address = 0x2800
+        cipher_address = 0x3000
+        key_address = 0x3800
+        codec = bytearray(136)
+        pattern = windows_memory._codec_patterns([target])[0]
+        codec[12 : 12 + len(pattern)] = pattern
+        struct.pack_into("<Q", codec, 72, salt_address)
+        struct.pack_into("<Q", codec, 104, cipher_address)
+        struct.pack_into("<Q", codec, 112, cipher_address)
+        cipher = bytearray(24)
+        struct.pack_into("<iiQ", cipher, 0, 0, 32, key_address)
+        memory = {
+            (context_address, 136): bytes(codec),
+            (salt_address, 16): self.salt,
+            (cipher_address, 24): bytes(cipher),
+            (key_address, 32): self.key,
+        }
+
+        def read_memory(_handle: int, address: int, size: int) -> bytes:
+            return memory.get((address, size), b"")
+
+        regions = [(0x1000, 0x4000)]
+        with (
+            patch.object(
+                windows_memory,
+                "_iter_region_data",
+                return_value=[(context_address, bytes(codec))],
+            ),
+            patch.object(windows_memory, "_read_region", side_effect=read_memory),
+        ):
+            candidates, contexts = windows_memory._find_candidates(1, regions, [target])
+            matches = windows_memory._monitor_candidates(1, 1234, candidates, 0)
+
+        self.assertEqual(contexts, 1)
+        self.assertEqual(len(candidates), 1)
+        self.assertEqual(candidates[0].key_address, key_address)
+        self.assertEqual([match.database for match in matches], ["message/message_0.db"])
 
 
 if __name__ == "__main__":

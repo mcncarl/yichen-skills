@@ -17,6 +17,7 @@ description: |
 - 密钥只保存为当前 Windows 用户可解开的 DPAPI 密文；明文数据库只进入 `%LOCALAPPDATA%\YichenWeChatVault\vault`。
 - 不自动删除旧快照。用户明确要求清理时，先列出准确 generation、大小和路径，获得确认后再删除指定 generation；不得递归删除 vault 根目录。
 - 查询与导出只读已完成的明文快照。禁止写回微信数据库。
+- 查询连接必须保持 SQLite `mode=ro` 与 `PRAGMA query_only`；导出文件已存在时默认拒绝替换，只有用户明确要求覆盖后才能传 `--overwrite`。
 
 ## 环境要求
 
