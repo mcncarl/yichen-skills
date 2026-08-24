@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import struct
+import sys
 import tempfile
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -32,6 +33,13 @@ class WalFrame:
 
 
 @dataclass(frozen=True)
+class ShmState:
+    max_frame: int
+    backfill: int
+    database_pages: int
+
+
+@dataclass(frozen=True)
 class WalReport:
     present: bool
     valid_frames: int = 0
@@ -40,6 +48,8 @@ class WalReport:
     database_pages: int | None = None
     ignored_trailing_bytes: int = 0
     ignored_invalid_frames: int = 0
+    shm_validated: bool = False
+    checkpointed_frames: int = 0
 
     def as_dict(self) -> dict:
         return asdict(self)
@@ -63,7 +73,68 @@ def wal_checksum(
     return first, second
 
 
-def parse_wal(path: Path, expected_page_size: int) -> tuple[list[WalFrame], int, int]:
+def parse_shm(
+    path: Path,
+    expected_page_size: int,
+    wal_salt: bytes,
+    complete_wal_frames: int,
+) -> ShmState:
+    """Validate the native-endian SQLite wal-index header and checkpoint state."""
+    data = Path(path).read_bytes()
+    if len(data) < 136:
+        raise ValueError("SHM is shorter than the SQLite wal-index header")
+    byteorder = sys.byteorder
+    prefix = "<" if byteorder == "little" else ">"
+    candidates: list[tuple[bytes, ShmState]] = []
+    for offset in (0, 48):
+        header = data[offset : offset + 48]
+        version = struct.unpack_from(f"{prefix}I", header, 0)[0]
+        initialized = header[12]
+        checksum_order = header[13]
+        page_size = struct.unpack_from(f"{prefix}H", header, 14)[0]
+        if page_size == 1:
+            page_size = 65_536
+        stored_checksum = struct.unpack(f"{prefix}II", header[40:48])
+        if (
+            version != 3_007_000
+            or initialized != 1
+            or checksum_order not in (0, 1)
+            or page_size != expected_page_size
+            or header[32:40] != wal_salt
+            or wal_checksum(header[:40], byteorder=byteorder) != stored_checksum
+        ):
+            continue
+        max_frame = struct.unpack_from(f"{prefix}I", header, 16)[0]
+        database_pages = struct.unpack_from(f"{prefix}I", header, 20)[0]
+        if max_frame > complete_wal_frames:
+            continue
+        candidates.append(
+            (
+                header,
+                ShmState(
+                    max_frame=max_frame,
+                    backfill=struct.unpack_from(f"{prefix}I", data, 96)[0],
+                    database_pages=database_pages,
+                ),
+            )
+        )
+    if not candidates:
+        raise ValueError("SHM does not contain a valid wal-index header")
+    if len(candidates) == 2 and candidates[0][0] != candidates[1][0]:
+        raise ValueError("SHM wal-index header copies disagree")
+    state = candidates[0][1]
+    if state.backfill > state.max_frame:
+        raise ValueError("SHM backfill exceeds its committed frame boundary")
+    return state
+
+
+def parse_wal(
+    path: Path,
+    expected_page_size: int,
+    *,
+    start_frame: int = 1,
+    max_frames: int | None = None,
+) -> tuple[list[WalFrame], int, int]:
     """Return valid frames, ignored trailing byte count, and invalid frame count."""
     data = Path(path).read_bytes()
     if not data:
@@ -91,11 +162,17 @@ def parse_wal(path: Path, expected_page_size: int) -> tuple[list[WalFrame], int,
     salt = header[16:24]
     frame_size = WAL_FRAME_HEADER_SIZE + page_size
     payload = data[WAL_HEADER_SIZE:]
-    complete_frames = len(payload) // frame_size
+    available_frames = len(payload) // frame_size
     trailing = len(payload) % frame_size
+    complete_frames = available_frames if max_frames is None else min(available_frames, max_frames)
+    if start_frame < 1 or start_frame > complete_frames + 1:
+        raise ValueError("WAL start frame is outside the available frame range")
+    if start_frame > 1:
+        prior_offset = WAL_HEADER_SIZE + (start_frame - 2) * frame_size
+        checksum = struct.unpack(">II", data[prior_offset + 16 : prior_offset + 24])
     frames: list[WalFrame] = []
     invalid_frames = 0
-    for index in range(complete_frames):
+    for index in range(start_frame - 1, complete_frames):
         offset = WAL_HEADER_SIZE + index * frame_size
         frame_header = data[offset : offset + WAL_FRAME_HEADER_SIZE]
         encrypted_page = data[offset + WAL_FRAME_HEADER_SIZE : offset + frame_size]
@@ -143,10 +220,39 @@ def decrypt_database_with_wal(
         decrypt_database(database, staging, key, profile, run_integrity_check=False)
         report = WalReport(present=False)
         if wal is not None and Path(wal).is_file() and Path(wal).stat().st_size:
-            frames, trailing, invalid = parse_wal(Path(wal), profile.page_size)
+            wal_path = Path(wal)
+            wal_size = wal_path.stat().st_size
+            frame_size = WAL_FRAME_HEADER_SIZE + profile.page_size
+            complete_wal_frames = max(0, (wal_size - WAL_HEADER_SIZE) // frame_size)
+            with wal_path.open("rb") as wal_source:
+                wal_header = wal_source.read(WAL_HEADER_SIZE)
+            shm_path = Path(str(database) + "-shm")
+            shm_state = (
+                parse_shm(
+                    shm_path,
+                    profile.page_size,
+                    wal_header[16:24],
+                    complete_wal_frames,
+                )
+                if shm_path.is_file()
+                else None
+            )
+            start_frame = shm_state.backfill + 1 if shm_state is not None else 1
+            max_frames = shm_state.max_frame if shm_state is not None else None
+            frames, trailing, invalid = parse_wal(
+                wal_path,
+                profile.page_size,
+                start_frame=start_frame,
+                max_frames=max_frames,
+            )
             if invalid:
                 raise ValueError(f"WAL contains {invalid} invalid complete frame(s)")
             committed, database_pages = committed_prefix(frames)
+            if shm_state is not None:
+                if committed and database_pages != shm_state.database_pages:
+                    raise ValueError("WAL commit size disagrees with validated SHM state")
+                if not committed:
+                    database_pages = shm_state.database_pages
             with database.open("rb") as source:
                 salt = source.read(16)
             with staging.open("r+b") as clear:
@@ -172,6 +278,8 @@ def decrypt_database_with_wal(
                 database_pages=database_pages,
                 ignored_trailing_bytes=trailing,
                 ignored_invalid_frames=invalid,
+                shm_validated=shm_state is not None,
+                checkpointed_frames=shm_state.backfill if shm_state is not None else 0,
             )
         sqlite_integrity_check(staging)
         os.replace(staging, destination)

@@ -5,7 +5,7 @@ This directory is a new Windows implementation created after the earlier Windows
 ## File lineage
 
 - `scripts/windows_memory.py`, `windows_vault.py`, `secret_store.py`, `sqlcipher_codec.py`, and `wal_snapshot.py` are new implementations written for this contribution.
-- SQLCipher geometry and HMAC behavior were implemented from the public Tencent SQLCipher source, Tencent WCDB documentation, Zetetic SQLCipher documentation, and SQLite's official WAL format documentation.
+- SQLCipher geometry and HMAC behavior were implemented from the public Tencent SQLCipher source, Tencent WCDB documentation, Zetetic SQLCipher documentation, and SQLite's official WAL format documentation. SHM `maxFrame`/`nBackfill` handling follows the public Tencent WCDB WAL repair parser and SQLite wal-index layout.
 - Windows process-memory and DPAPI calls use Microsoft-documented APIs through Python `ctypes`.
 - `scripts/vault_cli.py` is adapted from this repository's own `yichen-wechat-local-vault/scripts/vault_cli.py` so that Windows and Mac expose the same read-only query commands. Its configuration and data-root handling were changed for Windows.
 - No Tencent, Zetetic, SQLite, Microsoft, `cryptography`, or `zstandard` source code is copied or vendored here.

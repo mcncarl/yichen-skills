@@ -92,6 +92,27 @@ def build_wal(frames: list[tuple[int, int, bytes]]) -> bytes:
     return bytes(output)
 
 
+def build_shm(wal: bytes, max_frame: int, database_pages: int, backfill: int) -> bytes:
+    prefix = "<" if sys.byteorder == "little" else ">"
+    header = bytearray(48)
+    struct.pack_into(f"{prefix}I", header, 0, 3_007_000)
+    header[12] = 1
+    header[13] = int(sys.byteorder == "big")
+    struct.pack_into(f"{prefix}H", header, 14, DEFAULT_PROFILE.page_size)
+    struct.pack_into(f"{prefix}I", header, 16, max_frame)
+    struct.pack_into(f"{prefix}I", header, 20, database_pages)
+    header[32:40] = wal[16:24]
+    struct.pack_into(
+        f"{prefix}II",
+        header,
+        40,
+        *wal_checksum(bytes(header[:40]), byteorder=sys.byteorder),
+    )
+    checkpoint = bytearray(40)
+    struct.pack_into(f"{prefix}I", checkpoint, 0, backfill)
+    return bytes(header + header + checkpoint)
+
+
 class CodecWalTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary = tempfile.TemporaryDirectory()
@@ -229,6 +250,31 @@ class CodecWalTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "invalid complete frame"):
             decrypt_database_with_wal(encrypted, wal, self.root / "rejected.db", self.key)
 
+    def test_valid_shm_ignores_stale_frames_after_wal_index_reset(self) -> None:
+        clear = self.root / "clear.db"
+        encrypted = self.root / "encrypted.db"
+        wal = self.root / "encrypted.db-wal"
+        shm = self.root / "encrypted.db-shm"
+        output = self.root / "output.db"
+        self.make_database(clear, ["base"])
+        encrypt_database(clear, encrypted, self.key, self.salt)
+        database_pages = encrypted.stat().st_size // DEFAULT_PROFILE.page_size
+        stale = bytearray(build_wal([(1, database_pages, encrypted.read_bytes()[:4096])]))
+        stale[-1] ^= 1
+        wal.write_bytes(stale)
+        shm.write_bytes(build_shm(stale, max_frame=0, database_pages=database_pages, backfill=0))
+
+        report = decrypt_database_with_wal(encrypted, wal, output, self.key)
+
+        self.assertTrue(report.shm_validated)
+        self.assertEqual(report.applied_frames, 0)
+        connection = sqlite3.connect(output)
+        try:
+            rows = connection.execute("SELECT payload FROM items ORDER BY id").fetchall()
+        finally:
+            connection.close()
+        self.assertEqual(rows, [("base",)])
+
     def test_incremental_refresh_reuses_only_unchanged_verified_plaintext(self) -> None:
         clear = self.root / "clear.db"
         encrypted = self.root / "contact.db"
@@ -240,7 +286,7 @@ class CodecWalTests(unittest.TestCase):
         key_store = MagicMock()
 
         def get_key(relative: str):
-            if relative == "contact/contact.db":
+            if relative in {"contact/contact.db", "general/general.db"}:
                 return self.key, DEFAULT_PROFILE
             raise KeyError(relative)
 
@@ -250,10 +296,22 @@ class CodecWalTests(unittest.TestCase):
             "general/general.db": encrypted,
         }
 
+        real_decrypt = windows_vault.decrypt_database_with_wal
+
+        def decrypt_or_raise(database, wal, destination, key, profile):
+            if destination.as_posix().endswith("general/general.db"):
+                raise sqlite3.OperationalError("fixture codec extension is unavailable")
+            return real_decrypt(database, wal, destination, key, profile)
+
         with (
             patch.object(windows_vault, "find_process_ids", return_value=[]),
             patch.object(windows_vault, "database_paths", return_value=databases),
             patch.object(windows_vault, "KeyStore", return_value=key_store),
+            patch.object(
+                windows_vault,
+                "decrypt_database_with_wal",
+                side_effect=decrypt_or_raise,
+            ),
         ):
             first = windows_vault.refresh(account_root, self.root / "keys.json", vault, "full")
             second = windows_vault.refresh(

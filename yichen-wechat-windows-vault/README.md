@@ -10,7 +10,7 @@ An independent Windows counterpart to `yichen-wechat-local-vault`. It creates lo
 - Validates every captured key against both the SQLCipher page HMAC and SQLite header before accepting it.
 - Protects accepted keys with current-user Windows DPAPI; raw keys are never printed or stored in the repository.
 - Copies DB/WAL/SHM only after the user manually exits Weixin.
-- Validates SQLite WAL header/frame checksums and applies only frames through the last valid commit.
+- Validates the SQLite WAL header plus the native-endian SHM wal-index/checkpoint state, then validates and applies only the active committed frame range.
 - Runs `quick_check` and `integrity_check` before atomically promoting a snapshot.
 - Supports contacts, sessions, unread/new messages, history, global search, statistics, Markdown export, group digest sources, Favorites, and Moments.
 - Opens plaintext snapshot databases with SQLite `mode=ro` plus `PRAGMA query_only`; exports are atomic and refuse to replace an existing file unless `--overwrite` is explicitly supplied.
@@ -96,9 +96,9 @@ This is sensitive behavior and therefore requires an explicit command-line conse
 
 ## WAL correctness
 
-Copying or decrypting only the `.db` file can lose committed updates that exist only in `-wal`. The snapshot pipeline validates the original encrypted WAL's rolling checksums and frame salts, finds its last valid commit, decrypts each committed page using its database page number, applies the committed prefix, truncates to the commit's declared database size, and finally runs SQLite integrity checks.
+Copying or decrypting only the `.db` file can lose committed updates that exist only in `-wal`. The snapshot pipeline validates the WAL header and both native-endian SHM wal-index header copies, including their checksums, salt, page size, committed `maxFrame`, and `nBackfill`. Frames at or below `nBackfill` are already present in the database, and frames beyond `maxFrame` are inactive storage that SQLite/WCDB may leave in the WAL file after a reset. Only the active range is checked for rolling checksum continuity, decrypted with per-page SQLCipher HMAC verification, and applied through its final commit. The result is truncated to the validated committed database size and must pass SQLite integrity checks.
 
-The test suite constructs a real reserved-byte SQLite fixture, encrypts it page-by-page, writes a valid WAL-only update, and proves the merged plaintext database contains the update. It also covers tampered page HMACs, corrupted WAL frames, DPAPI round trips, consent gating, safety API bans, and query/export behavior.
+The test suite constructs a real reserved-byte SQLite fixture, encrypts it page-by-page, writes a valid WAL-only update, and proves the merged plaintext database contains the update. It separately proves that a validated SHM reset ignores stale WAL capacity while a corrupted active frame without that boundary still fails closed. It also covers tampered page HMACs, DPAPI round trips, consent gating, safety API bans, and query/export behavior.
 
 ## Verification
 
@@ -107,10 +107,13 @@ python -m unittest discover -s .\tests -v
 python -m py_compile .\scripts\sqlcipher_codec.py .\scripts\wal_snapshot.py .\scripts\secret_store.py .\scripts\windows_memory.py .\scripts\windows_vault.py .\scripts\vault_cli.py
 ```
 
+Privacy-safe local acceptance on Windows 11 / Weixin `4.1.13.7` discovered 19 DB/WAL sets, DPAPI-protected 11 strictly validated keys, promoted a full generation with every required capability database and 9 integrity-checked plaintext databases, and disclosed 10 optional gaps. Two of those optional gaps were FTS databases whose codec extension is unavailable in the standard Python SQLite runtime; the other eight had no active key. Contacts, sessions, history, Favorites, and Moments returned non-empty results through `mode=ro` / `query_only` connections. A following incremental generation integrity-checked and reused all 9 unchanged plaintext databases. No private values or account paths were published.
+
 ## Technical references
 
 - [Tencent SQLCipher fork](https://github.com/Tencent/sqlcipher) — codec and cipher-context layout.
 - [Tencent WCDB encryption documentation](https://github.com/Tencent/wcdb/wiki/C%2B%2B-%E5%8A%A0%E5%AF%86%E4%B8%8E%E9%85%8D%E7%BD%AE) — WCDB cipher-key behavior and defaults.
+- [Tencent WCDB WAL repair parser](https://github.com/Tencent/wcdb/blob/master/src/common/repair/parse/Wal.cpp) — SHM `maxFrame`/`nBackfill` boundaries and rolling-checksum recovery semantics.
 - [SQLCipher design](https://www.zetetic.net/sqlcipher/design/) — salt, page encryption, IV, and HMAC design.
 - [SQLite WAL file format](https://www.sqlite.org/fileformat2.html#walformat) — header, frame, commit, and checksum semantics.
 - [Microsoft `VirtualQueryEx`](https://learn.microsoft.com/windows/win32/api/memoryapi/nf-memoryapi-virtualqueryex) and [`ReadProcessMemory`](https://learn.microsoft.com/windows/win32/api/memoryapi/nf-memoryapi-readprocessmemory) — read-only process inspection APIs.

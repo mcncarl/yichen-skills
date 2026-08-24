@@ -31,6 +31,7 @@ Exports may contain plaintext personal data. Confirm the destination and scope b
 ## Source integrity and rollback
 
 - Source DB/WAL/SHM files are opened only for reading.
+- SHM wal-index header copies, native-endian checksums, salt, `maxFrame`, and `nBackfill` are validated before deciding which WAL frames are active. Stale file capacity beyond the validated boundary is never applied.
 - Plaintext query connections use SQLite URI `mode=ro` and `PRAGMA query_only`.
 - Export writes are atomic and refuse existing destinations unless the caller explicitly supplies `--overwrite`.
 - Snapshot promotion is atomic and occurs only after every required capability database passes integrity checks.
@@ -40,7 +41,7 @@ Exports may contain plaintext personal data. Confirm the destination and scope b
 
 ## Version changes
 
-An unknown codec layout, unreadable pointer, HMAC mismatch, stale DPAPI entry, invalid WAL checksum, or SQLite integrity failure is a hard error. Do not bypass validation or add version-specific absolute addresses. Re-audit the public structures and add tests first.
+An unknown codec layout, unreadable pointer, HMAC mismatch, stale DPAPI entry, invalid active WAL checksum, invalid SHM state, or required-database SQLite integrity failure is a hard error. A feature-specific optional database that the standard Python SQLite runtime cannot integrity-check is isolated and disclosed instead of aborting the generation. Do not bypass validation or add version-specific absolute addresses. Re-audit the public structures and add tests first.
 
 ## Reporting a vulnerability
 

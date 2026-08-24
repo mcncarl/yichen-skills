@@ -8,6 +8,7 @@ import json
 import os
 import re
 import shutil
+import sqlite3
 import sys
 import tempfile
 import time
@@ -411,7 +412,7 @@ def refresh(root: Path, key_store_path: Path, vault: Path, mode: str = "incremen
                 key,
                 profile,
             )
-        except (OSError, RuntimeError, ValueError) as error:
+        except (OSError, RuntimeError, ValueError, sqlite3.DatabaseError) as error:
             record.update({"status": "decode-failed", "reason": type(error).__name__})
             records.append(record)
             continue

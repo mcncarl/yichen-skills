@@ -77,11 +77,11 @@ py -3 "{{SKILL_DIR}}\scripts\windows_vault.py" refresh --mode full
 1. 再次确认没有 `Weixin.exe`。
 2. 把每个 DB、WAL、SHM 作为稳定文件集复制到新的不可变 generation。
 3. 验证每个 SQLCipher 页 HMAC。
-4. 验证 WAL 头、连续帧校验和与盐，只合并最后一个有效 commit 之前的帧。
+4. 验证 WAL 头以及 SHM 双份 wal-index 头的 checksum、盐、页大小、`maxFrame` 与 `nBackfill`；跳过已回填或重置后失效的帧，只校验并合并活动范围内最后一个有效 commit 之前的帧。
 5. 运行 SQLite `quick_check` 和 `integrity_check`。
 6. 只有必需能力库全部成功时才原子更新 `current.json`。必需库包括联系人、会话、朋友圈、收藏夹、消息资源，以及所有现有的 `message_N.db` / `biz_message_N.db`；低频功能辅助库缺失必须写入 `optional_missing_databases`，不得伪装成已解密。
 
-必需库缺 key、旧 key、损坏页或 WAL 错误必须作为失败返回，不得用旧明文库伪装成功。可选库失败不得阻止已通过完整性检查的必需能力快照，但必须在 manifest 和命令结果中逐库披露；后续可定向补抓。
+必需库缺 key、旧 key、损坏页、活动 WAL 错误或 SQLite 完整性错误必须作为失败返回，不得用旧明文库伪装成功。可选库缺少运行时扩展或校验失败不得中断整批，也不得阻止已通过完整性检查的必需能力快照，但必须在 manifest 和命令结果中逐库披露；后续可定向补抓。
 
 日常使用 `refresh --mode incremental`（默认）。增量模式仍会创建新的不可变 generation，并重新稳定复制和哈希每组 DB/WAL/SHM；只有加密文件组和 DPAPI key 指纹均未变化时，才复用上一代通过完整性检查的明文库。需要强制逐库重新解密时使用 `--mode full`。
 
