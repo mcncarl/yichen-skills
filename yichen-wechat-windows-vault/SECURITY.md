@@ -33,8 +33,9 @@ Exports may contain plaintext personal data. Confirm the destination and scope b
 - Source DB/WAL/SHM files are opened only for reading.
 - Plaintext query connections use SQLite URI `mode=ro` and `PRAGMA query_only`.
 - Export writes are atomic and refuse existing destinations unless the caller explicitly supplies `--overwrite`.
-- Snapshot promotion is atomic and occurs only after all databases pass integrity checks.
-- An incomplete generation never replaces `current.json`.
+- Snapshot promotion is atomic and occurs only after every required capability database passes integrity checks.
+- Optional feature stores remain listed as failures in the manifest and never masquerade as decrypted; `all_databases_decrypted` distinguishes zero-gap coverage.
+- A generation missing any required capability database never replaces `current.json`.
 - Old generations are retained, allowing rollback without destructive commands.
 
 ## Version changes

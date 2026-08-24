@@ -238,8 +238,17 @@ class CodecWalTests(unittest.TestCase):
         self.make_database(clear, ["base"])
         encrypt_database(clear, encrypted, self.key, self.salt)
         key_store = MagicMock()
-        key_store.get.return_value = (self.key, DEFAULT_PROFILE)
-        databases = {"contact/contact.db": encrypted}
+
+        def get_key(relative: str):
+            if relative == "contact/contact.db":
+                return self.key, DEFAULT_PROFILE
+            raise KeyError(relative)
+
+        key_store.get.side_effect = get_key
+        databases = {
+            "contact/contact.db": encrypted,
+            "general/general.db": encrypted,
+        }
 
         with (
             patch.object(windows_vault, "find_process_ids", return_value=[]),
@@ -252,7 +261,13 @@ class CodecWalTests(unittest.TestCase):
             )
             second_manifest = json.loads(Path(second["manifest"]).read_text(encoding="utf-8"))
             self.assertTrue(first["complete"])
-            self.assertTrue(second_manifest["records"][0]["incremental_reuse"])
+            self.assertEqual(first["optional_missing_count"], 1)
+            contact_record = next(
+                record
+                for record in second_manifest["records"]
+                if record["database"] == "contact/contact.db"
+            )
+            self.assertTrue(contact_record["incremental_reuse"])
 
             updated = self.root / "updated.db"
             self.make_database(updated, ["changed"])
@@ -261,7 +276,43 @@ class CodecWalTests(unittest.TestCase):
                 account_root, self.root / "keys.json", vault, "incremental"
             )
             third_manifest = json.loads(Path(third["manifest"]).read_text(encoding="utf-8"))
-            self.assertFalse(third_manifest["records"][0]["incremental_reuse"])
+            contact_record = next(
+                record
+                for record in third_manifest["records"]
+                if record["database"] == "contact/contact.db"
+            )
+            self.assertFalse(contact_record["incremental_reuse"])
+
+    def test_missing_required_database_key_prevents_snapshot_promotion(self) -> None:
+        clear = self.root / "clear.db"
+        encrypted = self.root / "encrypted.db"
+        account_root = self.root / "account"
+        vault = self.root / "vault"
+        account_root.mkdir()
+        self.make_database(clear, ["required"])
+        encrypt_database(clear, encrypted, self.key, self.salt)
+        key_store = MagicMock()
+
+        def get_key(relative: str):
+            if relative == "contact/contact.db":
+                return self.key, DEFAULT_PROFILE
+            raise KeyError(relative)
+
+        key_store.get.side_effect = get_key
+        databases = {
+            "contact/contact.db": encrypted,
+            "session/session.db": encrypted,
+        }
+        with (
+            patch.object(windows_vault, "find_process_ids", return_value=[]),
+            patch.object(windows_vault, "database_paths", return_value=databases),
+            patch.object(windows_vault, "KeyStore", return_value=key_store),
+        ):
+            result = windows_vault.refresh(account_root, self.root / "keys.json", vault, "full")
+
+        self.assertFalse(result["complete"])
+        self.assertEqual(result["required_missing_count"], 1)
+        self.assertFalse((vault / "current.json").exists())
 
     def test_public_codec_geometry_finds_and_validates_a_read_only_key_buffer(self) -> None:
         clear = self.root / "clear.db"
@@ -308,6 +359,49 @@ class CodecWalTests(unittest.TestCase):
         self.assertEqual(len(candidates), 1)
         self.assertEqual(candidates[0].key_address, key_address)
         self.assertEqual([match.database for match in matches], ["message/message_0.db"])
+
+    def test_capture_aggregates_validated_matches_from_multiple_weixin_processes(self) -> None:
+        page = b"x" * DEFAULT_PROFILE.page_size
+        first = windows_memory.DatabaseTarget("first.db", self.root / "first.db", page)
+        second = windows_memory.DatabaseTarget("second.db", self.root / "second.db", page)
+        candidate_by_pid = {
+            101: [windows_memory.Candidate(first, 0x1000)],
+            202: [windows_memory.Candidate(second, 0x2000)],
+        }
+        fake_kernel32 = MagicMock()
+        fake_kernel32.OpenProcess.side_effect = lambda _rights, _inherit, pid: pid
+
+        def find_candidates(handle, _regions, _targets):
+            return candidate_by_pid[handle], 1
+
+        def monitor(_handle, pid, candidates, _duration):
+            target = candidates[0].target
+            return (
+                windows_memory.Match(
+                    database=target.database,
+                    pid=pid,
+                    key=self.key,
+                    profile=DEFAULT_PROFILE,
+                ),
+            )
+
+        with (
+            patch.object(windows_memory, "kernel32", fake_kernel32),
+            patch.object(windows_memory, "find_process_ids", return_value=[101, 202]),
+            patch.object(windows_memory, "_readable_regions", return_value=[(0x1000, 0x4000)]),
+            patch.object(windows_memory, "_find_candidates", side_effect=find_candidates),
+            patch.object(windows_memory, "_monitor_candidates", side_effect=monitor),
+        ):
+            report = windows_memory.capture_keys([first, second], 0)
+
+        self.assertEqual(report.pids_checked, 2)
+        self.assertEqual(report.codec_contexts, 2)
+        self.assertEqual(report.monitored_buffers, 2)
+        self.assertEqual(
+            sorted(match.database for match in report.matches),
+            ["first.db", "second.db"],
+        )
+        self.assertEqual(fake_kernel32.CloseHandle.call_count, 2)
 
 
 if __name__ == "__main__":

@@ -371,37 +371,50 @@ def capture_keys(
     duration: float,
     pids: list[int] | None = None,
 ) -> CaptureReport:
-    """Find target codec contexts and capture only keys that pass strict validation."""
+    """Aggregate validated keys across every readable Weixin process."""
     _require_windows()
     if not targets:
         raise ValueError("at least one database target is required")
     checked = 0
-    best: tuple[int, int, list[Candidate], int] | None = None
+    readable: list[tuple[int, int, list[Candidate], int]] = []
     for pid in pids or find_process_ids():
         handle = kernel32.OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, False, pid)
         if not handle:
             continue
         checked += 1
-        regions = _readable_regions(handle)
-        candidates, contexts = _find_candidates(handle, regions, targets)
-        if not best or len(candidates) > len(best[2]):
-            if best:
-                kernel32.CloseHandle(best[1])
-            best = (pid, handle, candidates, contexts)
+        try:
+            regions = _readable_regions(handle)
+            candidates, contexts = _find_candidates(handle, regions, targets)
+        except Exception:
+            kernel32.CloseHandle(handle)
+            for _pid, prior_handle, _candidates, _contexts in readable:
+                kernel32.CloseHandle(prior_handle)
+            raise
+        if candidates:
+            readable.append((pid, handle, candidates, contexts))
         else:
             kernel32.CloseHandle(handle)
-    if not best:
+    if not checked:
         raise RuntimeError("no readable Weixin.exe process was found")
-    pid, handle, candidates, contexts = best
+    if not readable:
+        raise RuntimeError("no matching SQLCipher contexts were found in the running Weixin process")
+
+    matches: dict[str, Match] = {}
     try:
-        if not candidates:
-            raise RuntimeError("no matching SQLCipher contexts were found in the running Weixin process")
-        matches = _monitor_candidates(handle, pid, candidates, duration)
+        with ThreadPoolExecutor(max_workers=min(8, len(readable))) as executor:
+            futures = [
+                executor.submit(_monitor_candidates, handle, pid, candidates, duration)
+                for pid, handle, candidates, _contexts in readable
+            ]
+            for future in futures:
+                for match in future.result():
+                    matches.setdefault(match.database, match)
         return CaptureReport(
             pids_checked=checked,
-            codec_contexts=contexts,
-            monitored_buffers=len(candidates),
-            matches=matches,
+            codec_contexts=sum(item[3] for item in readable),
+            monitored_buffers=sum(len(item[2]) for item in readable),
+            matches=tuple(matches.values()),
         )
     finally:
-        kernel32.CloseHandle(handle)
+        for _pid, handle, _candidates, _contexts in readable:
+            kernel32.CloseHandle(handle)

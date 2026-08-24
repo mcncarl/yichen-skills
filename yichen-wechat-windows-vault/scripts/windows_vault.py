@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -23,6 +24,14 @@ from windows_memory import DatabaseTarget, capture_keys, find_process_ids
 PRIVATE_ROOT = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData/Local")) / "YichenWeChatVault"
 DEFAULT_KEY_STORE = PRIVATE_ROOT / "keys/account.json"
 DEFAULT_VAULT = PRIVATE_ROOT / "vault"
+REQUIRED_DATABASES = {
+    "contact/contact.db",
+    "session/session.db",
+    "sns/sns.db",
+    "favorite/favorite.db",
+    "message/message_resource.db",
+}
+REQUIRED_MESSAGE_PATTERN = re.compile(r"^message/(?:message|biz_message)_\d+\.db$")
 
 
 def discover_roots() -> list[Path]:
@@ -66,6 +75,11 @@ def database_paths(root: Path) -> dict[str, Path]:
         if path.stat().st_size >= 4096:
             result[path.relative_to(storage).as_posix()] = path
     return result
+
+
+def database_is_required(relative: str) -> bool:
+    """Required databases provide the Mac-equivalent documented query surface."""
+    return relative in REQUIRED_DATABASES or bool(REQUIRED_MESSAGE_PATTERN.fullmatch(relative))
 
 
 def select_databases(root: Path, expression: str) -> list[DatabaseTarget]:
@@ -331,6 +345,7 @@ def refresh(root: Path, key_store_path: Path, vault: Path, mode: str = "incremen
             records.append(
                 {
                     "database": relative,
+                    "required": database_is_required(relative),
                     "status": "snapshot-copy-failed",
                     "reason": type(error).__name__,
                 }
@@ -338,6 +353,7 @@ def refresh(root: Path, key_store_path: Path, vault: Path, mode: str = "incremen
             continue
         record = {
             "database": relative,
+            "required": database_is_required(relative),
             "encrypted_sha256": file_sha256(encrypted),
             "companions": [path.name[len(encrypted.name) :] for path in copied[1:]],
             "encrypted_files": encrypted_file_records(encrypted, copied),
@@ -411,10 +427,21 @@ def refresh(root: Path, key_store_path: Path, vault: Path, mode: str = "incremen
             }
         )
         records.append(record)
-    manifest["complete"] = all(record["status"] == "ok" for record in records)
+    required_failures = [
+        record for record in records if record.get("required") and record["status"] != "ok"
+    ]
+    optional_failures = [
+        record for record in records if not record.get("required") and record["status"] != "ok"
+    ]
+    manifest["complete"] = not required_failures
+    manifest["all_databases_decrypted"] = all(record["status"] == "ok" for record in records)
     manifest["database_count"] = len(records)
     manifest["decrypted_count"] = sum(record["status"] == "ok" for record in records)
     manifest["missing_count"] = sum(record["status"] != "ok" for record in records)
+    manifest["required_missing_count"] = len(required_failures)
+    manifest["optional_missing_count"] = len(optional_failures)
+    manifest["required_missing_databases"] = [record["database"] for record in required_failures]
+    manifest["optional_missing_databases"] = [record["database"] for record in optional_failures]
     _write_json_atomic(manifest_path, manifest)
     if manifest["complete"]:
         _write_json_atomic(
@@ -432,6 +459,9 @@ def refresh(root: Path, key_store_path: Path, vault: Path, mode: str = "incremen
         "database_count": manifest["database_count"],
         "decrypted_count": manifest["decrypted_count"],
         "missing_count": manifest["missing_count"],
+        "required_missing_count": manifest["required_missing_count"],
+        "optional_missing_count": manifest["optional_missing_count"],
+        "optional_missing_databases": manifest["optional_missing_databases"],
         "manifest": str(manifest_path),
         "decrypted_dir": str(decrypted_root),
     }

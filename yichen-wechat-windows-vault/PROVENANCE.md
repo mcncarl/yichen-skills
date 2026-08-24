@@ -25,6 +25,6 @@ This directory is a new Windows implementation created after the earlier Windows
 2. `skill-creator` metadata validation passes.
 3. A current official Windows Weixin build is diagnosed without exposing account data.
 4. With explicit consent, at least one real active database key is captured and validates.
-5. After the user manually exits Weixin, all selected DB/WAL/SHM sets refresh into a complete generation and query smoke tests pass.
+5. After the user manually exits Weixin, every discovered DB/WAL/SHM set is snapshotted, all required capability databases refresh into a promoted generation, optional gaps are explicitly disclosed, and query smoke tests pass.
 
 Items 4 and 5 are local-only evidence and must never publish keys, database files, account paths, or chat content.

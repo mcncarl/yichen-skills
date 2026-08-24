@@ -54,6 +54,8 @@ py -3 "{{SKILL_DIR}}\scripts\windows_vault.py" capture --targets all --duration 
 
 捕获期间让用户手动打开需要的数据区域，例如聊天、通讯录、朋友圈和收藏夹。工具只等待数据库正常读写时极短的解保护窗口。若仍有缺失，使用返回的相对数据库路径做定向捕获：
 
+Windows 微信可能把数据库上下文分散到多个 `Weixin.exe` 子进程；捕获器必须聚合所有可读子进程中分别通过页校验的结果，不得只选择候选最多的单个进程。
+
 ```powershell
 py -3 "{{SKILL_DIR}}\scripts\windows_vault.py" capture --targets "message/message_0.db" --duration 120 --consent-read-process-memory
 ```
@@ -77,9 +79,9 @@ py -3 "{{SKILL_DIR}}\scripts\windows_vault.py" refresh --mode full
 3. 验证每个 SQLCipher 页 HMAC。
 4. 验证 WAL 头、连续帧校验和与盐，只合并最后一个有效 commit 之前的帧。
 5. 运行 SQLite `quick_check` 和 `integrity_check`。
-6. 只有所有数据库都成功时才原子更新 `current.json`。
+6. 只有必需能力库全部成功时才原子更新 `current.json`。必需库包括联系人、会话、朋友圈、收藏夹、消息资源，以及所有现有的 `message_N.db` / `biz_message_N.db`；低频功能辅助库缺失必须写入 `optional_missing_databases`，不得伪装成已解密。
 
-缺 key、旧 key、损坏页或 WAL 错误必须作为失败返回，不得用旧明文库伪装成功。
+必需库缺 key、旧 key、损坏页或 WAL 错误必须作为失败返回，不得用旧明文库伪装成功。可选库失败不得阻止已通过完整性检查的必需能力快照，但必须在 manifest 和命令结果中逐库披露；后续可定向补抓。
 
 日常使用 `refresh --mode incremental`（默认）。增量模式仍会创建新的不可变 generation，并重新稳定复制和哈希每组 DB/WAL/SHM；只有加密文件组和 DPAPI key 指纹均未变化时，才复用上一代通过完整性检查的明文库。需要强制逐库重新解密时使用 `--mode full`。
 
@@ -127,7 +129,7 @@ py -3 "{{SKILL_DIR}}\scripts\vault_cli.py" digest-source "群名" --since-last -
 - 明确区分 DPAPI 密钥库、加密快照、明文快照和用户导出报告。
 - 导出报告可能包含明文隐私，写入前确认用户指定路径；默认导出目录是 `%USERPROFILE%\Documents\YichenWeChatVault\exports`。
 - 朋友圈和收藏夹缺 key 时只补抓相关库，不扩大到不必要范围。
-- 所有异常都保持源数据库不变；任何临时或不完整 generation 都不能成为 current。
+- 所有异常都保持源数据库不变；任何缺少必需能力库的 generation 都不能成为 current。可选库缺失不等于成功，必须保留明确清单。
 
 ## 维护与验证
 

@@ -6,6 +6,7 @@ An independent Windows counterpart to `yichen-wechat-local-vault`. It creates lo
 
 - Discovers official Windows Weixin account databases under the current user's `Documents\xwechat_files`.
 - With explicit current-task consent, reads only `Weixin.exe` process memory and waits for an ordinary SQLCipher key-use window.
+- Aggregates independently validated matches across every readable Weixin subprocess instead of assuming all database contexts live in one process.
 - Validates every captured key against both the SQLCipher page HMAC and SQLite header before accepting it.
 - Protects accepted keys with current-user Windows DPAPI; raw keys are never printed or stored in the repository.
 - Copies DB/WAL/SHM only after the user manually exits Weixin.
@@ -68,7 +69,7 @@ For later runs, `refresh --mode incremental` is the default. It still creates a 
 %LOCALAPPDATA%\YichenWeChatVault\
 ├── keys\account.json              # DPAPI ciphertext and non-secret metadata
 └── vault\
-    ├── current.json                # updated only after a complete generation
+    ├── current.json                # updated only after required coverage succeeds
     ├── state\                      # read-only query cursors
     └── generations\<id>\
         ├── encrypted\db_storage\  # stable DB/WAL/SHM copies
@@ -77,6 +78,15 @@ For later runs, `refresh --mode incremental` is the default. It still creates a 
 ```
 
 Old generations are never deleted automatically. Exports default to `%USERPROFILE%\Documents\YichenWeChatVault\exports` and may contain plaintext personal data.
+
+## Snapshot coverage
+
+A Windows account can contain low-frequency auxiliary databases whose key is never used unless that feature has data. Promotion therefore follows the Mac skill's keyed-database behavior while keeping a stricter capability gate:
+
+- Required when present: `contact/contact.db`, `session/session.db`, `sns/sns.db`, `favorite/favorite.db`, `message/message_resource.db`, every `message/message_N.db`, and every `message/biz_message_N.db`.
+- Optional and explicitly disclosed when unavailable: search indexes and feature-specific stores such as chatbot, emoticon, media-cache, WeClaw, solitaire, and other auxiliary databases.
+
+Every discovered DB/WAL/SHM set is still copied and listed in the manifest. A missing or invalid required database prevents promotion; an optional failure remains visible through `optional_missing_databases` and can be captured later without blocking the already verified Mac-equivalent query surface. `all_databases_decrypted` is true only when no optional database is missing.
 
 ## Why process-memory reading is necessary
 
