@@ -41,6 +41,7 @@ To request commercial authorization, contact me on WeChat at `yichen365ai` and i
 20. Choose between Step and Doubao/Volcengine ASR without duplicate submissions (`yichen-asr`)
 21. Create authorized WeCom documents and manage todos, meetings, and schedules through the official CLI without controlling the desktop app (`yichen-wecom-operations`)
 22. Turn one public X Post or Thread URL into verified 3:4 image slices and a finished video that embeds complete native video visuals and preserves their original audio when present (`yichen-x-slicer`)
+23. Build read-only, integrity-checked local Weixin 4.x snapshots on Windows without `wx-cli`, injection, hooks, or process control (`yichen-wechat-windows-vault`)
 
 ## Included Skills
 
@@ -259,6 +260,19 @@ Turn one public X status URL into finished social assets:
 
 Install this Skill directly with `npx skills add mcncarl/yichen-skills --skill yichen-x-slicer`.
 
+### 23) `yichen-wechat-windows-vault`
+
+Independent Windows counterpart to the Mac WeChat local vault:
+
+- Uses read-only Windows process inspection only after explicit current-task consent
+- Accepts a database key only after SQLCipher HMAC and SQLite-header validation
+- Protects stored keys with current-user DPAPI and keeps snapshots under `%LOCALAPPDATA%`
+- Copies DB/WAL/SHM as a stable set, validates WAL checksums and commits, and runs SQLite integrity checks
+- Supports full or incremental immutable snapshots plus the Mac skill's contacts, sessions, history, search, export, Favorites, and Moments query surface
+- Does not depend on `wx-cli`, Frida, injection, hooks, drivers, Weixin UI automation, or process-control APIs
+
+See [yichen-wechat-windows-vault/README.md](./yichen-wechat-windows-vault/README.md) for the consent boundary, installation, architecture, and verification evidence.
+
 ## Project Structure
 
 ```text
@@ -283,6 +297,12 @@ yichen-skills/
 │     ├─ list_contacts.py
 │     ├─ search_sns.py
 │     └─ wechat_digest.py
+├─ yichen-wechat-windows-vault/
+│  ├─ SKILL.md
+│  ├─ README.md
+│  ├─ requirements.txt
+│  ├─ scripts/
+│  └─ tests/
 ├─ yichen-mac-wechat-dual-open/
 │  ├─ SKILL.md
 │  ├─ scripts/
@@ -393,6 +413,7 @@ yichen-skills/
 - Dependencies:
   - X article drafts: `pip install playwright pycryptodome && python3 -m playwright install chromium`
   - WeChat local vault: `pip install pycryptodome zstandard`
+  - Weixin Windows vault (Python 3.10+): `pip install -r yichen-wechat-windows-vault/requirements.txt`
   - WeChat dual open: `pip install Pillow`
   - Content archive (Douyin): `pip install playwright requests && python3 -m playwright install chromium`
   - Content archive (Xiaohongshu): `pip install requests`

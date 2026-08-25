@@ -3,6 +3,8 @@
 **/wechat-keys.json
 **/wechat-*.json
 **/wechat-*-state.json
+**/YichenWeChatVault/
+**/keys/account.json
 **/.env
 **/.env.*
 **/*secret*

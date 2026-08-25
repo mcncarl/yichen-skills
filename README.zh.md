@@ -41,6 +41,7 @@
 20. 在 Step 与豆包/火山 ASR 之间安全路由并避免重复提交（`yichen-asr`）
 21. 通过企业微信官方 CLI 创建授权文档并管理待办、会议和日程，不操控客户端（`yichen-wecom-operations`）
 22. 把一条公开 X Post 或 Thread 链接转成经过验收的 3:4 图片切片与成片，完整嵌入原生视频并在有源音轨时保留原声（`yichen-x-slicer`）
+23. 在 Windows 上生成只读、经过完整性校验的微信 4.x 本地快照，不依赖 `wx-cli`，不注入、不 Hook、不控制进程（`yichen-wechat-windows-vault`）
 
 ## 包含的技能
 
@@ -258,6 +259,19 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 
 可直接运行 `npx skills add mcncarl/yichen-skills --skill yichen-x-slicer` 安装。
 
+### 23) `yichen-wechat-windows-vault`
+
+Mac 微信本地 Vault 的独立 Windows 对应版本：
+
+- 仅在当前任务得到明确同意后使用 Windows 只读进程检查
+- 只有同时通过 SQLCipher HMAC 与 SQLite 文件头校验的数据库 key 才会被接受
+- key 使用当前 Windows 用户的 DPAPI 加密，快照保存在 `%LOCALAPPDATA%` 私有目录
+- 把 DB/WAL/SHM 作为稳定文件集复制，校验 WAL 帧与提交，并运行 SQLite 完整性检查
+- 支持全量/增量不可变快照，以及与 Mac 版一致的联系人、会话、历史、搜索、导出、收藏夹和朋友圈查询
+- 不依赖 `wx-cli`、Frida、注入、Hook、驱动、微信 UI 自动化或进程控制 API
+
+同意边界、安装、架构和验证证据见 [yichen-wechat-windows-vault/README.md](./yichen-wechat-windows-vault/README.md)。
+
 ## 目录结构
 
 ```text
@@ -282,6 +296,12 @@ yichen-skills/
 │     ├─ list_contacts.py
 │     ├─ search_sns.py
 │     └─ wechat_digest.py
+├─ yichen-wechat-windows-vault/
+│  ├─ SKILL.md
+│  ├─ README.md
+│  ├─ requirements.txt
+│  ├─ scripts/
+│  └─ tests/
 ├─ yichen-mac-wechat-dual-open/
 │  ├─ SKILL.md
 │  ├─ scripts/
