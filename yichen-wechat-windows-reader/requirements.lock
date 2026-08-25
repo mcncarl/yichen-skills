@@ -1,0 +1,4 @@
+# Generated from requirements.in for the Windows CPython 3.12 CI target.
+zstandard==0.25.0 \
+    --hash=sha256:ffef5a74088f1e09947aecf91011136665152e0b4b359c42be3373897fb39b01 \
+    --hash=sha256:7713e1179d162cf5c7906da876ec2ccb9c3a9dcbdffef0cc7f70c3667a205f0b

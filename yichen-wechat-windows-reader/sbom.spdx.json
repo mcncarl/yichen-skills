@@ -1,0 +1,36 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "yichen-wechat-windows-reader",
+  "documentNamespace": "https://github.com/xuewei-ai/yichen-skills/sbom/yichen-wechat-windows-reader-2026-08-25",
+  "creationInfo": {
+    "created": "2026-08-25T00:00:00Z",
+    "creators": ["Tool: manual-review-record"]
+  },
+  "packages": [
+    {
+      "name": "yichen-wechat-windows-reader",
+      "SPDXID": "SPDXRef-Package-Reader",
+      "versionInfo": "0.1.0",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "NOASSERTION",
+      "licenseDeclared": "NOASSERTION",
+      "copyrightText": "NOASSERTION"
+    },
+    {
+      "name": "zstandard",
+      "SPDXID": "SPDXRef-Package-Zstandard",
+      "versionInfo": "0.25.0",
+      "downloadLocation": "https://files.pythonhosted.org/packages/79/3b/fa54d9015f945330510cb5d0b0501e8253c127cca7ebe8ba46a965df18c5/zstandard-0.25.0-cp312-cp312-win_amd64.whl",
+      "filesAnalyzed": false,
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "ffef5a74088f1e09947aecf91011136665152e0b4b359c42be3373897fb39b01"}],
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [{"referenceCategory": "PACKAGE-MANAGER", "referenceType": "purl", "referenceLocator": "pkg:pypi/zstandard@0.25.0"}]
+    }
+  ],
+  "relationships": [{"spdxElementId": "SPDXRef-Package-Reader", "relationshipType": "DEPENDS_ON", "relatedSpdxElement": "SPDXRef-Package-Zstandard"}]
+}

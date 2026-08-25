@@ -41,8 +41,20 @@ To request commercial authorization, contact me on WeChat at `yichen365ai` and i
 20. Choose between Step and Doubao/Volcengine ASR without duplicate submissions (`yichen-asr`)
 21. Create authorized WeCom documents and manage todos, meetings, and schedules through the official CLI without controlling the desktop app (`yichen-wecom-operations`)
 22. Turn one public X Post or Thread URL into verified 3:4 image slices and a finished video that embeds complete native video visuals and preserves their original audio when present (`yichen-x-slicer`)
+23. Analyze a user-supplied plaintext Windows Weixin snapshot locally and read-only, without process access, keys, or decryption (`yichen-wechat-windows-reader`)
 
 ## Included Skills
+
+### `yichen-wechat-windows-reader`
+Analyze a plaintext Windows Weixin 4.x SQLite snapshot explicitly supplied by the user:
+- Opens every input database read-only and fails closed on an incomplete snapshot
+- Queries both personal and business message database families
+- Uses opaque chat IDs and omits internal WeChat identities from output
+- Writes exports to a private LocalAppData directory unless the user separately confirms another destination
+- Never accesses `Weixin.exe`, extracts keys, decrypts databases, discovers source data, or controls the UI
+
+See [yichen-wechat-windows-reader/README.md](./yichen-wechat-windows-reader/README.md).
+
 
 ### 1) `yichen-summary`
 - Purpose: extract key insights from the current conversation and save to Obsidian
