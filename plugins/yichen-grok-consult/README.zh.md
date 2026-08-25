@@ -8,7 +8,7 @@
 
 ## 提供的工具
 
-- `search_x_with_grok`：启动官方 Grok Build CLI 的原生 `x_search`。只有明确的账号额度耗尽才能进入匿名 FxTwitter；FxTwitter 失败或零结果后才继续只读 OpenCLI 和 xreach。工具会提取公开 X status URL，还原 Snowflake 编号中的时间，转换时区并按滚动窗口或固定日期过滤。
+- `search_x_with_grok`：启动官方 Grok Build CLI 的原生 `x_search`。只有明确的账号额度耗尽才能进入匿名 FxTwitter；该匿名路线失败后，调用方还必须在取得当前任务明确授权后传入 `allow_authenticated_fallback=true`，服务器才会放行可能读取本机 X 登录态的 OpenCLI 和 xreach。工具会提取公开 X status URL，还原 Snowflake 编号中的时间，转换时区并按滚动窗口或固定日期过滤。
 - `ask_grok`：让 Grok 独立回答问题。
 - `review_with_grok`：让 Grok 审阅草稿或分析。
 - `challenge_with_grok`：让 Grok 反驳和压力测试某个判断。
@@ -21,7 +21,7 @@
 - Node.js 18 或更高版本。
 - 官方 [Grok Build CLI](https://docs.x.ai/build/overview)，默认位于 `~/.grok/bin/grok`，也可通过 `GROK_CONSULT_CLI` 指定。
 - 已执行 `grok login` 并保持有效登录。
-- X 回退可选依赖：同级 `yichen-unified-search` Skill 中的 `fxtwitter_search.py`，以及 OpenCLI、xreach。只有满足文档中的回退条件时才会使用。
+- X 回退可选依赖：同级 `yichen-unified-search` Skill 中的 `fxtwitter_search.py`，以及 OpenCLI、xreach。OpenCLI/xreach 可能使用本机 X 登录态，只有当前任务明确授权且 `allow_authenticated_fallback=true` 时才会使用。
 
 本文发布时，xAI 官方安装方式为：
 
@@ -66,7 +66,7 @@ codex plugin add yichen-grok-consult@yichen-skills
 - 真实 Grok 登录文件只通过 `GROK_AUTH_PATH` 引用，不复制进仓库，也不在工具输出中返回。
 - MCP 会读取隔离会话记录，确认至少一次 `XSearch` 已完成，不相信 Grok 文字里的“我已经搜索”。
 - 未登录、401/403、权限、输入、超时、网络、服务、零结果或搜索证据不可核验都不属于额度耗尽；只有明确的 Grok 账号额度或使用上限耗尽才能触发 FxTwitter。
-- FxTwitter 只接收公开关键词，不接收 X Cookie。OpenCLI 与 xreach 可能使用本机 X 会话，必须保持只读，并遵守上层工作流的当轮授权要求。
+- FxTwitter 只接收公开关键词，不接收 X Cookie。OpenCLI 与 xreach 可能使用本机 X 会话，因此服务器默认禁止两者，只有调用方在当前任务明确授权后传入 `allow_authenticated_fallback=true` 才放行。
 - 查询、结果和会话记录会留在隔离 Grok 目录，也可能由 xAI 处理；插件不会自动清理。
 - 对外返回结果不包含用户的绝对 transcript 路径。
 
@@ -85,7 +85,9 @@ GPT 主导的 Codex 任务
   -> 隔离的官方 Grok Build CLI 会话（始终第一层）
   -> 原生 XSearch / 辅助网页搜索
   -> 仅明确账号额度耗尽时：
-       匿名 FxTwitter -> OpenCLI -> xreach
+       匿名 FxTwitter
+       -> 仅在当前任务明确授权后：
+            OpenCLI -> xreach
   -> 核验 XSearch 完成记录或本地只读路线
   -> 提取 URL + 还原 Snowflake 时间
   -> 把结构化结果交回 GPT

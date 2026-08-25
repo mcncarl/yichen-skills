@@ -1,4 +1,12 @@
+---
 interface:
   display_name: "逸尘互联网研究"
-  short_description: "横纵深研、跨平台检索、有限归档、私人收藏与 ASR 路由"
-  default_prompt: "Use $yichen-web-research to plan and synthesize evidence-grounded longitudinal and cross-sectional research or route multi-stage work; send search-only requests to $yichen-unified-search, explicitly bounded known-link archiving to $yichen-content-archive, private bookmark export to $yichen-bookmarks-export, and existing-media transcription to $yichen-asr, without ever treating search completion as archive authorization."
+  short_description: "横纵深研、跨平台检索、有界站点路由、有限归档、私人收藏与 ASR"
+  default_prompt: >-
+    Use $yichen-web-research to plan and synthesize evidence-grounded
+    longitudinal and cross-sectional research or route multi-stage work; send
+    search-only, explicit Zhihu public search/hot, and bounded Firecrawl Map
+    requests to $yichen-unified-search, explicitly bounded known-link archiving
+    to $yichen-content-archive, private bookmark export to
+    $yichen-bookmarks-export, and existing-media transcription to $yichen-asr,
+    without ever treating search completion as archive authorization.

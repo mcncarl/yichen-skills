@@ -72,14 +72,24 @@ def check_doctor() -> dict:
     except json.JSONDecodeError as exc:
         return {"ok": False, "error": f"invalid doctor JSON: {exc}"}
 
+    zhihu = payload.get("zhihu", {})
+    firecrawl = payload.get("web", {}).get("firecrawl", {})
     invariants = {
-        "xiaohongshu_authorization": payload.get("xiaohongshu", {}).get(
+        "xiaohongshu_bounded_readonly_reuse": payload.get("xiaohongshu", {}).get(
             "current_turn_authorization_required"
         )
+        is False,
+        "douyin_bounded_readonly_reuse": payload.get("douyin", {}).get(
+            "current_turn_authorization_required"
+        )
+        is False,
+        "xiaohongshu_dangerous_scope_still_requires_authorization": payload.get(
+            "xiaohongshu", {}
+        ).get("write_or_private_scope_authorization_required")
         is True,
-        "douyin_authorization": payload.get("douyin", {}).get(
-            "current_turn_authorization_required"
-        )
+        "douyin_dangerous_scope_still_requires_authorization": payload.get(
+            "douyin", {}
+        ).get("write_or_private_scope_authorization_required")
         is True,
         "toutiao_anonymous": payload.get("toutiao", {}).get(
             "login_required_for_search"
@@ -101,9 +111,9 @@ def check_doctor() -> dict:
             "status"
         )
         in {"ok", "warn"},
-        "x_search_primary_is_grok": (
+        "x_search_contract_is_grok_first": (
             payload.get("twitter", {}).get("active_backend")
-            == "official_cli_account_quota"
+            in {None, "official_cli_account_quota"}
             and payload.get("twitter", {}).get("primary_login_required") is True
             and payload.get("twitter", {}).get("search_route", [None])[0]
             == "official_cli_account_quota"
@@ -122,6 +132,27 @@ def check_doctor() -> dict:
             "billing_status"
         )
         in {"unknown", "unknown_requires_console_login"},
+        "firecrawl_adapter_present": firecrawl.get("adapter_ready") is True,
+        "firecrawl_is_explicit_and_offline": (
+            firecrawl.get("default_backend") is False
+            and firecrawl.get("network_probe_performed") is False
+            and firecrawl.get("credential_source")
+            in {None, "environment", "private_file"}
+        ),
+        "zhihu_adapter_present": zhihu.get("adapter_ready") is True,
+        "zhihu_cli_or_auth_missing_is_nonfatal": (
+            zhihu.get("status") in {"ok", "warn"}
+            and isinstance(zhihu.get("cli_ready"), bool)
+            and isinstance(zhihu.get("auth_configured"), bool)
+        ),
+        "zhihu_keychain_source_only": zhihu.get("credential_source")
+        in {None, "keychain"},
+        "zhihu_offline_explicit_public_only": (
+            zhihu.get("network_probe_performed") is False
+            and zhihu.get("default_backend") is False
+            and zhihu.get("public_commands_only") is True
+            and zhihu.get("personal_commands_exposed") is False
+        ),
     }
     return {
         "ok": all(invariants.values()),
@@ -166,18 +197,23 @@ def main() -> int:
         if not no_template:
             failures.append(f"{name}: template marker remains")
 
-        validation = (
-            run([sys.executable, str(VALIDATOR), str(root)])
-            if VALIDATOR.is_file()
-            else None
-        )
-        valid = validation is None or validation.returncode == 0
-        checks[f"{name}.quick_validate"] = valid
-        if not valid:
-            failures.append(
-                f"{name}: quick_validate failed: "
-                f"{validation.stdout.strip()} {validation.stderr.strip()}"
-            )
+        if VALIDATOR.is_file():
+            validation = run([sys.executable, str(VALIDATOR), str(root)])
+            valid = validation.returncode == 0
+            checks[f"{name}.quick_validate"] = {
+                "status": "passed" if valid else "failed",
+                "returncode": validation.returncode,
+            }
+            if not valid:
+                failures.append(
+                    f"{name}: quick_validate failed: "
+                    f"{validation.stdout.strip()} {validation.stderr.strip()}"
+                )
+        else:
+            checks[f"{name}.quick_validate"] = {
+                "status": "skipped",
+                "reason": "external quick_validate.py is not installed",
+            }
 
     test_commands = {
         "yichen-web-research": [
@@ -379,6 +415,10 @@ def main() -> int:
             )
             for path in hengzong_scripts.values()
         ),
+        "zhihu_adapter_present": (
+            SKILLS_ROOT
+            / "yichen-unified-search/scripts/zhihu_adapter.py"
+        ).is_file(),
     }
     checks["router_metadata"] = router_metadata_checks
     if not all(router_metadata_checks.values()):
@@ -553,6 +593,17 @@ def main() -> int:
             "官方 Grok CLI" in boundary_sources["search"]
             and "明确额度耗尽" in boundary_sources["search"]
             and "FxTwitter" in boundary_sources["search"]
+        ),
+        "firecrawl_is_explicit_and_bounded": (
+            "不进入默认搜索链" in router_source
+            and "同源" in router_source
+            and "最多 100 条" in router_source
+            and "Firecrawl" in boundary_sources["search"]
+        ),
+        "zhihu_is_explicit_public_only": (
+            "显式 `zhihu` 平台后端" in router_source
+            and "global_search" in router_source
+            and "zhihu_adapter.py" in boundary_sources["search"]
         ),
         "bookmarks_requires_current_turn_authorization": "当轮授权"
         in boundary_sources["bookmarks"],

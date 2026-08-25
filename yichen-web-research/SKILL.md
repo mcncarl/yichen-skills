@@ -24,7 +24,7 @@ description: 逸尘自用的互联网研究总入口。用于跨平台且跨阶�
 | 用户意图 | 目标 Skill |
 |---|---|
 | 横纵分析、发展史 + 当前格局、证据账本、交汇洞察或三情景深度研究 | `$yichen-web-research` |
-| 关键词搜索、批量发现、平台站内搜索、候选核验 | `$yichen-unified-search` |
+| 关键词搜索、批量发现、平台站内搜索、候选核验，或显式有界的站点 URL Map | `$yichen-unified-search` |
 | 已知 URL、URL 文件、已确认候选或明确容器的读取、下载、归档（含 X Post、Quote、Article） | `$yichen-content-archive` |
 | 导出小红书、抖音或 X/Twitter 的私人收藏与书签链接 | `$yichen-bookmarks-export` |
 | 已有音视频的字幕、ASR、口播粗剪或内容分析 | `$yichen-asr` |
@@ -77,25 +77,30 @@ description: 逸尘自用的互联网研究总入口。用于跨平台且跨阶�
 ## 后端定位
 
 - AnySearch：公共网页、批量搜索、垂直搜索和搜索候选的轻量原文核验。
+- Firecrawl：只作显式的有界站点 Map，以及当前 AnySearch 候选的单页 Scrape 回退；不进入默认搜索链，也不声明支持 Crawl 或归档。
+- 知乎 CLI 公开搜索：只作显式 `zhihu` 平台后端，由 `$yichen-unified-search` 的白名单适配器调用另行安装的 Open Platform CLI 兼容运行时进行公开站内搜索或显式热榜发现；本仓库不独立核验该运行时的厂商来源，并且不替换 AnySearch 的普通网页搜索。`global_search`、知乎直答（`zhida`/`answer`）与 `me` 账号命令不进入总路由。
 - Twitter/X：关键词搜索交给 `$yichen-unified-search`，固定 Grok CLI 原生 `x_search` 优先；已知 X URL 交给 `$yichen-content-archive`，固定匿名 FxTwitter → Jina 优先。
 - 平台原生 CLI/API：GitHub、YouTube、B站等结构化公共搜索。
 - OpenCLI：仅作为部分平台的只读适配器，不是本体系的强制依赖或总入口。
 - 本地平台 Skill：已知链接解析、媒体下载、公众号正文和批量归档。
-- 浏览器或账号登录态：只在匿名路线不足且目标平台规则允许时，按具体目标取得当轮授权。
+- 浏览器或账号登录态：小红书、抖音的有界公开只读搜索，以及微博匿名访问门失败后的一次有界只读回退，可按子 Skill 的固定范围和限速规则自动复用现有会话；其他登录态读取按具体目标取得当轮授权。
 
-不得因为某个后端已安装或浏览器已登录，就绕过子 Skill 的授权门。
+不得因为某个后端已安装或浏览器已登录，就绕过子 Skill 的范围、限速和高风险授权门。
 
 ## 安全边界
 
 1. 所有社交平台保持只读：不发帖、不评论、不点赞、不收藏、不关注、不私信，不改变账号状态。
 2. 绝对不得操控微信桌面端或移动端 UI；不得发消息、发布、编辑、创建草稿、删除、群发或关注。
-3. 小红书、抖音的 Chrome 登录态搜索必须在执行前说明平台、原始关键词和预计条数，并取得用户当轮明确授权。
+3. 小红书、抖音的有界公开只读搜索，以及微博匿名访问门失败后的一次有界只读回退，可自动复用现有 Chrome 登录态，无需逐次授权；必须遵守子 Skill 的单关键词、条数上限、串行与间隔规则。小红书最多 20 条，抖音最多 30 条，必须串行且请求间隔不少于 5 秒。发帖、评论、点赞、收藏、关注、私信、删除、账号变更、验证码处理以及私域读取必须停下，并由用户当轮明确提出和授权。
 4. 私人收藏、书签、Feed 和账号后台数据必须取得当轮对具体平台与范围的明确授权；授权不可转移到下载。
 5. 匿名公开路线优先。不得绕过验证码、登录墙、付费墙、限流、地区限制或访问控制。
 6. 不打印或保存 Cookie、Token、API Key、登录凭证及敏感 URL 参数。
 7. 不覆盖既有产物，不自动删除临时文件。任何清理都必须先获得用户明确允许，并且只能移入废纸篓。
 8. 付费 API 或可能产生显著额度消耗的批量转写，在执行前说明范围和预计数量。
 9. ASR 自动路由在任务提交后不得跨服务商重提；余额未知时不得表述为充足或不足。
+10. Firecrawl Map 必须固定公开站点和输入路径，最多 100 条，只保留同源且位于输入路径范围内的公开 URL；默认禁止子域、外域、登录态、交互动作和持续监控。Map 只产生候选，不能自动跨过确认门进入归档。Scrape 只用于带有效短期回执的当前 AnySearch 候选，不扩展为 Crawl 或归档。
+11. Firecrawl API Key 只从 `FIRECRAWL_API_KEY` 或 `${FIRECRAWL_KEY_FILE:-$HOME/.config/agent-secrets/firecrawl-api-key}` 读取；doctor 只根据环境变量是否非空，或私有文件的类型、owner、权限和大小报告是否存在，不输出密钥值、不读取凭据文件内容，也不发起网络或计费探针。
+12. 知乎 CLI 兼容运行时只允许经统一搜索适配器暴露公开 `search`/`hot` 能力；不得暴露 `global_search`、`zhida`/`answer` 或任何 `me` 私人命令。doctor 只运行离线 `version`、`capabilities`、`auth status` 元数据检查，子进程使用最小环境白名单，只报告 Keychain 是否配置，不透传 stdout、stderr 或 Secret，也不发送搜索或热榜请求。
 
 ## 多后端体检
 
@@ -111,7 +116,9 @@ OpenCLI 相关任务再运行：
 opencli doctor
 ```
 
-体检只证明后端和安全契约可识别，不等于已经获得登录态或私人数据读取授权。
+体检只证明后端和安全契约可识别。它不授权任何写操作或私人数据读取；有界公开只读会话复用是否允许，以当前子 Skill 的固定范围和限速规则为准。
+
+知乎通道缺少配置的 CLI 运行时或 Keychain 认证时只报告 `warn`，不把整个研究家族误判为结构损坏；统一搜索侧 `zhihu_adapter.py` 缺失才属于结构错误。该通道固定 `default_backend=false`、`network_probe_performed=false`、`public_commands_only=true`、`personal_commands_exposed=false`。
 
 ## 交接约定
 

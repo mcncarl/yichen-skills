@@ -1,7 +1,7 @@
 {
   "name": "yichen-grok-consult",
-  "version": "0.1.0",
-  "description": "Consult Grok or search X with official Grok CLI first and explicit-quota-only local fallbacks.",
+  "version": "0.1.1",
+  "description": "Consult Grok or search X with official Grok CLI first, quota-gated anonymous fallback, and authorization-gated authenticated fallback.",
   "author": {
     "name": "mcncarl",
     "url": "https://github.com/mcncarl"
@@ -20,7 +20,7 @@
   "interface": {
     "displayName": "Grok Consult",
     "shortDescription": "Ask Grok or search X with a bounded fallback chain.",
-    "longDescription": "Keep GPT in control while using the official Grok CLI for consultation and native X search, with anonymous FxTwitter fallback only after explicit account-quota exhaustion, followed by read-only OpenCLI and xreach.",
+    "longDescription": "Keep GPT in control while using the official Grok CLI for consultation and native X search, with anonymous FxTwitter fallback only after explicit account-quota exhaustion and authenticated OpenCLI/xreach fallback only after current-task authorization.",
     "developerName": "mcncarl",
     "category": "Productivity",
     "capabilities": [

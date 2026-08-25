@@ -8,7 +8,7 @@ This is an unofficial community plugin. It is not affiliated with, endorsed by, 
 
 ## What it provides
 
-- `search_x_with_grok`: launches the official Grok Build CLI with native `x_search`. Only explicit account-quota exhaustion can activate anonymous FxTwitter; an empty or failed FxTwitter result can then continue to read-only OpenCLI and xreach. The tool extracts public X status URLs, decodes Snowflake timestamps, converts time zones, and filters a rolling window or fixed date.
+- `search_x_with_grok`: launches the official Grok Build CLI with native `x_search`. Only explicit account-quota exhaustion can activate anonymous FxTwitter. If that anonymous route fails, OpenCLI and xreach remain disabled unless the caller sets `allow_authenticated_fallback=true` after explicit current-task authorization. The tool extracts public X status URLs, decodes Snowflake timestamps, converts time zones, and filters a rolling window or fixed date.
 - `ask_grok`: asks Grok for an independent answer.
 - `review_with_grok`: asks Grok to review a draft or analysis.
 - `challenge_with_grok`: asks Grok to stress-test a claim.
@@ -21,7 +21,7 @@ All four tools use the official Grok Build CLI and account OAuth. OpenCLI and xr
 - Node.js 18 or newer.
 - Official [Grok Build CLI](https://docs.x.ai/build/overview), installed at `~/.grok/bin/grok` or configured through `GROK_CONSULT_CLI`.
 - A valid Grok Build login created with `grok login`.
-- Optional for X fallback only: the sibling `yichen-unified-search` Skill with `fxtwitter_search.py`, plus OpenCLI and xreach. These routes are used only under the documented fallback rules.
+- Optional for X fallback only: the sibling `yichen-unified-search` Skill with `fxtwitter_search.py`, plus OpenCLI and xreach. OpenCLI/xreach may use authenticated local X state and are used only when `allow_authenticated_fallback=true` was explicitly authorized for the current task.
 
 Official Grok Build installation at the time of publication:
 
@@ -68,7 +68,7 @@ If your network requires a proxy, add `HTTP_PROXY`, `HTTPS_PROXY`, and related v
 - The real Grok authentication file is referenced through `GROK_AUTH_PATH`; it is not copied into this repository or returned in tool output.
 - The tool verifies at least one completed `XSearch` by reading the isolated session transcript. It does not trust a prose claim that a search occurred.
 - Authentication, 401/403, permission, invalid-request, timeout, network, service, zero-result, or unverified-search errors do not qualify for FxTwitter fallback. Only explicit Grok account-quota or usage-limit exhaustion does.
-- FxTwitter receives only the public query and no X cookies. OpenCLI and xreach may use local X session state, so keep them read-only and obtain any authorization required by the calling workflow.
+- FxTwitter receives only the public query and no X cookies. OpenCLI and xreach may use local X session state, so the server blocks both by default and accepts them only when the caller sends `allow_authenticated_fallback=true` after explicit current-task authorization.
 - Queries, results, and session transcripts remain under the isolated Grok home and may also be processed by xAI. The plugin performs no automatic cleanup.
 - The public result omits the user's absolute transcript path.
 
@@ -87,7 +87,9 @@ GPT-led Codex task
   -> isolated official Grok Build CLI session (always first)
   -> native XSearch / supporting web tools
   -> on explicit account-quota exhaustion only:
-       anonymous FxTwitter -> OpenCLI -> xreach
+       anonymous FxTwitter
+       -> only with explicit current-task authorization:
+            OpenCLI -> xreach
   -> native transcript proof or local read-only route proof
   -> URL extraction + Snowflake time decoding
   -> structured result returned to GPT

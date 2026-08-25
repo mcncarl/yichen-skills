@@ -1,0 +1,148 @@
+---
+name: Research skills contracts
+
+'on':
+  push:
+    paths:
+      - 'yichen-web-research/**'
+      - 'yichen-unified-search/**'
+      - 'yichen-content-archive/**'
+      - 'yichen-bookmarks-export/**'
+      - 'yichen-asr/**'
+      - 'plugins/yichen-grok-consult/**'
+      - 'README.md'
+      - 'README.zh.md'
+      - 'THIRD_PARTY_NOTICES.md'
+      - 'licenses/**'
+      - '.github/workflows/research-skills.yml'
+      - '.github/requirements-research-skills.txt'
+  pull_request:
+    paths:
+      - 'yichen-web-research/**'
+      - 'yichen-unified-search/**'
+      - 'yichen-content-archive/**'
+      - 'yichen-bookmarks-export/**'
+      - 'yichen-asr/**'
+      - 'plugins/yichen-grok-consult/**'
+      - 'README.md'
+      - 'README.zh.md'
+      - 'THIRD_PARTY_NOTICES.md'
+      - 'licenses/**'
+      - '.github/workflows/research-skills.yml'
+      - '.github/requirements-research-skills.txt'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: research-skills-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        # v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+
+      - name: Set up Python
+        # v7.0.0
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
+        with:
+          python-version: '3.11'
+
+      - name: Install pinned contract-test dependencies
+        run: |
+          python -m pip install \
+            --requirement .github/requirements-research-skills.txt
+
+      - name: Compile Python sources
+        run: |
+          python -m py_compile yichen-unified-search/scripts/*.py
+          python -m py_compile yichen-unified-search/tests/*.py
+          python -m py_compile yichen-web-research/scripts/*.py
+          python -m py_compile yichen-web-research/tests/*.py
+
+      - name: Run unified-search contracts
+        run: |
+          python -m unittest discover \
+            -s yichen-unified-search/tests \
+            -p 'test_*.py'
+
+      - name: Run web-research contracts
+        run: |
+          python -m unittest discover \
+            -s yichen-web-research/tests \
+            -p 'test_*.py'
+
+      - name: Run Grok authenticated-fallback policy contracts
+        run: |
+          node --check plugins/yichen-grok-consult/mcp/server.mjs
+          node --test \
+            plugins/yichen-grok-consult/mcp/authenticated-fallback-policy.test.mjs
+
+      - name: Validate the research Skill family
+        run: python yichen-web-research/scripts/validate_family.py
+
+      - name: Reject private paths and credential-shaped values
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          roots = [
+              Path('yichen-web-research'),
+              Path('yichen-unified-search'),
+              Path('plugins/yichen-grok-consult'),
+          ]
+          explicit_files = [
+              Path('README.md'),
+              Path('README.zh.md'),
+              Path('THIRD_PARTY_NOTICES.md'),
+              Path('.github/workflows/research-skills.yml'),
+              Path('.github/requirements-research-skills.txt'),
+          ]
+          forbidden_patterns = {
+              'personal macOS path': re.compile(r'/Users/[A-Za-z0-9._-]+/'),
+              'personal Linux path': re.compile(r'/home/[A-Za-z0-9._-]+/'),
+              'personal Windows path': re.compile(
+                  r'[A-Za-z]:\\Users\\[A-Za-z0-9._-]+\\'
+              ),
+              'private key material': re.compile(
+                  r'BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY'
+              ),
+          }
+          credential_patterns = {
+              'GitHub token': re.compile(r'gh[pousr]_[A-Za-z0-9]{20,}'),
+              'OpenAI-style key': re.compile(r'\bsk-[A-Za-z0-9_-]{20,}'),
+              'Google API key': re.compile(r'\bAIza[0-9A-Za-z_-]{30,}'),
+              'AWS access key': re.compile(r'\b(?:AKIA|ASIA)[A-Z0-9]{16}\b'),
+              'JWT': re.compile(
+                  r'\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b'
+              ),
+              'Bearer token': re.compile(
+                  r'(?i)\bbearer\s+[A-Za-z0-9._~+/-]{20,}=*'
+              ),
+          }
+          findings = []
+          files = set(explicit_files)
+          files.update(Path('licenses').rglob('*'))
+          for root in roots:
+              files.update(root.rglob('*'))
+          for path in sorted(path for path in files if path.is_file()):
+              try:
+                  text = path.read_text(encoding='utf-8')
+              except UnicodeDecodeError:
+                  continue
+              for label, pattern in forbidden_patterns.items():
+                  if pattern.search(text):
+                      findings.append(f'{path}: {label}')
+              for label, pattern in credential_patterns.items():
+                  if pattern.search(text):
+                      findings.append(f'{path}: {label}')
+          if findings:
+              raise SystemExit('\n'.join(findings))
+          PY

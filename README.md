@@ -170,8 +170,10 @@ Top-level router for research tasks that span search, candidate review, archivin
 
 - Sends single-stage work directly to the appropriate child Skill
 - Never turns a search result into an automatic download
+- Adds an evidence-gated horizontal-and-vertical research mode with bounded workstreams, claim-source ledgers, contradiction checks, and retained-gap disclosure
+- Routes recent AI discovery, general/vertical web search, platform-native discovery, explicit site maps, and original-source verification through distinct backends instead of silently substituting one for another
 - Enforces read-only social-platform use, exact-scope authorization, and no WeChat UI control
-- Ships with a portable read-only backend doctor
+- Ships with a portable read-only backend doctor that checks optional adapter readiness without outputting secret values, reading credential-file contents, or making paid probe requests
 
 See [yichen-web-research/README.md](./yichen-web-research/README.md) for the full family, optional backends, and configuration.
 
@@ -179,9 +181,29 @@ See [yichen-web-research/README.md](./yichen-web-research/README.md) for the ful
 
 Search-only orchestration across public web and platform-specific adapters:
 
-- Supports AnySearch, GitHub, WeChat public search, Xiaohongshu, Douyin, Toutiao, X, Bilibili, YouTube, and Xiaoyuzhou routes
+- Supports AI HOT, AnySearch, GitHub, WeChat public search, Weibo, Xiaohongshu, Douyin, Toutiao, Zhihu, X, Bilibili, YouTube, and Xiaoyuzhou routes
+- Uses AI HOT only for time-sensitive AI discovery, AnySearch for general/batch/vertical web search, and Firecrawl only for an explicit bounded site map or explicit verification of a current signed AnySearch candidate
+- Provides bounded Zhihu CLI search/hot-list access, anonymous-first public Weibo search, and YouTube keyword/channel discovery through the Data API or a public `yt-dlp` fallback; it does not download media
+- Supports one X Quick call per query and bounded multi-query X Research with phased search, deterministic deduplication, provenance preservation, time-window checks, and at most one gap-filling round
 - Produces normalized candidates with provenance, coverage, and limitations
-- Requires current-task authorization before browser-session searches
+- Limits browser-session reuse to documented bounded public read-only routes; private-data access and write actions still require explicit current-task authorization
+
+#### Search query and third-party data flow
+
+Search text is sent to the backend selected for that route. Do not place passwords, cookies, personal data, confidential business information, or private URLs in a search query.
+When a selected service requires an API or OAuth credential, that credential is sent only to that service according to its protocol; the adapters do not include credential values in candidate output or persist them in this repository.
+
+| Route | Data sent outside the local process | Recipient and boundary |
+|---|---|---|
+| AI HOT | AI discovery terms plus optional category/date filters | AI HOT public API; generated summaries are discovery hints, not verified evidence |
+| AnySearch | General, batch, or vertical queries and parameters; a selected current candidate URL only when verification is explicitly requested | AnySearch; the short-lived candidate receipt and its signing secret stay local |
+| GitHub | A repository-search query; a configured `gh` credential may be used for GitHub API access | GitHub only; the command forces `--visibility public`, treats the query as a positional argument, and never returns private repositories |
+| Firecrawl | An explicitly supplied public site-map seed URL or selected signed AnySearch candidate URL, plus the Firecrawl API credential in the protocol `Authorization` header | Firecrawl only; no browser cookies, page actions, or custom page headers are sent. The adapter does not output or persist the credential. Scrape sets `storeInCache=false`; Map makes no cache-control claim, and neither route claims zero data retention |
+| Zhihu | A keyword query or explicit hot-list request; the separately installed runtime may authenticate from its Keychain state | Zhihu through a separately installed Open Platform CLI-compatible runtime; this repository does not include or independently verify that runtime, its credential, or private-account commands |
+| Weibo | A public keyword query | `m.weibo.cn` first with a temporary in-memory anonymous visitor session; only an access-gate failure permits one bounded OpenCLI fallback using the existing browser session. Cookie values do not enter adapter commands, results, or logs |
+| YouTube | A keyword/channel identifier and public search filters; when configured, the API key is sent in the Data API request URL | YouTube Data API or the public YouTube interface through `yt-dlp`; the adapter does not output or persist the key, and no media download occurs |
+| X Quick / Research | Each query generated for the requested bounded search; the Grok CLI uses its account OAuth credential with xAI | xAI through the official Grok CLI and native `x_search`; only explicit Grok quota exhaustion permits anonymous FxTwitter, while OpenCLI/xreach remain blocked unless explicitly authorized for the current task |
+| Xiaohongshu / Douyin public search | The requested public search term | The selected platform through bounded read-only OpenCLI browser-session reuse; no authorization is inherited for private collections or write actions |
 
 ### 18) `yichen-content-archive`
 
@@ -309,6 +331,7 @@ yichen-skills/
 │  └─ tests/
 ├─ yichen-unified-search/
 │  ├─ SKILL.md
+│  ├─ README.md
 │  ├─ agents/
 │  ├─ references/
 │  ├─ scripts/
@@ -352,6 +375,8 @@ yichen-skills/
 │  ├─ README.md
 │  ├─ README.zh.md
 │  ├─ mcp/server.mjs
+│  ├─ mcp/authenticated-fallback-policy.mjs
+│  ├─ mcp/authenticated-fallback-policy.test.mjs
 │  └─ skills/yichen-grok-consult/
 ├─ README.md
 ├─ README.zh.md
@@ -377,7 +402,9 @@ yichen-skills/
   - WeCom local vault: `pycryptodome`; `frida` only for explicitly authorized raw-key capture
   - Grok Consult: Node.js 18+, the official Grok Build CLI, and an active `grok login`; local OpenCodex is optional for non-search consultation tools
   - Social bookmarks exporter: Xiaohongshu/Douyin require an agent environment with `chrome:control-chrome`; the X route optionally requires a Field Theory `ft` CLI build whose version contains `graphql-only`
-  - Web research family: install all five family directories together; optional coverage uses AnySearch, OpenCLI, Grok CLI, `xreach`, `gh`, `yt-dlp`, `bili`, `ffmpeg`, and the companion Skills listed in its README
+  - Web research family: install all five family directories together. Unified Search adapters use Python's standard library plus optional `idna`; the other family members retain the dependencies listed above. Optional routes require their separately installed service/runtime, such as AnySearch, Firecrawl, a Zhihu Open Platform CLI-compatible runtime, OpenCLI, the official Grok CLI, `xreach`, `gh`, `yt-dlp`, `bili`, or `ffmpeg`
+  - Unified YouTube search can use a separately configured YouTube Data API credential or fall back to public `yt-dlp` listing; it never downloads media
+  - Unified Weibo search starts anonymously; its documented access-gate fallback requires OpenCLI and an existing signed-in Chrome session
   - Yichen X Slicer: Node.js 18+, Playwright, local Chrome, `ffmpeg`, and `ffprobe`
 
 ## Installation
@@ -504,10 +531,20 @@ codex plugin add yichen-grok-consult@yichen-skills
 ### L) Enable the Web Research family
 
 1. Install `yichen-web-research`, `yichen-unified-search`, `yichen-content-archive`, `yichen-bookmarks-export`, and `yichen-asr` together
-2. Install only the optional backends needed for your platforms
-3. Run `python3 yichen-web-research/scripts/validate_family.py`
-4. Start with `$yichen-web-research` for multi-stage work, or call a child directly for search-only, known-link archive, bookmark export, or local ASR
-5. See [yichen-web-research/README.md](./yichen-web-research/README.md) before enabling account-session or paid-ASR routes
+2. To install those five Skills from this repository with the Skills CLI, run:
+
+```bash
+npx skills add mcncarl/yichen-skills --skill yichen-web-research
+npx skills add mcncarl/yichen-skills --skill yichen-unified-search
+npx skills add mcncarl/yichen-skills --skill yichen-content-archive
+npx skills add mcncarl/yichen-skills --skill yichen-bookmarks-export
+npx skills add mcncarl/yichen-skills --skill yichen-asr
+```
+
+3. Install and authenticate only the optional third-party backends needed for your intended routes; their executables and credentials are not bundled here
+4. Run `python3 yichen-web-research/scripts/validate_family.py`
+5. Start with `$yichen-web-research` for multi-stage work, or call a child directly for search-only, known-link archive, bookmark export, or local ASR
+6. Review the query/data-flow table above and [yichen-web-research/README.md](./yichen-web-research/README.md) before enabling a paid or account-session route
 
 ## Support This Project
 
@@ -543,6 +580,9 @@ The canonical directory is mode `0700` and the file is mode `0600`. The file rem
 - WeChat exporter auth-keys, credential files, QR secrets, captured cookies, and downloaded article archives must stay local and private
 - `yichen-grok-consult` contains no fixed proxy or credentials; Grok queries and results are still sent to xAI and retained in an isolated local session directory
 - The Web Research family contains no personal absolute paths, App IDs, tokens, fixed Keychain items, or private proxy values; account-backed routes remain opt-in
+- Unified Search sends each query only to the third-party backend selected for that route, as described in the data-flow table. Local signing material, browser-cookie values, and third-party credentials are not included in repository files or normalized candidate output
+- The anonymous Weibo visitor session exists only in adapter memory. When the documented OpenCLI fallback is used, OpenCLI manages the browser session and the adapter does not accept or print Cookie values
+- Firecrawl Scrape sets `storeInCache=false`; Map makes no cache-control claim, and neither setting may be interpreted or advertised as a zero-data-retention guarantee
 - `yichen-wecom-operations` contains no Bot ID, Secret, internal user/resource ID, receipt, source document, or customer data; authorization remains tenant-specific
 
 If you ever exposed real cookies in a public repo, rotate them immediately.
@@ -614,15 +654,27 @@ The X bookmark route in `yichen-bookmarks-export` calls:
 - [`WeComTeam/wecom-cli`](https://github.com/WecomTeam/wecom-cli) — MIT-licensed external runtime; no upstream source, binary, Bot credential, or tenant data is vendored here
 - Local-image upload requires an optional user-provided helper exposing `doc +doc_upload_image`; that local extension is not distributed here or represented as an upstream feature
 
+The YouTube search/filter implementation in `yichen-unified-search` is derived in part from:
+
+- [`joeseesun/yt-search-download`](https://github.com/joeseesun/yt-search-download) by Joe Sun — MIT-licensed; the upstream copyright and full license text are preserved in `licenses/joeseesun-yt-search-download-LICENSE.txt`
+- Only the public search/filter behavior is adapted. This repository's adapter emits normalized discovery candidates and does not include the upstream download, subtitle, or media-extraction workflow
+
+The Zhihu route invokes a separately installed Zhihu Open Platform CLI-compatible runtime whose vendor provenance is not independently verified by this repository:
+
+- No Zhihu CLI source or binary is distributed in this repository, and this repository does not grant rights to that external executable
+- Users must identify the runtime's distributor and review its version-specific license and service terms before installing or using it
+
 See `THIRD_PARTY_NOTICES.md` for details.
 
 ## Compliance Boundary
 
-- This project is not affiliated with, endorsed by, or sponsored by X, xAI, OpenAI, WeChat, Tencent, Xiaohongshu, Douyin, or Field Theory.
+- This project is not affiliated with, endorsed by, or sponsored by AI HOT, AnySearch, Firecrawl, Zhihu, Weibo, YouTube, Google, X, xAI, OpenAI, WeChat, Tencent, Xiaohongshu, Douyin, or Field Theory.
 - This repository is for personal learning and non-commercial personal workflow use only.
 - Commercial use, client delivery, resale, paid redistribution, marketplace packaging, course bundling, and internal company deployment are prohibited without prior written permission.
 - Users are responsible for complying with X platform terms/policies and local laws.
 - Collection-export workflows are only for data the user is authorized to access; do not bypass access controls, CAPTCHA, rate limits, or platform security measures.
+- Search queries and selected public URLs are transmitted to the routed third-party services described above. Users are responsible for those services' current terms, privacy policies, quotas, and data-retention practices; never use a search box as a channel for secrets or private data.
+- Search cards, generated summaries, metrics, and opened pages remain candidate evidence until the relevant claim is checked against an appropriate original source.
 - X internal GraphQL and platform-DOM routes are unofficial compatibility methods and may change or trigger platform controls.
 - `yichen-wechat-local-vault` is for personal use only — only decrypt and read your own chat data.
 - `yichen-wecom-local-vault` is for owner-authorized local data only — never upload keys, plaintext snapshots, or chat exports.

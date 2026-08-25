@@ -1,4 +1,14 @@
+---
 interface:
   display_name: "逸尘统一搜索"
-  short_description: "统一路由公共网页、垂直领域与只读社交平台搜索并交接候选结果"
-  default_prompt: "Use $yichen-unified-search to search the web and relevant public platforms, then return normalized candidates."
+  short_description: "统一路由公共网页、AI 动态与只读平台搜索，返回带来源的候选"
+  default_prompt: >-
+    Use $yichen-unified-search to route public discovery through AI HOT,
+    AnySearch, bounded Firecrawl Map/Scrape, allowlisted Zhihu CLI search/hot,
+    bounded read-only Weibo, YouTube search/channel, and Grok-first X
+    Quick/Research. Preserve each backend's limits and provenance, keep
+    authenticated X fallbacks disabled without explicit current-task
+    authorization, require signed current-search candidates for verification,
+    never treat snippets or opened pages as fact verification, and return
+    normalized candidate envelopes without downloading, archiving, private
+    reads, or write actions.

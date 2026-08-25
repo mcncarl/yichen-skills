@@ -6,9 +6,13 @@ import { constants as fsConstants } from "node:fs";
 import { access, chmod, lstat, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join } from "node:path";
+import {
+  AUTHENTICATED_FALLBACK_ERROR,
+  requireAuthenticatedFallbackAuthorization,
+} from "./authenticated-fallback-policy.mjs";
 
 const SERVER_NAME = "grok-consult";
-const SERVER_VERSION = "0.8.0";
+const SERVER_VERSION = "0.8.1";
 const DEFAULT_GROK_SEARCH_TIMEOUT_MS = 600_000;
 const DEFAULT_LOCAL_READER_TIMEOUT_MS = 120_000;
 const DEFAULT_GROK_HOME = join(homedir(), ".grok");
@@ -87,7 +91,7 @@ const TOOLS = [
   {
     name: "search_x_with_grok",
     title: "Search X with Grok",
-    description: "Search public X posts with official Grok CLI first. Only explicit account quota exhaustion may fall back to anonymous FxTwitter, followed by OpenCLI and xreach if needed. Candidate status IDs are decoded locally while GPT remains the controlling model.",
+    description: "Search public X posts with official Grok CLI first. Only explicit account quota exhaustion may fall back to anonymous FxTwitter. OpenCLI and xreach additionally require explicit current-task authorization because they may use authenticated local X session state. Candidate status IDs are decoded locally while GPT remains the controlling model.",
     inputSchema: {
       type: "object",
       properties: {
@@ -98,6 +102,7 @@ const TOOLS = [
         max_results: { type: "integer", minimum: 1, maximum: 20, default: 10, description: "Maximum number of time-matched candidate posts to return. Defaults to 10." },
         criteria: { type: "string", description: "Optional ranking, engagement, language, author, or content requirements." },
         context: { type: "string", description: "Optional minimum relevant context. Do not include secrets or unrelated history." },
+        allow_authenticated_fallback: { type: "boolean", default: false, description: "Set true only after the user explicitly authorizes OpenCLI/xreach fallback for the current task. These readers may use authenticated local X session state." },
       },
       required: ["query"],
       additionalProperties: false,
@@ -1061,6 +1066,7 @@ async function runCheckedLocalReader(route, command, commandArgs, externalSignal
 }
 
 async function callOpenCliSearch(args, externalSignal, asOfMs) {
+  requireAuthenticatedFallbackAuthorization(args);
   const command = (process.env.GROK_CONSULT_OPENCLI || DEFAULT_OPENCLI).trim();
   const query = requiredText(args.query, "query", 20_000);
   const requestedUrl = exactStatusUrl(query);
@@ -1123,6 +1129,7 @@ async function callFxTwitterSearch(args, externalSignal, asOfMs) {
 }
 
 async function callXreachSearch(args, externalSignal, asOfMs) {
+  requireAuthenticatedFallbackAuthorization(args);
   const command = (process.env.GROK_CONSULT_XREACH || DEFAULT_XREACH).trim();
   const query = requiredText(args.query, "query", 20_000);
   const requestedUrl = exactStatusUrl(query);
@@ -1290,6 +1297,10 @@ async function callGrok(toolName, args, externalSignal) {
   } catch (error) {
     if (isCancelledError(error, externalSignal)) throw error;
     attempts.push(routeAttempt("fxtwitter-public", error));
+  }
+
+  if (args.allow_authenticated_fallback !== true) {
+    throw new Error(AUTHENTICATED_FALLBACK_ERROR);
   }
 
   try {

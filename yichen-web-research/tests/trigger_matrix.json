@@ -7,6 +7,13 @@
     "expected_skill": "yichen-unified-search"
   },
   {
+    "case": "explicit_zhihu_search",
+    "stages": ["search"],
+    "platform_count": 1,
+    "deliverable": "candidates",
+    "expected_skill": "yichen-unified-search"
+  },
+  {
     "case": "four_platform_search_only",
     "stages": ["search"],
     "platform_count": 4,
@@ -33,6 +40,13 @@
     "platform_count": 1,
     "deliverable": "local_archive",
     "expected_skill": "yichen-content-archive"
+  },
+  {
+    "case": "bounded_site_map",
+    "stages": ["site_map"],
+    "platform_count": 1,
+    "deliverable": "candidates",
+    "expected_skill": "yichen-unified-search"
   },
   {
     "case": "private_bookmark_export",

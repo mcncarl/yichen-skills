@@ -104,6 +104,14 @@ class RouterContractTests(unittest.TestCase):
             "yichen-web-research",
         )
         self.assertEqual(
+            by_case["bounded_site_map"],
+            "yichen-unified-search",
+        )
+        self.assertEqual(
+            by_case["explicit_zhihu_search"],
+            "yichen-unified-search",
+        )
+        self.assertEqual(
             by_case["negative_opinion_daily_report"],
             "public-opinion-monitor",
         )
@@ -205,6 +213,71 @@ class RouterContractTests(unittest.TestCase):
             ):
                 self.assertNotIn(forbidden, script)
         self.assertIn("Offline reducer only", assembler)
+
+    def test_firecrawl_is_explicit_bounded_and_key_check_is_offline(self) -> None:
+        source = (ROOT / "yichen-web-research/SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        doctor = (
+            ROOT / "yichen-web-research/scripts/doctor_yichen.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("不进入默认搜索链", source)
+        self.assertIn("最多 100 条", source)
+        self.assertIn("只保留同源", source)
+        self.assertIn("不声明支持 Crawl", source)
+        self.assertIn("network_probe_performed", doctor)
+        self.assertIn("FIRECRAWL_KEY_FILE.lstat()", doctor)
+        self.assertNotIn("api.firecrawl.dev", doctor)
+
+    def test_zhihu_is_explicit_public_backend_with_offline_doctor(self) -> None:
+        source = (ROOT / "yichen-web-research/SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        doctor = (
+            ROOT / "yichen-web-research/scripts/doctor_yichen.py"
+        ).read_text(encoding="utf-8")
+        adapter = ROOT / "yichen-unified-search/scripts/zhihu_adapter.py"
+
+        self.assertTrue(adapter.is_file())
+        self.assertIn("显式 `zhihu` 平台后端", source)
+        self.assertIn("不替换 AnySearch", source)
+        for forbidden_route in ("global_search", "zhida", "answer", "`me`"):
+            self.assertIn(forbidden_route, source)
+        self.assertIn('os.environ.get("ZHIHU_CLI")', doctor)
+        self.assertIn("SAFE_METADATA_ENV_NAMES", doctor)
+        self.assertIn("environment = safe_metadata_environment()", doctor)
+        self.assertNotIn("environment = dict(os.environ)", doctor)
+        self.assertIn('zhihu_metadata(("version",))', doctor)
+        self.assertIn('zhihu_metadata(("capabilities",))', doctor)
+        self.assertIn('zhihu_metadata(("auth", "status"))', doctor)
+        self.assertNotIn('zhihu_metadata(("search"', doctor)
+        self.assertNotIn('zhihu_metadata(("hot"', doctor)
+
+    def test_bounded_public_session_reuse_keeps_high_risk_gate(self) -> None:
+        source = (ROOT / "yichen-web-research/SKILL.md").read_text(
+            encoding="utf-8"
+        )
+        doctor = (
+            ROOT / "yichen-web-research/scripts/doctor_yichen.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("小红书最多 20 条", source)
+        self.assertIn("抖音最多 30 条", source)
+        self.assertIn("请求间隔不少于 5 秒", source)
+        self.assertIn("私域读取必须停下", source)
+        self.assertIn('"current_turn_authorization_required": False', doctor)
+        self.assertIn(
+            '"write_or_private_scope_authorization_required": True',
+            doctor,
+        )
+
+    def test_portable_doctor_has_no_personal_absolute_path(self) -> None:
+        doctor = (
+            ROOT / "yichen-web-research/scripts/doctor_yichen.py"
+        ).read_text(encoding="utf-8")
+        self.assertIn("YICHEN_SKILLS_ROOT", doctor)
+        self.assertIn("FIRECRAWL_KEY_FILE", doctor)
+        self.assertIn("CODEX_CONFIG", doctor)
+        self.assertNotIn("/" + "Users/", doctor)
 
     def test_public_opinion_does_not_claim_generic_search(self) -> None:
         path = ROOT / "public-opinion-monitor/SKILL.md"
