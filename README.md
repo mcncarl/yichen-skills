@@ -193,14 +193,16 @@ See [yichen-web-research/README.md](./yichen-web-research/README.md) for the ful
 
 ### 17) `yichen-unified-search`
 
-Search-only orchestration across public web and platform-specific adapters:
+Read-only discovery planning across the public web and platform-specific routes:
 
 - Supports AI HOT, AnySearch, GitHub, WeChat public search, Weibo, Xiaohongshu, Douyin, Toutiao, Zhihu, X, Bilibili, YouTube, and Xiaoyuzhou routes
 - Uses AI HOT only for time-sensitive AI discovery, AnySearch for general/batch/vertical web search, and Firecrawl only for an explicit bounded site map or explicit verification of a current signed AnySearch candidate
 - Provides bounded Zhihu CLI search/hot-list access, anonymous-first public Weibo search, and YouTube keyword/channel discovery through the Data API or a public `yt-dlp` fallback; it does not download media
 - Supports one X Quick call per query and bounded multi-query X Research with phased search, deterministic deduplication, provenance preservation, time-window checks, and at most one gap-filling round
-- Produces normalized candidates with provenance, coverage, and limitations
-- Limits browser-session reuse to documented bounded public read-only routes; private-data access and write actions still require explicit current-task authorization
+- Built-in adapters produce normalized candidates with provenance, coverage, and limitations; direct GitHub, WeChat Official Account, Xiaohongshu, Douyin, Toutiao, and Bilibili CLI plan steps remain raw unless an explicit downstream normalizer is provided
+- Limits browser-session reuse to documented bounded public read-only routes; private-data access and all write actions are outside this Skill
+
+See the [detailed platform matrix and route boundaries](./yichen-unified-search/README.md).
 
 #### Search query and third-party data flow
 
@@ -346,6 +348,7 @@ yichen-skills/
 ├─ yichen-unified-search/
 │  ├─ SKILL.md
 │  ├─ README.md
+│  ├─ README.zh.md
 │  ├─ agents/
 │  ├─ references/
 │  ├─ scripts/

@@ -192,14 +192,16 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 
 ### 17) `yichen-unified-search`
 
-公共网页与平台适配器的纯搜索编排：
+公开网页与平台路由的只读发现计划：
 
 - 覆盖 AI HOT、AnySearch、GitHub、微信公众号公共搜索、微博、小红书、抖音、今日头条、知乎、X、B站、YouTube 和小宇宙
 - AI HOT 只处理具有时效性的 AI 动态发现，AnySearch 处理普通/批量/垂直网页搜索，Firecrawl 只处理显式的有界站点 Map 或对当前已签名 AnySearch 候选的显式核验
 - 提供有界的知乎 CLI 搜索/热榜、微博匿名优先公开搜索，以及通过 Data API 或公开 `yt-dlp` 回退完成的 YouTube 关键词/频道发现；不下载媒体
 - X Quick 对每个查询独立执行；X Research 支持有界的多查询分阶段搜索、确定性去重、来源保留、时间窗检查和最多一轮缺口补搜
-- 输出带来源、覆盖范围和限制说明的标准候选
-- 浏览器会话复用仅限文档明确列出的有界公开只读路线；访问私域数据或执行写操作仍需当前任务明确授权
+- 内置适配器输出带来源、覆盖范围和限制说明的统一候选；GitHub、微信公众号、小红书、抖音、今日头和 B站的直接 CLI 计划仍是原始输出，除非另行明确提供下游标准化器
+- 浏览器会话复用仅限文档明确列出的有界公开只读路线；私域数据访问和所有写操作均不属于本 Skill
+
+完整说明见 [平台覆盖矩阵与路由边界](./yichen-unified-search/README.zh.md)。
 
 #### 搜索词与第三方数据流
 
@@ -345,6 +347,7 @@ yichen-skills/
 ├─ yichen-unified-search/
 │  ├─ SKILL.md
 │  ├─ README.md
+│  ├─ README.zh.md
 │  ├─ agents/
 │  ├─ references/
 │  ├─ scripts/

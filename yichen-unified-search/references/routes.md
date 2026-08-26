@@ -202,8 +202,8 @@ python3 "${YICHEN_SKILLS_ROOT:-$HOME/.agents/skills}/yichen-unified-search/scrip
 ### 命令形状
 
 ```bash
-# GitHub：当前只路由公共仓库搜索
-gh search repos "query" --sort stars --limit 10
+# GitHub：当前只路由公共仓库搜索；查询位于 `--` 之后
+gh search repos --visibility public --limit 10 -- "query"
 
 # 微信公众号公共关键词
 opencli weixin search "query" --page 1 --limit 10

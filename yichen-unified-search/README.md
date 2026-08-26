@@ -1,32 +1,216 @@
 # Yichen Unified Search
 
-`yichen-unified-search` is a read-only discovery router for public web and
-platform search. It creates an offline execution plan, delegates only to the
-selected backend, and provides code-owned candidate normalization for the
-adapters that emit envelopes. Direct native-CLI plan steps remain raw until a
-documented downstream normalizer handles them.
+English | [简体中文](./README.zh.md)
 
-It does not download media, archive pages, read private collections, operate
-WeChat, or perform social write actions. Known-URL reading and archiving belong
-to `yichen-content-archive`.
+`yichen-unified-search` is a safety-first, read-only discovery router for the
+public web and 11 named platform routes: GitHub, Zhihu, WeChat Official
+Accounts, Weibo, Xiaohongshu, Douyin, Toutiao, X/Twitter, Bilibili, YouTube,
+and Xiaoyuzhou.
 
-## Capabilities
+Give it a topic, platform, time range, and result target. Its offline planner
+selects one bounded route, makes the authorization state visible, and emits the
+exact steps to run. Built-in adapters return reviewable candidate envelopes;
+direct native-CLI steps remain raw unless an explicit downstream normalizer is
+provided.
 
-| Intent | Backend | Main behavior |
-|---|---|---|
-| Time-sensitive AI news and releases | AI HOT | Selected/all/daily discovery, category and keyword filters, at most seven days |
-| General, batch, and vertical web search | AnySearch | Normalized Markdown parsing, batches of at most five, optional general + vertical hybrid routing |
-| Explicit site link enumeration | Firecrawl Map | Public HTTP(S), same origin, bounded seed path, at most 100 links |
-| Explicit current-candidate page opening | AnySearch Extract or Firecrawl Scrape | Requires a complete, signed candidate from the current search |
-| Zhihu public search and hot list | Separately installed Zhihu Open Platform CLI-compatible runtime | Allowlisted `search zhihu` and `hot` commands only; runtime provenance is not independently verified here |
-| Weibo public keyword search | Anonymous mobile endpoint, then one bounded OpenCLI fallback | At most three pages and 20 candidates; browser fallback only after an access-gate failure |
-| YouTube public videos and channels | YouTube Data API v3 or anonymous `yt-dlp` | Search/channel modes, local filters and sorting, no media download |
-| X Quick | Grok native `x_search` | One bounded call per supplied query, at most 20 candidates and a seven-day window |
-| X Research | Grok + offline normalizer and merger | Gated waves, deterministic deduplication, at most 40 searches and one gap-fill round |
-| Other supported public platforms | Native CLI or OpenCLI route selected by the planner | Candidate discovery only, with platform-specific authorization and limits |
+This Skill is for **finding candidates**, not for pretending search snippets
+are facts. It does not download media, archive pages, read private collections,
+operate WeChat, or perform social write actions. Known-URL reading, download,
+and archiving belong to `yichen-content-archive`.
 
-AI HOT summaries and all search snippets are discovery text, not verified
-facts. Firecrawl is never an implicit fallback for ordinary keyword search.
+## Why use one router?
+
+The same query should not be sent to every installed service. Unified Search
+first decides what kind of discovery is actually needed, then discloses the
+request only to the selected backend:
+
+```text
+topic + scope + platform + time window
+  -> offline route_search.py plan
+  -> one selected public or authenticated-public route
+  -> bounded search
+  -> candidate envelope or documented raw CLI output
+  -> optional verification of a signed current-search candidate
+```
+
+The planner returns `status`, `authorization`, `route`, `steps`, and
+`limitations`. It does not call a search service by itself.
+
+## Support levels
+
+The platform matrix uses three output labels:
+
+- **Envelope** — a bundled adapter emits schema `1.0` with candidates, coverage,
+  provenance, and sanitized errors.
+- **Adapter required** — the planned backend output must pass through the named
+  bundled adapter before it becomes an envelope. X/Grok uses this model.
+- **Raw CLI step** — the planner safely selects and bounds an external CLI, but
+  the direct result is not claimed to be normalized by this repository.
+
+Missing optional CLIs reduce coverage. They never authorize installation,
+private-data access, browser escalation, or a different fallback.
+
+## Public web and AI discovery
+
+| Intent | Selected route | Access | Output | Important boundary |
+|---|---|---|---|---|
+| Fresh AI news, releases, dynamics, or a daily digest | AI HOT via `aihot_search.py` | Anonymous public API | Envelope | Items cover at most seven days. Aggregated or AI-generated summaries are discovery text, not evidence. |
+| General web, news, batches, `site:` queries, and vertical domains such as legal, academic, finance, or security | AnySearch via `anysearch_adapter.py` | Existing AnySearch runtime | Envelope | At most five expanded batch requests and ten candidates per query. A backend failure is reported, not silently rerouted. |
+| Explicit public site or documentation link enumeration | Firecrawl Map via `firecrawl_adapter.py` | API key in a private environment/file | Envelope | At most 100 public, same-origin, in-path links. Map discovers links; it does not read page bodies or claim completeness. |
+| Open one current AnySearch candidate | AnySearch Extract or explicit Firecrawl Scrape | Valid short-lived candidate receipt; Firecrawl also needs its key | Enriched envelope | Accepts the complete, unmodified candidate from the current search, never a bare URL. Opening a page still does not prove a claim. |
+
+AI HOT is selected only for a query that combines an AI topic with clear
+freshness intent, or when the user names AI HOT. Ordinary AI concepts,
+tutorials, history, and longer research go to AnySearch. Firecrawl is never an
+implicit fallback for keyword search.
+
+## Platform coverage at a glance
+
+| Platform | What this route discovers | Planned backend | Login state | Bound | Output |
+|---|---|---|---|---|---|
+| GitHub | Public repositories | `gh search repos --visibility public` | `gh` may use local credentials only to access the public API | 1–50 requested candidates | Raw CLI step |
+| Zhihu | Public keyword results and an explicit hot list | Bundled `zhihu_adapter.py` → separately installed CLI-compatible runtime | Keychain-managed credential; public results are marked `authenticated_public` | Search: 10 per query; batch: 5 queries; hot: 30 | Envelope |
+| WeChat Official Accounts | Cross-account public article candidates | `opencli weixin search` public route | Anonymous | Page 1; 1–50 requested candidates | Raw CLI step |
+| Weibo | Public keyword post candidates | Bundled `weibo_adapter.py`; anonymous mobile route first, then one access-gate-only OpenCLI fallback | Anonymous first; existing Chrome session only after a qualifying access gate | 3 pages / 20 candidates; batch: 5 serial queries | Envelope |
+| Xiaohongshu | Public note candidates by keyword | `opencli xiaohongshu search` | May reuse an existing Chrome session for this bounded public read-only route | One keyword at a time; 20 candidates; serial with a 5-second gap | Raw CLI step |
+| Douyin | Public video/post candidates by keyword | `opencli douyin search` | May reuse an existing Chrome session for this bounded public read-only route | One keyword at a time; 30 candidates; serial with a 5-second gap | Raw CLI step |
+| Toutiao | Current public, non-video search candidates | `opencli toutiao search` with a dedicated anonymous profile | Anonymous | One keyword; up to 50 candidates; 1–30 day control | Raw CLI step |
+| X / Twitter | Public posts matched to one or many focused queries | Grok native `x_search`; narrowly gated fallbacks | Grok account OAuth first; later authenticated fallback is disabled by default | 20 per outer call; 1–7 days; Research: at most 40 calls and one gap-fill round | Adapter required |
+| Bilibili | Public video candidates | `bili search` | Anonymous first | One result page; 1–50 requested candidates | Raw CLI step |
+| YouTube | Public videos or one explicit public channel | Bundled `youtube_search.py` using Data API v3 or anonymous `yt-dlp` | Existing API key if present; otherwise no login Cookie | 1–50 candidates; search/channel modes | Envelope |
+| Xiaoyuzhou | Public episode/page candidates matching a keyword | AnySearch `site:xiaoyuzhoufm.com` | Anonymous public web | 10 candidates per query | Envelope |
+
+These are bounded discovery routes, not claims of complete native indexes.
+Platform search results, counters, rankings, snippets, and publication times
+remain candidate metadata until independently checked.
+
+## Platform details
+
+### GitHub
+
+- The current native route searches **public repositories only**.
+- The query is placed after `--`, so it cannot be interpreted as another `gh`
+  option.
+- The Skill does not claim native code, Issue, or Pull Request object search,
+  and it does not clone or modify repositories.
+
+### Zhihu
+
+- Keyword search and the explicit hot list pass through the bundled allowlisted
+  adapter and become normalized envelopes.
+- Search returns at most 10 candidates per query, exposes no pagination or time
+  filter, and batch mode produces at most five independent searches.
+- Hot-list mode must be explicitly selected and returns at most 30 entries.
+- The separately installed CLI-compatible runtime manages its Access Secret in
+  macOS Keychain. This repository does not independently verify that runtime's
+  vendor provenance. Personal commands, favorites, followees, and other private
+  scope are excluded.
+
+### WeChat Official Accounts
+
+- This means public Official Account article discovery across accounts. It does
+  **not** mean personal WeChat search, chat access, account administration, or
+  Official Account backend access.
+- The route uses an anonymous public search surface through OpenCLI.
+- WeChat desktop and mobile UI are never controlled by this Skill.
+
+### Weibo
+
+- Each process starts with an ephemeral, in-memory anonymous visitor session
+  against the public mobile search surface.
+- Only an explicit access-gate failure—such as a login/verification redirect or
+  access denial—may trigger one bounded read-only OpenCLI search using the
+  existing Chrome session. Network errors, rate limits, ordinary parse errors,
+  and zero results do not authorize that fallback.
+- A query is capped at three pages and 20 candidates. Batch mode accepts at
+  most five queries, runs serially, and waits at least five seconds between
+  steps.
+- `--days` is a client-side filter over the bounded returned pages, not a
+  server-side or exhaustive date search. Comments, profiles, and media are not
+  fetched, and Cookie values never enter adapter input, output, or logs.
+
+### Xiaohongshu and Douyin
+
+- Both routes are public, read-only keyword discovery. They may automatically
+  reuse an existing Chrome session only within this narrow route.
+- Searches use a background ephemeral site session, one keyword at a time,
+  release the tab after use, and run serially with at least a five-second gap.
+- Xiaohongshu returns at most 20 candidates; Douyin returns at most 30. Their
+  platform time control accepts `0`, `1`, `7`, or `180` days and is not a strict
+  coverage guarantee, so consumers should recheck returned timestamps.
+- No post, comment, like, collect, follow, message, private feed, private
+  collection, account change, CAPTCHA handling, download, or comment expansion
+  is included.
+
+### Toutiao
+
+- The route uses a dedicated anonymous profile rather than the user's Chrome
+  state.
+- It performs a low-frequency, single-keyword search over current public
+  non-video results, with no automatic retry.
+- The planner accepts a 1–30 day control and caps a step at 50 candidates.
+
+### X / Twitter: Quick versus Research
+
+Both modes start with the official Grok CLI account OAuth and native
+`x_search`. A Grok result must pass through `grok_x_result_adapter.py`, which
+keeps only posts in the tool's structured `matched` time-verification bucket.
+
+| Mode | Best for | Execution model | Stop rule |
+|---|---|---|---|
+| Quick | A small number of focused queries | One outer `search_x_with_grok` call for every supplied query; at most 20 candidates per call | Stop after the supplied queries or on any primary-route failure |
+| Research | Broader, auditable X coverage | At least three distinct focused queries, gated waves of at most five, offline merge and `tweet_id` deduplication | Target reached, no material gap, no new unique result, one gap-fill round used, 40-call budget reached, or any non-quota primary failure |
+
+The time window is limited to 1–7 days. Repost/reply, author, language,
+engagement, and sort criteria guide retrieval, but the offline merger reapplies
+only fields actually present in structured candidates. Missing metrics remain
+unknown; they are never invented from prose.
+
+Fallbacks are deliberately asymmetric:
+
+1. Grok native `x_search` is always first.
+2. Anonymous FxTwitter is eligible only when output explicitly proves Grok
+   account quota or usage-limit exhaustion.
+3. If FxTwitter also fails or returns no result, the route stops.
+4. OpenCLI/xreach may use the local X session and remain disabled until the
+   user explicitly authorizes that fallback for the current task and the plan
+   is regenerated with `--login-approved`.
+
+Authentication failures, 401/403, permission errors, timeouts, network or
+service errors, unverifiable search evidence, and zero results are not quota
+exhaustion and must not unlock the fallback chain.
+
+### Bilibili
+
+- The native route searches public videos through `bili` and returns candidate
+  URLs and metadata from one bounded result page.
+- It does not download video, audio, subtitles, comments, or account data.
+
+### YouTube
+
+- `search` discovers public videos. `channel` browses one explicit handle,
+  channel ID, or channel URL as a public discovery container.
+- If `YT_BROWSE_API_KEY` or `YOUTUBE_API_KEY` already exists, the adapter can use
+  YouTube Data API v3 for channel resolution, time controls, and ordering.
+- Otherwise it uses anonymous `yt-dlp`, ignores user configuration, plugins,
+  cache, and login Cookies, passes only a minimal non-credential environment,
+  and forces `--skip-download`.
+- Both backends emit normalized candidates and return at most 50 results. The
+  anonymous backend cannot guarantee every API-level ordering option.
+
+### Xiaoyuzhou
+
+- OpenCLI does not provide a native full-site keyword route here, so Unified
+  Search uses a public AnySearch `site:xiaoyuzhoufm.com` query.
+- The result is normalized, but it is a public web index view—not Xiaoyuzhou's
+  complete native index.
+
+### Platform batch behavior
+
+Zhihu and Weibo support bounded batches of up to five independent native
+adapter calls. For other named platforms, `--mode batch` is deliberately
+rewritten into AnySearch `site:` queries. That public-web view is useful for
+cross-keyword discovery, but it is not equivalent to complete native search.
 
 ## Installation
 
@@ -73,7 +257,8 @@ python3 "${YICHEN_SKILLS_ROOT:-$HOME/.agents/skills}/yichen-unified-search/scrip
 
 # Bounded X research plan; supply at least three distinct focused queries
 python3 "${YICHEN_SKILLS_ROOT:-$HOME/.agents/skills}/yichen-unified-search/scripts/route_search.py" \
-  --platform x --depth research --days 7 --target-results 100 --max-searches 8 \
+  --platform x --depth research --days 7 --limit 20 \
+  --target-results 100 --max-searches 8 \
   --query "topic official announcement" \
   --query "topic independent evaluation" \
   --query "topic developer feedback"
