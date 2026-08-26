@@ -39,10 +39,14 @@ class SnapshotReaderTests(unittest.TestCase):
 
     def run_cli(self, *args, root=None):
         snapshot = root or self.root
+        environment = os.environ.copy()
+        environment["PYTHONIOENCODING"] = "cp1252"
         return subprocess.run(
             [sys.executable, str(CLI), "--snapshot", str(snapshot), *args],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            env=environment,
         )
 
     def test_complete_contract_and_both_message_families(self):

@@ -761,7 +761,16 @@ def _json_envelope(**fields) -> dict:
     return {"trust": TRUST_MARKER, "content_warning": TRUST_WARNING, **fields}
 
 
+def _configure_utf8_stdio() -> None:
+    """Make structured output deterministic on Windows legacy console code pages."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="backslashreplace")
+
+
 def main(argv=None) -> int:
+    _configure_utf8_stdio()
     args = build_parser().parse_args(argv)
     try:
         if args.command == "validate":
