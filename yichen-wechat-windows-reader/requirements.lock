@@ -1,0 +1,4 @@
+# Windows CPython 3.12 AMD64 only. The hash is for the official wheel recorded in sbom.spdx.json.
+--only-binary=:all:
+zstandard==0.25.0 \
+    --hash=sha256:ffef5a74088f1e09947aecf91011136665152e0b4b359c42be3373897fb39b01

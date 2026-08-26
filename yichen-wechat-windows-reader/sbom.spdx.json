@@ -1,0 +1,55 @@
+{
+  "spdxVersion": "SPDX-2.3",
+  "dataLicense": "CC0-1.0",
+  "SPDXID": "SPDXRef-DOCUMENT",
+  "name": "yichen-wechat-windows-reader",
+  "documentNamespace": "https://github.com/mcncarl/yichen-skills/sbom/yichen-wechat-windows-reader/0.1.0/2026-08-26",
+  "creationInfo": {
+    "created": "2026-08-26T00:00:00Z",
+    "creators": ["Tool: manual-review-record"]
+  },
+  "hasExtractedLicensingInfos": [
+    {
+      "licenseId": "LicenseRef-Personal-Learning-Non-Commercial-Use",
+      "name": "Personal Learning and Non-Commercial Use License",
+      "extractedText": "Personal Learning and Non-Commercial Use License\n\nCopyright (c) 2026 repository owner\n\nThis repository is source-available for personal learning, research, and\nnon-commercial personal workflow use only.\n\nPermission is granted to view, clone, study, and modify this repository for\npersonal non-commercial purposes, subject to all of the following conditions:\n\n1. No commercial use. You may not sell, rent, sublicense, provide paid access\n   to, include in a paid product or service, use for client delivery, or use\n   for any revenue-generating or business-operational purpose without prior\n   written permission from the copyright holder.\n\n   To request commercial authorization, contact the copyright holder on\n   WeChat at `yichen365ai` and include `Commercial Authorization` in the\n   verification message. A contact request or inquiry does not grant\n   permission; commercial use is allowed only after explicit written\n   authorization is received.\n2. No public redistribution as a competing or packaged product. You may fork\n   for personal study, but you may not republish, mirror, package, or market\n   this repository or a derivative work as a public skill collection, template\n   bundle, marketplace item, SaaS component, agency deliverable, course asset,\n   or commercial/internal company toolkit without prior written permission.\n3. Preserve attribution. Any permitted private fork or excerpt must keep this\n   license notice and the third-party notices in THIRD_PARTY_NOTICES.md.\n4. Respect third-party licenses. Parts of this repository reference or adapt\n   ideas/workflows from third-party projects. Their original licenses and\n   notices remain in effect for those upstream materials.\n5. Privacy and compliance are your responsibility. Do not commit real cookies,\n   tokens, WeChat keys, personal databases, chat records, customer data, or\n   other private information. Use only on data you are authorized to access.\n\nTHE REPOSITORY IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, SECURITY, OR FITNESS FOR\nA PARTICULAR WORKFLOW. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM,\nDAMAGE, LOSS, OR OTHER LIABILITY ARISING FROM USE OF THIS REPOSITORY."
+    }
+  ],
+  "packages": [
+    {
+      "name": "yichen-wechat-windows-reader",
+      "SPDXID": "SPDXRef-Package-Reader",
+      "versionInfo": "0.1.0-experimental",
+      "downloadLocation": "NOASSERTION",
+      "filesAnalyzed": false,
+      "licenseConcluded": "LicenseRef-Personal-Learning-Non-Commercial-Use",
+      "licenseDeclared": "LicenseRef-Personal-Learning-Non-Commercial-Use",
+      "copyrightText": "NOASSERTION"
+    },
+    {
+      "name": "zstandard",
+      "SPDXID": "SPDXRef-Package-Zstandard",
+      "versionInfo": "0.25.0",
+      "downloadLocation": "https://files.pythonhosted.org/packages/79/3b/fa54d9015f945330510cb5d0b0501e8253c127cca7ebe8ba46a965df18c5/zstandard-0.25.0-cp312-cp312-win_amd64.whl",
+      "packageFileName": "zstandard-0.25.0-cp312-cp312-win_amd64.whl",
+      "filesAnalyzed": false,
+      "checksums": [{"algorithm": "SHA256", "checksumValue": "ffef5a74088f1e09947aecf91011136665152e0b4b359c42be3373897fb39b01"}],
+      "licenseConcluded": "BSD-3-Clause",
+      "licenseDeclared": "BSD-3-Clause",
+      "copyrightText": "NOASSERTION",
+      "externalRefs": [{"referenceCategory": "PACKAGE-MANAGER", "referenceType": "purl", "referenceLocator": "pkg:pypi/zstandard@0.25.0"}]
+    }
+  ],
+  "relationships": [
+    {
+      "spdxElementId": "SPDXRef-DOCUMENT",
+      "relationshipType": "DESCRIBES",
+      "relatedSpdxElement": "SPDXRef-Package-Reader"
+    },
+    {
+      "spdxElementId": "SPDXRef-Package-Reader",
+      "relationshipType": "DEPENDS_ON",
+      "relatedSpdxElement": "SPDXRef-Package-Zstandard"
+    }
+  ]
+}

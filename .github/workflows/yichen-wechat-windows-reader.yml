@@ -1,0 +1,43 @@
+name: yichen-wechat-windows-reader
+
+on:
+  pull_request:
+    paths:
+      - "yichen-wechat-windows-reader/**"
+      - ".github/workflows/yichen-wechat-windows-reader.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-clean-tree:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    env:
+      EXPECTED_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name || github.repository }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Assert exact checked-out revision
+        shell: pwsh
+        run: |
+          $actual = (git rev-parse HEAD).Trim()
+          if ($actual -ne $env:EXPECTED_SHA) {
+            throw "Expected HEAD $env:EXPECTED_SHA but checked out $actual"
+          }
+      - uses: actions/setup-python@42375524e23c412d93fb67b49958b491fce71c38 # v5.4.0
+        with:
+          python-version: "3.12"
+          architecture: "x64"
+          cache: pip
+          cache-dependency-path: yichen-wechat-windows-reader/requirements.lock
+      - name: Create isolated environment
+        run: python -m venv .venv
+      - name: Install hash-locked dependency
+        run: .\.venv\Scripts\python.exe -m pip install --require-hashes -r yichen-wechat-windows-reader\requirements.lock
+      - name: Run synthetic fixture tests
+        run: .\.venv\Scripts\python.exe -m unittest discover -s yichen-wechat-windows-reader\tests -v
