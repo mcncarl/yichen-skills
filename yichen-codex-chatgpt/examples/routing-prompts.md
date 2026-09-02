@@ -4,20 +4,20 @@ These prompts are test cases, not permission to perform external actions during 
 
 | Prompt | Expected route |
 | --- | --- |
-| `$codex-chatgpt 调研产品 X 的当前价格和竞品` | `research`; fresh Chat/聊天 conversation with active Pro model via bundled in-app browser first, Chrome after an eligible failure, then final Computer Use if Chrome control also fails; never Work; no Tunnel, code App, local MCP, or API |
-| `$codex-chatgpt 修复当前项目的登录错误` | `code`; ChatGPT reads through `remote-review` and returns PLAN → Codex edits/tests → ChatGPT REVIEW |
-| `$codex-chatgpt 结合最新官方文档改造当前实现` | `hybrid`; ChatGPT researches and architects → Codex edits/tests → ChatGPT reviews the real diff |
-| `$codex-chatgpt 只审查当前 diff，不要改` | `review`; ChatGPT uses the seven read-only tools; Codex performs no mutation |
-| `$codex-chatgpt 用 ChatGPT Pro 官网调研产品 X` | `research`; the same default website route, not a special fallback |
-| `$codex-chatgpt 调研产品 X` with no current-run browser name | the named Skill invocation opts into its user-configured `iab`-first route; use `get("iab")`, not URL-based or runtime-default selection |
-| `$codex-chatgpt 用 Chrome 跑这次复审` | Chrome is the exclusive primary surface for this run; do not probe or fall back to the in-app browser or Computer Use |
-| `$codex-chatgpt 用内置浏览器跑这次复审` | in-app browser is the exclusive primary surface for this run; do not fall back to Chrome or Computer Use unless the request also authorizes it |
-| `$codex-chatgpt 用 Computer Use 跑这次复审` | Computer Use is the exclusive primary surface; read its Skill, use fresh complete accessibility state, and do not probe browser-client surfaces |
-| `$codex-chatgpt 优先内置浏览器，失效后用 Chrome` | use exactly the explicit in-app → Chrome chain; do not silently append Computer Use |
-| `$codex-chatgpt 优先内置浏览器，再 Chrome，最后 Computer Use` | use exactly the explicit three-surface chain with the shared eligible-failure, confirmation, and exactly-once rules |
-| `$codex-chatgpt 让 ChatGPT 网页复审当前仓库 diff` | `review`; validate one workspace and use the private read-only App |
-| `$codex-chatgpt local-only 修复当前项目的登录错误` | explicit `local-only`; Codex uses the compatible local MCP configured by the user, or reports `BLOCKED` when it is absent; the result states ChatGPT did not participate |
-| `$codex-chatgpt 帮我看看今天的发布情况` | clarify the product/repository and channel; public facts → `research`, local implementation/status → `code`, `hybrid`, or `review` |
+| `$yichen-codex-chatgpt 调研产品 X 的当前价格和竞品` | `research`; fresh Chat/聊天 conversation with active Pro model via bundled in-app browser first, Chrome after an eligible failure, then final Computer Use if Chrome control also fails; never Work; no Tunnel, code App, local MCP, or API |
+| `$yichen-codex-chatgpt 修复当前项目的登录错误` | `code`; ChatGPT reads through `remote-review` and returns PLAN → Codex edits/tests → ChatGPT REVIEW |
+| `$yichen-codex-chatgpt 结合最新官方文档改造当前实现` | `hybrid`; ChatGPT researches and architects → Codex edits/tests → ChatGPT reviews the real diff |
+| `$yichen-codex-chatgpt 只审查当前 diff，不要改` | `review`; ChatGPT uses the seven read-only tools; Codex performs no mutation |
+| `$yichen-codex-chatgpt 用 ChatGPT Pro 官网调研产品 X` | `research`; the same default website route, not a special fallback |
+| `$yichen-codex-chatgpt 调研产品 X` with no current-run browser name | the named Skill invocation opts into its user-configured `iab`-first route; use `get("iab")`, not URL-based or runtime-default selection |
+| `$yichen-codex-chatgpt 用 Chrome 跑这次复审` | Chrome is the exclusive primary surface for this run; do not probe or fall back to the in-app browser or Computer Use |
+| `$yichen-codex-chatgpt 用内置浏览器跑这次复审` | in-app browser is the exclusive primary surface for this run; do not fall back to Chrome or Computer Use unless the request also authorizes it |
+| `$yichen-codex-chatgpt 用 Computer Use 跑这次复审` | Computer Use is the exclusive primary surface; read its Skill, use fresh complete accessibility state, and do not probe browser-client surfaces |
+| `$yichen-codex-chatgpt 优先内置浏览器，失效后用 Chrome` | use exactly the explicit in-app → Chrome chain; do not silently append Computer Use |
+| `$yichen-codex-chatgpt 优先内置浏览器，再 Chrome，最后 Computer Use` | use exactly the explicit three-surface chain with the shared eligible-failure, confirmation, and exactly-once rules |
+| `$yichen-codex-chatgpt 让 ChatGPT 网页复审当前仓库 diff` | `review`; validate one workspace and use the private read-only App |
+| `$yichen-codex-chatgpt local-only 修复当前项目的登录错误` | explicit `local-only`; Codex uses the compatible local MCP configured by the user, or reports `BLOCKED` when it is absent; the result states ChatGPT did not participate |
+| `$yichen-codex-chatgpt 帮我看看今天的发布情况` | clarify the product/repository and channel; public facts → `research`, local implementation/status → `code`, `hybrid`, or `review` |
 | ChatGPT currently shows Work/工作 when any route is about to send | switch to a fresh Chat/聊天 conversation and automatically select and visibly verify Pro before composing; if Pro is proven absent or the required App is unavailable there, return `BLOCKED` rather than use Work |
 | ChatGPT Chat currently shows `极高`/`超高`, while the capability control has a further rightmost position | Codex opens the accessible selector, moves the semantic control to its actual maximum, verifies the active label contains `Pro`, and continues without asking the user to adjust it |
 | The pre-send recheck shows that the active model drifted away from `Pro` | rerun automatic Pro selection, then send only after Chat/Pro/Work-absence pass together |

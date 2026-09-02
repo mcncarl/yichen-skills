@@ -4,7 +4,7 @@
 
 ## English
 
-`codex-chatgpt` is a safety-first orchestration Skill for a two-agent collaboration loop:
+`yichen-codex-chatgpt` is a safety-first orchestration Skill for a two-agent collaboration loop:
 
 ```text
 ChatGPT Pro: research, architecture, PLAN, REVIEW
@@ -37,7 +37,7 @@ npx skills add mcncarl/yichen-skills --list
 Install this Skill:
 
 ```bash
-npx skills add mcncarl/yichen-skills --skill codex-chatgpt
+npx skills add mcncarl/yichen-skills --skill yichen-codex-chatgpt
 ```
 
 Then copy [config.example.md](config.example.md) to a private local configuration source and follow [references/setup.md](references/setup.md). Never commit the populated configuration.
@@ -59,7 +59,7 @@ This project is not affiliated with or endorsed by OpenAI. ChatGPT, Codex, and O
 
 ## 中文
 
-`codex-chatgpt` 是一个将 ChatGPT Pro 和 Codex 分工组合起来的安全优先 Skill：
+`yichen-codex-chatgpt` 是一个将 ChatGPT Pro 和 Codex 分工组合起来的安全优先 Skill：
 
 ```text
 ChatGPT Pro：联网调研、架构、PLAN、REVIEW
@@ -78,7 +78,7 @@ Codex：本地修改、命令、测试、修复
 ### 安装
 
 ```bash
-npx skills add mcncarl/yichen-skills --skill codex-chatgpt
+npx skills add mcncarl/yichen-skills --skill yichen-codex-chatgpt
 ```
 
 安装后，把 [config.example.md](config.example.md) 复制到私有本地配置位置，并按 [references/setup.md](references/setup.md) 配置。不要提交已填写的配置。

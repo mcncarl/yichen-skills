@@ -12,7 +12,7 @@ Use this reference for every ChatGPT website route. When the current request doe
 
 Fallback changes only the website interaction mechanism. Every surface must independently satisfy Chat/聊天 selected, active `Pro`, Work/工作 absent, intended visible account, and the route's App/Tunnel/protocol/evidence requirements.
 
-This Skill defines a standing non-exclusive multi-surface chain. Invoking the named `codex-chatgpt` Skill without a current-run surface name opts into `requested_surface: configured_default`. This is an explicit ordered chain—not an exclusive single-browser choice—so its first step explicitly selects `iab` with `agent.browsers.get("iab")`, while its later Chrome and Computer Use steps remain separately authorized by the same Skill policy. Do not use `getForUrl(...)` or `getDefault()` for this route. This configured choice comes from the named Skill policy, not ambient in-app-browser context. A current-run surface name still overrides it.
+This Skill defines a standing non-exclusive multi-surface chain. Invoking the named `yichen-codex-chatgpt` Skill without a current-run surface name opts into `requested_surface: configured_default`. This is an explicit ordered chain—not an exclusive single-browser choice—so its first step explicitly selects `iab` with `agent.browsers.get("iab")`, while its later Chrome and Computer Use steps remain separately authorized by the same Skill policy. Do not use `getForUrl(...)` or `getDefault()` for this route. This configured choice comes from the named Skill policy, not ambient in-app-browser context. A current-run surface name still overrides it.
 
 ## Current-Run Surface Override
 
@@ -29,7 +29,7 @@ Apply an explicit current-run surface choice before the default ladder:
 Run this section only when the resolved primary surface is in-app. Skip it for an explicit Chrome or Computer Use primary.
 
 1. Resolve the currently installed `browser:control-in-app-browser` Skill from the runtime catalog and read its `SKILL.md` completely. Do not hard-code its versioned path.
-2. Initialize its documented `browser-client` runtime once. Because the named `codex-chatgpt` Skill explicitly opts into this ordered multi-surface route, obtain or reuse the persistent `iab` binding with `agent.browsers.get("iab")`, read that binding's complete documentation before first use, and obtain a tab from that binding. This is not an exclusive single-browser request; later fallback steps are explicitly authorized by the same configured chain. Do not call `getForUrl(...)` or `getDefault()` for this configured-default route.
+2. Initialize its documented `browser-client` runtime once. Because the named `yichen-codex-chatgpt` Skill explicitly opts into this ordered multi-surface route, obtain or reuse the persistent `iab` binding with `agent.browsers.get("iab")`, read that binding's complete documentation before first use, and obtain a tab from that binding. This is not an exclusive single-browser request; later fallback steps are explicitly authorized by the same configured chain. Do not call `getForUrl(...)` or `getDefault()` for this configured-default route.
 3. Reuse the in-app binding and its task tab while they remain trustworthy. A stale or cleaned-up tab requires a fresh tab from the same binding, not a browser switch.
 4. Apply the Browser Skill's documented bootstrap troubleshooting and one bounded same-surface recovery before declaring an eligible in-app failure. Do not probe Chrome while the in-app route is healthy.
 

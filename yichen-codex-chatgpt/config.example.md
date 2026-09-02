@@ -5,7 +5,7 @@ Copy this template to a private location supported by your agent environment. Do
 ```yaml
 CODEX_CHATGPT_RUNTIME_ROOT: /absolute/path/to/your/compatible-runtime
 PRIVATE_CHATGPT_APP_NAME: Codex × ChatGPT Review Loop
-EVIDENCE_ROOT: /absolute/path/outside/source-repositories/codex-chatgpt-evidence
+EVIDENCE_ROOT: /absolute/path/outside/source-repositories/yichen-codex-chatgpt-evidence
 LOCAL_CODE_MCP_NAME: "" # Optional; leave empty to disable local-only mode
 ```
 

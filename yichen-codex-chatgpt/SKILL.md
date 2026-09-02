@@ -1,6 +1,6 @@
 ---
-name: codex-chatgpt
-description: Use the signed-in ChatGPT website in Chat UI Pro mode, never Work mode, to research, architect, and review one local project through a configured Secure Tunnel and read-only MCP, while Codex alone edits and tests locally. Trigger on explicit $codex-chatgpt, 让 ChatGPT 设计后由 Codex 写代码, ChatGPT 架构并审查 Codex, or requests for a Codex and ChatGPT collaboration loop. Pure research stays on the official ChatGPT website; code and hybrid work follow ChatGPT PLAN to Codex execution to ChatGPT REVIEW. Website control defaults to in-app browser, then Chrome, then bounded Computer Use. Use a compatible local-only MCP only when the user explicitly requests local-only mode and that optional dependency is configured, never as an automatic fallback.
+name: yichen-codex-chatgpt
+description: Use the signed-in ChatGPT website in Chat UI Pro mode, never Work mode, to research, architect, and review one local project through a configured Secure Tunnel and read-only MCP, while Codex alone edits and tests locally. Trigger on explicit $yichen-codex-chatgpt, 让 ChatGPT 设计后由 Codex 写代码, ChatGPT 架构并审查 Codex, or requests for a Codex and ChatGPT collaboration loop. Pure research stays on the official ChatGPT website; code and hybrid work follow ChatGPT PLAN to Codex execution to ChatGPT REVIEW. Website control defaults to in-app browser, then Chrome, then bounded Computer Use. Use a compatible local-only MCP only when the user explicitly requests local-only mode and that optional dependency is configured, never as an automatic fallback.
 ---
 
 # Codex × ChatGPT
@@ -60,11 +60,11 @@ Honor an explicit mode. Otherwise select the smallest route that completes the r
 | review the current project or diff without edits | `review` | ChatGPT reads through `remote-review`; Codex remains read-only |
 | user explicitly says `local-only` or no ChatGPT | `local-only` | Codex with a configured compatible local-only MCP; no ChatGPT claim |
 
-If `$codex-chatgpt` contains a sufficiently specific factual question, use `research`. Requests to build, fix, update, implement, or refactor default to `code` or `hybrid`; do not ask a redundant routing question. Ask only when the research subject or exact workspace cannot be determined safely.
+If `$yichen-codex-chatgpt` contains a sufficiently specific factual question, use `research`. Requests to build, fix, update, implement, or refactor default to `code` or `hybrid`; do not ask a redundant routing question. Ask only when the research subject or exact workspace cannot be determined safely.
 
 `local-only` is opt-in. For `research`, use `BLOCKED` when the selected intended surface proves Chat Pro absent, Web Search is unavailable, a required Computer Use action-time confirmation is declined, or a completed answer lacks required first-party search evidence/direct sources; use `ERROR` when the final permitted control surface fails, a handoff cannot preserve exactly-once state, submission is ambiguous or duplicate, response extraction fails, or marker integrity fails. For `code`, `hybrid`, and `review`, an unavailable private App on the intended surface or an unhealthy Tunnel is also a blocker. None of these failures permits substituting Codex-only reasoning, the local MCP, an OpenAI API, or manual copy/paste.
 
-For `$codex-chatgpt` research, use the control-surface priority and fallback route defined in [references/research.md](references/research.md). Chrome and Computer Use are activated only through [references/browser-surface-ladder.md](references/browser-surface-ladder.md).
+For `$yichen-codex-chatgpt` research, use the control-surface priority and fallback route defined in [references/research.md](references/research.md). Chrome and Computer Use are activated only through [references/browser-surface-ladder.md](references/browser-surface-ladder.md).
 
 ## Default C2C Contract
 
