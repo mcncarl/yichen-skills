@@ -10,6 +10,7 @@ name: Research skills contracts
       - 'yichen-bookmarks-export/**'
       - 'yichen-asr/**'
       - 'plugins/yichen-grok-consult/**'
+      - 'codex-chatgpt/**'
       - 'README.md'
       - 'README.zh.md'
       - 'THIRD_PARTY_NOTICES.md'
@@ -24,6 +25,7 @@ name: Research skills contracts
       - 'yichen-bookmarks-export/**'
       - 'yichen-asr/**'
       - 'plugins/yichen-grok-consult/**'
+      - 'codex-chatgpt/**'
       - 'README.md'
       - 'README.zh.md'
       - 'THIRD_PARTY_NOTICES.md'
@@ -97,6 +99,7 @@ jobs:
               Path('yichen-web-research'),
               Path('yichen-unified-search'),
               Path('plugins/yichen-grok-consult'),
+              Path('codex-chatgpt'),
           ]
           explicit_files = [
               Path('README.md'),

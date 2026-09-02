@@ -42,6 +42,7 @@ To request commercial authorization, contact me on WeChat at `yichen365ai` and i
 21. Create authorized WeCom documents and manage todos, meetings, and schedules through the official CLI without controlling the desktop app (`yichen-wecom-operations`)
 22. Turn one public X Post or Thread URL into verified 3:4 image slices and a finished video that embeds complete native video visuals and preserves their original audio when present (`yichen-x-slicer`)
 23. Experimentally analyze a user-supplied, detached plaintext Windows Weixin snapshot locally and read-only, without process access, keys, or decryption (`yichen-wechat-windows-reader`)
+24. Orchestrate ChatGPT Pro research, architecture, and read-only project review while Codex alone edits and tests (`codex-chatgpt`)
 
 ## Included Skills
 
@@ -122,7 +123,7 @@ Analyze benchmark video transcripts:
 - Produces a structured imitation and improvement report
 
 ### 9) `yichen-chatgpt-web-research`
-Run research through the user's already signed-in official ChatGPT website account:
+Legacy research-only entry for the user's already signed-in official ChatGPT website account:
 - Uses the real ChatGPT web page, not the OpenAI API or a separate account
 - Prefers Chrome extension control and falls back to visible Computer Use only when necessary
 - Waits for a full answer with a unique marker before extracting
@@ -130,6 +131,16 @@ Run research through the user's already signed-in official ChatGPT website accou
 - Keeps profile names, local paths, cookies, tokens, and browser storage out of the public skill
 
 See [yichen-chatgpt-web-research/README.md](./yichen-chatgpt-web-research/README.md) for privacy notes and workflow details.
+
+### Unified entry: `codex-chatgpt`
+Run a bounded Codex × ChatGPT Review Loop:
+- ChatGPT Pro performs public-web research, architecture, PLAN, and final REVIEW
+- Codex is the only local file writer and command/test executor
+- Code, hybrid, and review modes require a separately configured Secure Tunnel and seven-tool read-only MCP
+- Pure research never starts or attaches the code Tunnel
+- The public package contains no Runtime Key, Tunnel/App ID, private runtime, browser session, screenshot, or personal absolute path
+
+This is the unified research + architecture + review entry. The older `yichen-chatgpt-web-research` directory remains available as a legacy research-only workflow. See [codex-chatgpt/README.md](./codex-chatgpt/README.md) for installation and the external runtime contract.
 
 ### 10) `yichen-jianying-editor`
 Guide Jianying/CapCut desktop finishing:
@@ -317,6 +328,16 @@ yichen-skills/
 │  ├─ SKILL.md
 │  ├─ README.md
 │  └─ agents/
+├─ codex-chatgpt/
+│  ├─ LICENSE
+│  ├─ SKILL.md
+│  ├─ README.md
+│  ├─ SECURITY.md
+│  ├─ config.example.md
+│  ├─ agents/
+│  ├─ examples/
+│  └─ references/
+│     └─ setup.md
 ├─ yichen-jianying-editor/
 │  └─ SKILL.md
 ├─ yichen-agent-memory/
@@ -440,6 +461,7 @@ Keep directory names unchanged:
 - `yichen-volc-asr`
 - `yichen-video-content`
 - `yichen-chatgpt-web-research`
+- `codex-chatgpt`
 - `yichen-jianying-editor`
 - `yichen-agent-memory`
 - `yichen-wechat-mp-batch-exporter`
@@ -507,6 +529,13 @@ codex plugin add yichen-grok-consult@yichen-skills
 2. Keep the ChatGPT tab or profile visible when a Pro route must be confirmed
 3. Ask for official-site research, for example: "Use ChatGPT Web to research Anthropic and save a Markdown report"
 4. The skill waits for a complete answer, verifies the marker, and saves raw/readable Markdown reports
+
+### F2) Enable `codex-chatgpt`
+
+1. Install it with `npx skills add mcncarl/yichen-skills --skill codex-chatgpt`
+2. For pure research, verify that the official ChatGPT website exposes Chat mode and a visible `Pro` route
+3. For code, hybrid, or review, configure the private App and compatible read-only runtime described in [codex-chatgpt/references/setup.md](./codex-chatgpt/references/setup.md)
+4. Keep the populated local configuration and all evidence outside source repositories
 
 ### G) Enable `yichen-agent-memory`
 
@@ -597,6 +626,7 @@ The canonical directory is mode `0700` and the file is mode `0600`. The file rem
 - WeChat exporter auth-keys, credential files, QR secrets, captured cookies, and downloaded article archives must stay local and private
 - `yichen-grok-consult` contains no fixed proxy or credentials; Grok queries and results are still sent to xAI and retained in an isolated local session directory
 - The Web Research family contains no personal absolute paths, App IDs, tokens, fixed Keychain items, or private proxy values; account-backed routes remain opt-in
+- `codex-chatgpt` contains only the orchestration protocol; its private MCP runtime, Runtime Key, Tunnel/App identifiers, browser session, screenshots, and populated local configuration are not distributed
 - Unified Search sends each query only to the third-party backend selected for that route, as described in the data-flow table. Local signing material, browser-cookie values, and third-party credentials are not included in repository files or normalized candidate output
 - The anonymous Weibo visitor session exists only in adapter memory. When the documented OpenCLI fallback is used, OpenCLI manages the browser session and the adapter does not accept or print Cookie values
 - Firecrawl Scrape sets `storeInCache=false`; Map makes no cache-control claim, and neither setting may be interpreted or advertised as a zero-data-retention guarantee

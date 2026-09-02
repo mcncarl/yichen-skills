@@ -1,0 +1,9 @@
+.DS_Store
+config.local.md
+evidence/
+outputs/
+.runtime/
+.tools/
+*.log
+*.key
+*.pem

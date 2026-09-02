@@ -1,0 +1,4 @@
+interface:
+  display_name: "Codex × ChatGPT: Architect & Review"
+  short_description: "ChatGPT Chat Pro 负责调研、架构与审查，Codex 负责实现与测试"
+  default_prompt: "Use $codex-chatgpt in ChatGPT Chat UI with the in-app → Chrome → Computer Use control ladder, automatically select and visibly verify the Pro route, never use Work mode, and let Codex alone implement and test the current project."

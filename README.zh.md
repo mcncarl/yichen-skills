@@ -42,6 +42,7 @@
 21. 通过企业微信官方 CLI 创建授权文档并管理待办、会议和日程，不操控客户端（`yichen-wecom-operations`）
 22. 把一条公开 X Post 或 Thread 链接转成经过验收的 3:4 图片切片与成片，完整嵌入原生视频并在有源音轨时保留原声（`yichen-x-slicer`）
 23. 在 Windows 本机实验性、只读分析用户明确提供的脱机微信明文快照，不访问进程、不处理密钥、不解密（`yichen-wechat-windows-reader`）
+24. 让 ChatGPT Pro 负责调研、架构和只读审查，Codex 独占本地代码修改和测试（`codex-chatgpt`）
 
 ## 包含的技能
 
@@ -121,7 +122,7 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 输出可模仿结构和改进建议
 
 ### 9) `yichen-chatgpt-web-research`
-通过用户已登录的 ChatGPT 官网账号执行调研：
+通过用户已登录的 ChatGPT 官网账号执行调研的旧版独立入口：
 - 使用真实 ChatGPT 网页，不走 OpenAI API，也不切到另一个账号
 - 优先使用 Chrome 扩展控制，必要时才用可视化 Computer Use 兜底
 - 等待完整答案和唯一校验标记后再提取
@@ -129,6 +130,16 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 公开版已去掉个人路径、Chrome 配置名、cookie、token 和浏览器存储信息
 
 隐私边界和工作流见 [yichen-chatgpt-web-research/README.md](./yichen-chatgpt-web-research/README.md)。
+
+### 统一入口：`codex-chatgpt`
+运行有边界的 Codex × ChatGPT Review Loop：
+- ChatGPT Pro 负责公网调研、架构、PLAN 和最终 REVIEW
+- Codex 是唯一的本地文件写入者和命令/测试执行者
+- 代码、混合和审查模式需要另行配置 Secure Tunnel 与 7 工具只读 MCP
+- 纯调研不会启动或挂载代码 Tunnel
+- 公开包不含 Runtime Key、Tunnel/App ID、私有 Runtime、浏览器会话、截图或个人绝对路径
+
+这是新的统一调研 + 架构 + 审查入口。旧的 `yichen-chatgpt-web-research` 仍作为历史兼容调研入口保留。安装和外部 Runtime 契约见 [codex-chatgpt/README.md](./codex-chatgpt/README.md)。
 
 ### 10) `yichen-jianying-editor`
 剪映/CapCut 桌面端精修助手：
@@ -316,6 +327,16 @@ yichen-skills/
 │  ├─ SKILL.md
 │  ├─ README.md
 │  └─ agents/
+├─ codex-chatgpt/
+│  ├─ LICENSE
+│  ├─ SKILL.md
+│  ├─ README.md
+│  ├─ SECURITY.md
+│  ├─ config.example.md
+│  ├─ agents/
+│  ├─ examples/
+│  └─ references/
+│     └─ setup.md
 ├─ yichen-jianying-editor/
 │  └─ SKILL.md
 ├─ yichen-agent-memory/
@@ -439,6 +460,7 @@ yichen-skills/
 - `yichen-volc-asr`
 - `yichen-video-content`
 - `yichen-chatgpt-web-research`
+- `codex-chatgpt`
 - `yichen-jianying-editor`
 - `yichen-agent-memory`
 - `yichen-wechat-mp-batch-exporter`
@@ -506,6 +528,13 @@ codex plugin add yichen-grok-consult@yichen-skills
 2. 如果任务要求 Pro 路线，保持可见页面能确认账号或模型状态
 3. 直接提出官网调研任务，例如：“用 ChatGPT 官网调研 Anthropic，并保存 Markdown 报告”
 4. Skill 会等待完整答案、校验标记，并保存原始版和可读版报告
+
+### F2）启用 `codex-chatgpt`
+
+1. 运行 `npx skills add mcncarl/yichen-skills --skill codex-chatgpt` 安装
+2. 纯调研需要 ChatGPT 官网中可见的 Chat/聊天与 `Pro` 路线
+3. 代码、混合或审查模式需要按 [codex-chatgpt/references/setup.md](./codex-chatgpt/references/setup.md) 配置私有 App 和兼容只读 Runtime
+4. 已填写的本地配置和全部证据必须保存在源代码仓库之外
 
 ### G）启用 `yichen-agent-memory`
 
@@ -594,6 +623,7 @@ python3 ~/.agents/skills/x-article-draft-uploader/scripts/export_x_cookies_from_
 - 公众号 exporter auth-key、凭证文件、扫码登录秘密、捕获 cookies 和下载的文章归档必须只保存在本地
 - `yichen-grok-consult` 不包含固定代理或凭证；但查询和结果仍会发送给 xAI，并保存在隔离的本机会话目录
 - Web Research 家族不包含个人绝对路径、App ID、Token、固定钥匙串项或私人代理值；账号路线仍必须显式启用
+- `codex-chatgpt` 只公开编排协议；私有 MCP Runtime、Runtime Key、Tunnel/App 标识、浏览器会话、截图和已填写本地配置均不分发
 - Unified Search 只会按上方数据流表，把查询发送给当前路由选中的第三方后端。本地签名材料、浏览器 Cookie 值和第三方凭据不包含在仓库文件或标准候选输出中
 - 微博匿名访客会话只存在于适配器内存。使用文档明确的 OpenCLI 回退时，由 OpenCLI 管理浏览器会话，适配器不接受也不打印 Cookie 值
 - Firecrawl Scrape 设置 `storeInCache=false`；Map 不作缓存控制声明，两者都不得被解读或宣传为零数据保留承诺
