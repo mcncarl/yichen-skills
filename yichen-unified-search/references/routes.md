@@ -114,6 +114,13 @@ API Key 只从 `FIRECRAWL_API_KEY` 或 `FIRECRAWL_KEY_FILE` 指定的权限为 `
 
 ## AI HOT：AI 实时发现后端
 
+`--keyword` 可重复，最多 5 个不同主题。路由器提取全部已识别主题，不只取第一个；适配器每个主题独立请求，按 URL 合并并轮流选取各主题候选，总量仍受 `--limit` 限制。coverage 记录每个主题的返回数、selected_count、错误和截断；候选 provenance.matched_topics 保留所有命中主题。某个主题失败时保留其他主题结果并返回非零退出码，不能把失败主题写成零结果。
+
+自然语言天数完整解析（例如 17 天、30 天、三十天），显式 `--days` 优先；“最近一个月”仅作 30 天回看范围。超过 7 天的自动 items 请求改走 AnySearch；显式 AI HOT 拒绝。items 的“昨天/前天”仅扩大回看范围，并非按用户本地日历日精确筛选，严格日界任务需额外检查时间。日报是独立的定日 API，不按 items 范围限制。
+
+AI HOT items 和 daily 共用公开 URL/必要字段校验。不合法记录计入 errors/rejected_count；全部不合法为 failed，部分不合法为 partial，真正空列表才是 completed 零结果。未知语言为 null。URL 校验是离线语法与字面地址检查，不证明 DNS 指向、页面可访问或内容真实性。
+
+
 仅当查询同时具有 AI 主题和明确时间性，或用户明确点名 AI HOT 时使用。它提供最近 AI 动态的精选、全量、分类、关键词和日报发现；它不是通用网页搜索，也不是最终事实核验源。
 
 离线路由器会生成适配器命令。适配器内置 AI HOT 公开 API 契约、携带浏览器 User-Agent，并把结果直接转成统一候选 envelope：
@@ -241,6 +248,11 @@ python3 "${YICHEN_SKILLS_ROOT:-$HOME/.agents/skills}/yichen-unified-search/scrip
 ```
 
 ## 选择细则
+
+平台名作为公司/财报/股价等搜索对象时不自动选站内；普通 issue 不触发 GitHub。批量自动识别发现多个平台时返回 invalid_request 和逐查询 query_routes，先按平台拆分，再显式传 --platform；不是零结果，也不能直接执行占位步骤。单平台批量的未标注查询可沿用该明确平台。
+
+原生 search 的单查询平台集中在 scripts/search_policy.py。传多个 --query 会明确拒绝而不是只取第一个；可以逐条调用，也可以选择 batch 的公共 site: 语义。YouTube channel 始终只接收一个明确频道。
+
 
 - 用户说“今天/最近/最新的 AI 新闻、AI 动态、AI 发布”时，使用 AI HOT 精选；明确说“日报”才用日报，明确说“全部/完整/所有/全量”才切全量。
 - 普通 AI 概念、原理、教程、历史或超过 7 天的系统研究使用 AnySearch。指定平台优先，例如“X 上最近的 AI 动态”仍走 X。

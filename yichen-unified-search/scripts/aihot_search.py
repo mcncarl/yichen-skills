@@ -9,6 +9,8 @@ import ipaddress
 import json
 import re
 import sys
+
+from public_urls import is_public_http_url
 from datetime import datetime, timedelta, timezone
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urlsplit
@@ -87,6 +89,8 @@ def validate_public_http_url(value: object) -> str:
     if not isinstance(value, str) or not value.strip():
         raise ValueError("a public HTTP(S) URL is required")
     cleaned = value.strip()
+    if not is_public_http_url(cleaned):
+        raise ValueError("URL does not identify a public HTTP(S) address")
     if any(ord(character) <= 0x20 or ord(character) == 0x7F for character in cleaned):
         raise ValueError("URL contains unsafe whitespace or control characters")
     try:
@@ -571,7 +575,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--days", type=int, default=1)
     parser.add_argument("--limit", type=int, default=20)
-    parser.add_argument("--keyword", help="Optional AI HOT server-side keyword")
+    parser.add_argument("--keyword", action="append", default=[], help="Repeat for up to 5 distinct AI HOT topics")
     parser.add_argument("--category", choices=CATEGORIES)
     parser.add_argument("--date", help="YYYY-MM-DD; only valid with --feed daily")
     parser.add_argument("--timeout", type=int, default=20)
@@ -589,59 +593,94 @@ def parse_args() -> argparse.Namespace:
             datetime.strptime(args.date, "%Y-%m-%d")
         except ValueError:
             parser.error("--date must use YYYY-MM-DD")
+    args.keyword = list(dict.fromkeys(word.strip() for word in args.keyword))
+    if any(not word for word in args.keyword) or len(args.keyword) > 5:
+        parser.error("--keyword accepts at most 5 non-empty distinct topics")
     if args.feed == "daily" and (args.keyword or args.category):
         parser.error("--keyword and --category are not valid with --feed daily")
     return args
 
 
+def run_items(args: argparse.Namespace, now: datetime, fetch=None) -> dict:
+    """Fetch each requested topic, preserve coverage, and merge by source URL."""
+    fetch = fetch or fetch_json
+    results = []
+    for topic in args.keyword or [None]:
+        url = build_url(feed=args.feed, days=args.days, limit=args.limit,
+                        keyword=topic, category=args.category, date=None, now=now)
+        try:
+            payload = fetch(url, args.timeout)
+            result = normalize_items(payload, query=args.query, limit=args.limit, days=args.days,
+                                     feed=args.feed, retrieved_at=iso_z(utc_now()))
+        except HTTPError as exc:
+            result = error_envelope(args.query, "http_error", f"AI HOT returned HTTP {exc.code}")
+        except (URLError, TimeoutError, OSError):
+            result = error_envelope(args.query, "network_error", "AI HOT request failed")
+        except (ValueError, TypeError):
+            result = error_envelope(args.query, "invalid_response", "AI HOT returned an invalid items response")
+        for route in result["routes"]:
+            route["topic"] = topic
+        if not result["coverage"]:
+            result["coverage"] = [{"backend": "aihot", "query_count": 1, "returned_count": 0,
+                                   "status": "failed", "login_state_used": False}]
+        for coverage in result["coverage"]:
+            coverage.update(topic=topic, status=result["routes"][0]["status"])
+        for candidate_record in result["candidates"]:
+            candidate_record["provenance"]["matched_topics"] = [topic] if topic else []
+        results.append(result)
+    merged = envelope(query=args.query, requested_limit=args.limit, time_range={"days": args.days},
+                      mode=args.feed, candidates=[], raw_result_count=0, rejected_count=0, duplicate_count=0, truncated=False,
+                      limitations=[AI_SUMMARY_LIMITATION])
+    merged["request"]["topics"] = args.keyword
+    merged["routes"] = [route for result in results for route in result["routes"]]
+    merged["coverage"] = [coverage for result in results for coverage in result["coverage"]]
+    merged["errors"] = [error for result in results for error in result["errors"]]
+    seen = {}
+    # Round-robin selection avoids letting the first topic occupy the whole limit.
+    for index in range(max((len(result["candidates"]) for result in results), default=0)):
+        for result in results:
+            if index >= len(result["candidates"]):
+                continue
+            item = result["candidates"][index]
+            if item["canonical_url"] in seen:
+                existing = seen[item["canonical_url"]]
+                topics = existing["provenance"]["matched_topics"] + item["provenance"]["matched_topics"]
+                existing["provenance"]["matched_topics"] = list(dict.fromkeys(topics))
+            else:
+                seen[item["canonical_url"]] = item
+    candidates = list(seen.values())
+    merged["candidates"] = candidates[:args.limit]
+    for rank, item in enumerate(merged["candidates"], start=1):
+        item["rank"] = rank
+    for coverage in merged["coverage"]:
+        coverage["selected_count"] = sum(coverage["topic"] in item["provenance"]["matched_topics"]
+                                         for item in merged["candidates"]) if coverage["topic"] else len(merged["candidates"])
+    merged["coverage"].append({"backend": "aihot", "stage": "merge", "query_count": len(results),
+                               "unique_count": len(candidates), "returned_count": len(merged["candidates"]),
+                               "truncated": len(candidates) > args.limit,
+                               "login_state_used": False})
+    return merged
+
+
 def main() -> int:
     args = parse_args()
     now = utc_now()
-    url = build_url(
-        feed=args.feed,
-        days=args.days,
-        limit=args.limit,
-        keyword=args.keyword,
-        category=args.category,
-        date=args.date,
-        now=now,
-    )
-    try:
-        payload = fetch_json(url, args.timeout)
-        retrieved_at = iso_z(utc_now())
-        if args.feed == "daily":
-            result = normalize_daily(
-                payload,
-                query=args.query,
-                limit=args.limit,
-                retrieved_at=retrieved_at,
-            )
-        else:
-            result = normalize_items(
-                payload,
-                query=args.query,
-                limit=args.limit,
-                days=args.days,
-                feed=args.feed,
-                retrieved_at=retrieved_at,
-            )
-    except HTTPError as exc:
-        result = error_envelope(
-            args.query, "http_error", f"AI HOT returned HTTP {exc.code}"
-        )
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 2
-    except URLError as exc:
-        result = error_envelope(args.query, "network_error", str(exc.reason))
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 2
-    except (ValueError, json.JSONDecodeError) as exc:
-        result = error_envelope(args.query, "invalid_response", str(exc))
-        print(json.dumps(result, ensure_ascii=False, indent=2))
-        return 2
-
+    if args.feed != "daily":
+        result = run_items(args, now)
+    else:
+        url = build_url(feed=args.feed, days=args.days, limit=args.limit, keyword=None,
+                        category=None, date=args.date, now=now)
+        try:
+            result = normalize_daily(fetch_json(url, args.timeout), query=args.query,
+                                     limit=args.limit, retrieved_at=iso_z(utc_now()))
+        except HTTPError as exc:
+            result = error_envelope(args.query, "http_error", f"AI HOT returned HTTP {exc.code}")
+        except (URLError, TimeoutError, OSError):
+            result = error_envelope(args.query, "network_error", "AI HOT request failed")
+        except (ValueError, TypeError):
+            result = error_envelope(args.query, "invalid_response", "AI HOT returned an invalid daily response")
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0
+    return 2 if result["errors"] else 0
 
 
 if __name__ == "__main__":

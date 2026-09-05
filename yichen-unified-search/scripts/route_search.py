@@ -14,6 +14,8 @@ from datetime import date, timedelta
 from pathlib import Path
 from typing import Iterable
 
+from search_policy import SINGLE_QUERY_PLATFORMS
+
 try:
     import idna as _idna_uts46
 except ImportError:  # Fail closed for non-ASCII hosts when the helper is absent.
@@ -44,7 +46,7 @@ PLATFORM_HINTS = (
     ("bilibili", (r"哔哩哔哩", r"B站", r"\bbilibili\b")),
     ("youtube", (r"\byoutube\b",)),
     ("xiaoyuzhou", (r"小宇宙", r"\bxiaoyuzhou\b")),
-    ("github", (r"\bgithub\b", r"\bissue\b", r"\bpull request\b")),
+    ("github", (r"\bgithub\b",)),
     (
         "x",
         (
@@ -186,11 +188,64 @@ class Request:
     max_searches: int
 
 
-def detect_platform(queries: Iterable[str]) -> str:
-    text = " ".join(queries)
+def platform_hints(query: str) -> list[str]:
+    """Distinguish a channel request from a company named as the subject."""
+    found = []
     for platform, patterns in PLATFORM_HINTS:
-        if any(re.search(pattern, text, flags=re.IGNORECASE) for pattern in patterns):
-            return platform
+        for pattern in patterns:
+            for match in re.finditer(pattern, query, flags=re.IGNORECASE):
+                after = query[match.end():]
+                before = query[:match.start()]
+                subject = re.match(
+                    r"\s*(?:公司|集团|财报|股价|股票|营收|市值|商业模式|创始人|的(?:财报|股价|营收)|"
+                    r"(?:company|corporation|stock|earnings|revenue|valuation)\b)", after, re.I
+                )
+                explicit_channel = re.search(r"(?:在|去|到|on\s+)\s*$", before, re.I)
+                if not subject or explicit_channel:
+                    found.append(platform)
+                    break
+            if platform in found:
+                break
+    return found
+
+
+def infer_aihot_keywords(query: str) -> list[str]:
+    matches = sorted((match.start(), match.group(0))
+                     for pattern in AIHOT_KEYWORD_PATTERNS
+                     for match in re.finditer(
+                         r"(?<![A-Za-z0-9_])(?:" + pattern.replace(r"[\w.]", r"[A-Za-z0-9_.]") + r")(?![A-Za-z0-9_])",
+                         query, flags=re.IGNORECASE))
+    result, seen = [], set()
+    for _, keyword in matches:
+        if keyword.casefold() not in seen:
+            result.append(keyword)
+            seen.add(keyword.casefold())
+    return result
+
+
+def _chinese_number(value: str) -> int:
+    digits = {c: i for i, c in enumerate("零一二三四五六七八九")}
+    digits["两"] = 2
+    if value.isdecimal():
+        return int(value)
+    if "十" in value:
+        left, right = value.split("十", 1)
+        return digits.get(left, 1) * 10 + digits.get(right, 0)
+    return digits[value]
+
+
+def invalid_plan(reason: str) -> dict:
+    return {"schema_version": "1.0", "status": "invalid_request", "reason": reason,
+            "authorization": "not_applicable", "route": None, "steps": [], "limitations": []}
+
+
+def detect_platform(queries: Iterable[str]) -> str:
+    queries = tuple(queries)
+    detected = {platform for query in queries for platform in platform_hints(query)}
+    if len(detected) == 1:
+        return next(iter(detected))
+    if detected:
+        return "web"  # plan() reports ambiguity before reaching this default.
     if is_aihot_intent(queries):
         return AIHOT_PLATFORM
     return "web"
@@ -231,26 +286,31 @@ def infer_aihot_category(query: str) -> str | None:
 
 
 def infer_aihot_keyword(query: str) -> str | None:
-    for pattern in AIHOT_KEYWORD_PATTERNS:
-        match = re.search(pattern, query, flags=re.IGNORECASE)
-        if match:
-            return match.group(0)
-    return None
+    """Compatibility helper; routing uses all inferred keywords."""
+    keywords = infer_aihot_keywords(query)
+    return keywords[0] if keywords else None
 
 
 def infer_aihot_days(query: str, requested_days: int | None) -> int:
     if requested_days is not None:
         return requested_days
     number_match = re.search(
-        r"(?:过去|最近|近)?\s*([1-7])\s*天", query, flags=re.IGNORECASE
+        r"(?<![\d一二两三四五六七八九十])([0-9]+|[一二两三四五六七八九]?十[一二三四五六七八九]?|[一二两三四五六七八九])\s*天", query
     )
     if number_match:
-        return int(number_match.group(1))
+        return _chinese_number(number_match.group(1))
+    if re.search(r"(?:过去|最近|近)\s*(?:一个月|一月|1\s*个月|30\s*days?)", query, re.I):
+        return 30
+    english_days = re.search(r"\b(?:past|last|recent)\s+(\d+)\s+days?\b", query, re.I)
+    if english_days:
+        return int(english_days.group(1))
     if re.search(r"一周|这周|本周|7\s*天", query, flags=re.IGNORECASE):
         return 7
     if re.search(r"最近|近期|这几天", query, flags=re.IGNORECASE):
         return 7
-    if re.search(r"昨天|昨日", query, flags=re.IGNORECASE):
+    if re.search(r"前天", query):
+        return 3
+    if re.search(r"昨天|昨日", query):
         return 2
     return 1
 
@@ -303,8 +363,7 @@ def aihot_steps(request: Request) -> list[dict]:
             category = infer_aihot_category(query)
             if category:
                 argv.extend(["--category", category])
-            keyword = infer_aihot_keyword(query)
-            if keyword:
+            for keyword in infer_aihot_keywords(query):
                 argv.extend(["--keyword", keyword])
         steps.append(
             {
@@ -1230,7 +1289,19 @@ def plan(request: Request) -> dict:
             ],
         }
 
+    if not request.queries or any(not query.strip() for query in request.queries):
+        return invalid_plan("Search queries must be non-empty")
+    if request.platform == "auto":
+        per_query = [{"query": query, "platforms": platform_hints(query)} for query in request.queries]
+        platforms = {platform for item in per_query for platform in item["platforms"]}
+        if len(platforms) > 1:
+            return {**invalid_plan("Multiple platform intents: split queries by platform and rerun each group with explicit --platform"),
+                    "query_routes": per_query}
     platform = detect_platform(request.queries) if request.platform == "auto" else request.platform
+    if request.mode == "search" and not request.domain and platform in SINGLE_QUERY_PLATFORMS and len(request.queries) != 1:
+        return invalid_plan("This native search accepts one query; run each query separately or use --mode batch for public site-index search")
+    if request.mode == "channel" and len(request.queries) != 1:
+        return invalid_plan("Channel browsing requires exactly one channel query")
     if (
         request.mode == "batch"
         and request.platform == "auto"
@@ -1714,7 +1785,10 @@ def plan(request: Request) -> dict:
                 "steps": [],
                 "limitations": [],
             }
-        if request.days is not None and not 1 <= request.days <= 7:
+        item_queries = [q for q in request.queries if infer_aihot_feed(q) != "daily"]
+        if any(len(infer_aihot_keywords(q)) > 5 for q in item_queries):
+            return invalid_plan("AI HOT supports at most 5 distinct topics per query; split the request")
+        if any(not 1 <= infer_aihot_days(q, request.days) <= 7 for q in item_queries):
             if request.platform == "auto":
                 platform = "web"
                 limitations.append(
@@ -2081,8 +2155,9 @@ def parse_args() -> Request:
 
 def main() -> int:
     request = parse_args()
-    print(json.dumps(plan(request), ensure_ascii=False, indent=2, sort_keys=True))
-    return 0
+    result = plan(request)
+    print(json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True))
+    return 2 if result["status"] == "invalid_request" else 0
 
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ from urllib.request import Request
 
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
 SPEC = importlib.util.spec_from_file_location(
     "aihot_search", ROOT / "scripts" / "aihot_search.py"
 )

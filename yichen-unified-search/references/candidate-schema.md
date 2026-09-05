@@ -196,3 +196,9 @@ Grok `search_x_with_grok` 的文本结果必须先交给 `grok_x_result_adapter.
 3. 仅在标题、作者和发布时间均高度一致时合并近重复内容，并保留所有 provenance。
 4. 把搜索摘要视为线索，不作为正文引文。
 5. 对最终引用候选打开原文；无法访问则保留为 candidate 或排除，不根据摘要补写事实。
+
+## AI HOT 查询质量与主题覆盖
+
+- items/daily 的必要字段或公开 URL 校验失败记入 errors，coverage 保存 raw_result_count、rejected_count、duplicate_count；全部无效为 failed，部分无效为 partial，真正空列表为 completed。
+- 多主题分别请求并保留逐主题 routes/coverage；candidate.provenance.matched_topics 记录命中主题，coverage.selected_count 记录该主题最终被选入的候选数。最后一项 stage=merge 描述 URL 去重和全局 limit 截断，不能将其 query_count 与逐主题计数累加。
+- language 未由来源确定时为 null；中文聚合标题不能证明原文语言。URL 校验仅针对字面公共地址，不代表页面或事实已核验。
