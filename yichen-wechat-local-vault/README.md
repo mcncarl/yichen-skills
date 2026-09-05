@@ -1,6 +1,6 @@
 # yichen-wechat-local-vault
 
-微信 Mac 4.x 本地数据库全量/增量解析与数字资产库。按指令选择全量解密、增量刷新、统一查询、指定联系人/群聊导出、朋友圈/收藏夹解析、群聊精华素材包和关系复盘。
+微信本地数字资产库：支持 Mac 4.x 全量/增量解析，并整合实验性的 Windows 离线明文快照查询。按指令选择全量解密、增量刷新、统一查询、指定联系人/群聊导出、朋友圈/收藏夹解析、群聊精华素材包和关系复盘。
 
 ## 隐私路径
 
@@ -10,7 +10,7 @@
 
 明文库包含完整本地微信隐私，不要同步、分享或复制到项目目录。
 
-## 常用命令
+## Mac 常用命令
 
 ```bash
 python3 scripts/extract_keys.py --list-dbs
@@ -33,7 +33,18 @@ python3 scripts/export_chat.py --chat-id "contact_username" --since "2025-01-01"
 
 `vault_cli.py` 默认 JSON 输出，适合被 Agent 调用；需要人工查看时加 `--format text`。
 
-## 统一查询入口
+## Windows 离线快照查询
+
+使用同一入口，不需要另装 Windows reader：
+
+```bash
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot validate
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot chats
+```
+
+随后使用返回的精确 `chat_id` 调用 `history`、`search` 或 `export`。此模式不访问 Mac 配置、不抓密钥、不解密、不刷新；仅接受验证器支持的离线明文结构，真实 Windows 版本兼容性仍为实验性。输入契约、依赖、来源和完整用法见 [Windows 快照模式](references/windows-snapshot.md)。
+
+## Mac 查询命令
 
 `scripts/vault_cli.py` 吸收了 WeChat CLI 的常用产品化能力，但仍然只读本 skill 的已解密 vault：
 

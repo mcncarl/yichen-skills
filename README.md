@@ -80,6 +80,8 @@ Run two WeChat accounts simultaneously on macOS — no third-party tools:
 - Based on the well-known copy + bundle-id + ad-hoc signing method documented by [@koffuxu](https://x.com/koffuxu/status/2043110831584690427)
 
 ### `yichen-wechat-local-vault`
+
+The unified CLI also supports experimental Windows plaintext snapshots through `snapshot --snapshot <directory>`. See the [snapshot guide](./yichen-wechat-local-vault/references/windows-snapshot.md).
 WeChat digital-asset assistant for macOS:
 - Decrypts WeChat Mac 4.x local SQLCipher databases (AES-256-CBC)
 - Extracts chats, Moments (`sns.db`), and Favorites (`favorite.db`)

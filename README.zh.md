@@ -80,6 +80,8 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 方法来源：[@koffuxu](https://x.com/koffuxu/status/2043110831584690427) 的公开教程
 
 ### `yichen-wechat-local-vault`
+
+统一 CLI 现已整合实验性的 Windows 明文快照查询，通过 `snapshot --snapshot <目录>` 使用，详见 [快照说明](./yichen-wechat-local-vault/references/windows-snapshot.md)。
 微信数字资产沉淀助手（macOS 专属）：
 - 解密微信 Mac 4.x 本地 SQLCipher 数据库（AES-256-CBC）
 - 提取聊天记录、朋友圈（`sns.db`）和收藏夹（`favorite.db`）
