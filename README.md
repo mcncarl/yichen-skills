@@ -19,30 +19,26 @@ To request commercial authorization, contact me on WeChat at `yichen365ai` and i
 
 ## What This Repo Does
 
-1. Turn Claude Code conversations into structured Obsidian notes (`yichen-summary`)
-2. Upload Obsidian/Markdown articles to X Articles drafts (`yichen-x-article-draft-uploader`)
-3. Run two WeChat accounts on one Mac with a distinct blue icon (`yichen-mac-wechat-dual-open`)
-4. Turn WeChat chats, Moments, and Favorites into AI-powered digital assets (`yichen-wechat-local-vault`)
-5. Fetch benchmark videos from known Douyin links (`yichen-content-archive`)
-6. Fetch benchmark posts from known Xiaohongshu links (`yichen-content-archive`)
-7. Transcribe, caption, and rough-cut talking-head videos with Volcengine ASR (`yichen-volc-asr`)
-8. Diagnose benchmark video transcripts (`yichen-video-content`)
-9. Run verified research through the official ChatGPT web page (`yichen-chatgpt-web-research`)
-10. Hand off rough cuts to Jianying/CapCut for final editing (`yichen-jianying-editor`)
-11. Install and maintain a Markdown/Obsidian-first Agent Memory Vault system (`yichen-agent-memory`)
-12. Batch-export WeChat Official Account article history, original-article lists, bodies, and optional read/comment metrics (`yichen-wechat-mp-batch-exporter`)
-13. Read and export local WeCom/企业微信 5.x database snapshots without controlling the app (`yichen-wecom-local-vault`)
-14. Let GPT call Grok for native X search or an independent second opinion without switching the main model (`yichen-grok-consult`)
-15. Keep old bookmark-export calls compatible through a retired alias (`yichen-social-bookmarks-exporter`)
-16. Route multi-stage internet research through one safety-first entry point (`yichen-web-research`)
-17. Normalize public web and platform search into reviewable candidates (`yichen-unified-search`)
-18. Read, download, and archive only known or explicitly confirmed links (`yichen-content-archive`)
-19. Export private bookmarks directly behind current-task authorization (`yichen-bookmarks-export`)
-20. Choose between Step and Doubao/Volcengine ASR without duplicate submissions (`yichen-asr`)
-21. Create authorized WeCom documents and manage todos, meetings, and schedules through the official CLI without controlling the desktop app (`yichen-wecom-operations`)
-22. Turn one public X Post or Thread URL into verified 3:4 image slices and a finished video that embeds complete native video visuals and preserves their original audio when present (`yichen-x-slicer`)
-23. Experimentally analyze a user-supplied, detached plaintext Windows Weixin snapshot locally and read-only, without process access, keys, or decryption (`yichen-wechat-windows-reader`)
-24. Orchestrate ChatGPT Pro research, architecture, and read-only project review while Codex alone edits and tests (`codex-chatgpt`)
+1. Upload Obsidian/Markdown articles to X Articles drafts (`yichen-x-article-draft-uploader`)
+2. Run two WeChat accounts on one Mac with a distinct blue icon (`yichen-mac-wechat-dual-open`)
+3. Turn WeChat chats, Moments, and Favorites into AI-powered digital assets (`yichen-wechat-local-vault`)
+4. Fetch benchmark videos from known Douyin links (`yichen-content-archive`)
+5. Fetch benchmark posts from known Xiaohongshu links (`yichen-content-archive`)
+6. Transcribe, caption, and rough-cut talking-head videos with Volcengine ASR (`yichen-volc-asr`)
+7. Run verified research through the official ChatGPT web page (`yichen-chatgpt-web-research`)
+8. Install and maintain a Markdown/Obsidian-first Agent Memory Vault system (`yichen-agent-memory`)
+9. Batch-export WeChat Official Account article history, original-article lists, bodies, and optional read/comment metrics (`yichen-wechat-mp-batch-exporter`)
+10. Read and export local WeCom/企业微信 5.x database snapshots without controlling the app (`yichen-wecom-local-vault`)
+11. Let GPT call Grok for native X search or an independent second opinion without switching the main model (`yichen-grok-consult`)
+12. Route multi-stage internet research through one safety-first entry point (`yichen-web-research`)
+13. Normalize public web and platform search into reviewable candidates (`yichen-unified-search`)
+14. Read, download, and archive only known or explicitly confirmed links (`yichen-content-archive`)
+15. Export private bookmarks directly behind current-task authorization (`yichen-bookmarks-export`)
+16. Choose between Step and Doubao/Volcengine ASR without duplicate submissions (`yichen-asr`)
+17. Create authorized WeCom documents and manage todos, meetings, and schedules through the official CLI without controlling the desktop app (`yichen-wecom-operations`)
+18. Turn one public X Post or Thread URL into verified 3:4 image slices and a finished video that embeds complete native video visuals and preserves their original audio when present (`yichen-x-slicer`)
+19. Experimentally analyze a user-supplied, detached plaintext Windows Weixin snapshot locally and read-only, without process access, keys, or decryption (`yichen-wechat-windows-reader`)
+20. Orchestrate ChatGPT Pro research, architecture, and read-only project review while Codex alone edits and tests (`codex-chatgpt`)
 
 ## Included Skills
 
@@ -59,15 +55,7 @@ Experimental reader for an authorized, detached plaintext Windows Weixin SQLite 
 See [yichen-wechat-windows-reader/README.md](./yichen-wechat-windows-reader/README.md).
 
 
-### 1) `yichen-summary`
-- Purpose: extract key insights from the current conversation and save to Obsidian
-- Typical triggers: `/yichen-summary`, "save conversation", "export highlights"
-- Capabilities:
-  - Filters out low-value chat transitions
-  - Produces structured notes (Background, Core Content, Solution, Key Points, Related)
-  - Useful for long-term knowledge accumulation
-
-### 2) `yichen-x-article-draft-uploader`
+### `yichen-x-article-draft-uploader`
 Upload Obsidian/Markdown long-form articles to X Articles drafts:
 - Uses a leading image as the optional 5:2 cover; otherwise keeps the draft cover empty
 - Converts Markdown into rich text for the X editor
@@ -80,7 +68,7 @@ Upload Obsidian/Markdown long-form articles to X Articles drafts:
 
 See [yichen-x-article-draft-uploader/README.md](./yichen-x-article-draft-uploader/README.md) for installation, privacy notes, and troubleshooting.
 
-### 3) `yichen-mac-wechat-dual-open`
+### `yichen-mac-wechat-dual-open`
 Run two WeChat accounts simultaneously on macOS — no third-party tools:
 - Copies WeChat, changes the bundle identifier, and re-signs locally
 - Recolors the second app's icon from green to blue for visual distinction
@@ -91,7 +79,7 @@ Run two WeChat accounts simultaneously on macOS — no third-party tools:
 - Limitations: breaks after WeChat updates (re-run `repair`), push notifications may be unreliable
 - Based on the well-known copy + bundle-id + ad-hoc signing method documented by [@koffuxu](https://x.com/koffuxu/status/2043110831584690427)
 
-### 4) `yichen-wechat-local-vault`
+### `yichen-wechat-local-vault`
 WeChat digital-asset assistant for macOS:
 - Decrypts WeChat Mac 4.x local SQLCipher databases (AES-256-CBC)
 - Extracts chats, Moments (`sns.db`), and Favorites (`favorite.db`)
@@ -103,26 +91,20 @@ WeChat digital-asset assistant for macOS:
 - Requirements: macOS, WeChat Mac 4.x, Python 3.9+, `pycryptodome`, `zstandard`
 - See [yichen-wechat-local-vault/README.md](./yichen-wechat-local-vault/README.md) for full documentation
 
-### 5–6) Social fetchers integrated into `yichen-content-archive`
+### Social fetchers integrated into `yichen-content-archive`
 The former standalone Douyin and Xiaohongshu fetchers now have one source of truth:
 - `douyin_download.py` reads metadata or downloads a known Douyin video through Playwright interception
 - `xiaohongshu_fetch.py` anonymously reads known posts first, then downloads requested video, subtitles, or images
 - Existing outputs are never overwritten; a new `-run-N` path is selected instead
 - Xiaohongshu cookies require explicit current-task authorization, and optional Feishu deposition remains opt-in
 
-### 7) `yichen-volc-asr`
+### `yichen-volc-asr`
 Transcribe local audio/video files and generate rough cuts:
 - Uses environment variables for Volcengine ASR and TOS configuration
 - Produces transcript text, SRT subtitles, ASR cache, and optional rough-cut MP4
 - Requires explicit user approval before cleaning temporary files
 
-### 8) `yichen-video-content`
-Analyze benchmark video transcripts:
-- Breaks a transcript down sentence by sentence
-- Labels each sentence's role
-- Produces a structured imitation and improvement report
-
-### 9) `yichen-chatgpt-web-research`
+### `yichen-chatgpt-web-research`
 Legacy research-only entry for the user's already signed-in official ChatGPT website account:
 - Uses the real ChatGPT web page, not the OpenAI API or a separate account
 - Prefers Chrome extension control and falls back to visible Computer Use only when necessary
@@ -142,13 +124,7 @@ Run a bounded Codex × ChatGPT Review Loop:
 
 This is the unified research + architecture + review entry. The older `yichen-chatgpt-web-research` directory remains available as a legacy research-only workflow. See [codex-chatgpt/README.md](./codex-chatgpt/README.md) for installation and the external runtime contract.
 
-### 10) `yichen-jianying-editor`
-Guide Jianying/CapCut desktop finishing:
-- Confirms media files and imports rough cuts
-- Handles timeline placement, subtitles, visual polishing, and export notes
-- Leaves automatic rough-cut logic to `yichen-volc-asr`
-
-### 11) `yichen-agent-memory`
+### `yichen-agent-memory`
 Install and maintain the public Agent Memory Vault system:
 - Creates a local Markdown/Obsidian-first memory vault from the public template
 - Uses Markdown as the source of truth and SQLite/FTS as the fast index
@@ -157,7 +133,7 @@ Install and maintain the public Agent Memory Vault system:
 - Typical triggers: "install Agent Memory Vault", "set up memory vault", "run memory closeout", "audit my Agent Memory Vault"
 - Template repo: [mcncarl/agent-memory-vault](https://github.com/mcncarl/agent-memory-vault)
 
-### 12) `yichen-wechat-mp-batch-exporter`
+### `yichen-wechat-mp-batch-exporter`
 Batch-export WeChat Official Account articles:
 - Downloads known `mp.weixin.qq.com` article URLs as Markdown/JSON/text/HTML
 - Uses `wechat-article-exporter` for account search and history list sync
@@ -168,14 +144,14 @@ Batch-export WeChat Official Account articles:
 
 See [yichen-wechat-mp-batch-exporter/README.md](./yichen-wechat-mp-batch-exporter/README.md) for setup and privacy notes.
 
-### 13) `yichen-wecom-local-vault`
+### `yichen-wecom-local-vault`
 Read, decrypt, query, and export local WeCom/企业微信 5.x desktop databases on macOS:
 - Creates private, timestamped plaintext snapshots and never writes back to the WeCom container
 - Supports contacts, sessions, message history, search, and Markdown/JSON export
 - Keeps raw keys, snapshots, and chat exports out of Git
 - Does not control the original WeCom app or send messages
 
-### 14) `yichen-grok-consult`
+### `yichen-grok-consult`
 Use Grok from a GPT-led Codex task without switching the main model:
 - Runs native public X search through the official Grok Build CLI
 - Verifies that the isolated Grok session completed `XSearch`
@@ -185,11 +161,7 @@ Use Grok from a GPT-led Codex task without switching the main model:
 
 See [plugins/yichen-grok-consult/README.md](./plugins/yichen-grok-consult/README.md) for installation, privacy boundaries, and verification limits.
 
-### 15) `yichen-social-bookmarks-exporter`
-
-Deprecated compatibility entry for existing explicit calls. The maintained implementation now lives entirely in `yichen-bookmarks-export`; the retained legacy scripts are not executed by this entry.
-
-### 16) `yichen-web-research`
+### `yichen-web-research`
 
 Top-level router for research tasks that span search, candidate review, archiving, and optional transcription:
 
@@ -202,7 +174,7 @@ Top-level router for research tasks that span search, candidate review, archivin
 
 See [yichen-web-research/README.md](./yichen-web-research/README.md) for the full family, optional backends, and configuration.
 
-### 17) `yichen-unified-search`
+### `yichen-unified-search`
 
 Read-only discovery planning across the public web and platform-specific routes:
 
@@ -232,7 +204,7 @@ When a selected service requires an API or OAuth credential, that credential is 
 | X Quick / Research | Each query generated for the requested bounded search; the Grok CLI uses its account OAuth credential with xAI | xAI through the official Grok CLI and native `x_search`; only explicit Grok quota exhaustion permits anonymous FxTwitter, while OpenCLI/xreach remain blocked unless explicitly authorized for the current task |
 | Xiaohongshu / Douyin public search | The requested public search term | The selected platform through bounded read-only OpenCLI browser-session reuse; no authorization is inherited for private collections or write actions |
 
-### 18) `yichen-content-archive`
+### `yichen-content-archive`
 
 Known-link and exact-container processing:
 
@@ -241,7 +213,7 @@ Known-link and exact-container processing:
 - Keeps search/discovery outside the archive layer
 - Uses collision-safe outputs, resumable checkpoints, and explicit overwrite guards
 
-### 19) `yichen-bookmarks-export`
+### `yichen-bookmarks-export`
 
 Maintained private-bookmark export implementation:
 
@@ -252,7 +224,7 @@ Maintained private-bookmark export implementation:
 
 See [yichen-bookmarks-export/README.md](./yichen-bookmarks-export/README.md) for installation, dependencies, and privacy boundaries.
 
-### 20) `yichen-asr`
+### `yichen-asr`
 
 Unified ASR router:
 
@@ -260,7 +232,7 @@ Unified ASR router:
 - Uses only environment-provided App IDs and tokens
 - Never silently resubmits an already submitted job to another provider
 
-### 21) `yichen-wecom-operations`
+### `yichen-wecom-operations`
 
 Owner-authorized WeCom cloud operations through the official `@wecom/cli`:
 
@@ -273,7 +245,7 @@ Owner-authorized WeCom cloud operations through the official `@wecom/cli`:
 
 See [yichen-wecom-operations/README.md](./yichen-wecom-operations/README.md) for installation, permission boundaries, and the local-image limitation.
 
-### 22) `yichen-x-slicer` — Yichen X Slicer
+### `yichen-x-slicer` — Yichen X Slicer
 
 Turn one public X status URL into finished social assets:
 
@@ -290,8 +262,6 @@ Install this Skill directly with `npx skills add mcncarl/yichen-skills --skill y
 
 ```text
 yichen-skills/
-├─ yichen-summary/
-│  └─ SKILL.md
 ├─ yichen-x-article-draft-uploader/
 │  ├─ SKILL.md
 │  ├─ README.md
@@ -320,10 +290,6 @@ yichen-skills/
 │  ├─ SKILL.md
 │  └─ scripts/
 │     └─ transcribe.py
-├─ yichen-video-content/
-│  ├─ SKILL.md
-│  └─ references/
-│     └─ title-formulas.md
 ├─ yichen-chatgpt-web-research/
 │  ├─ SKILL.md
 │  ├─ README.md
@@ -338,8 +304,6 @@ yichen-skills/
 │  ├─ examples/
 │  └─ references/
 │     └─ setup.md
-├─ yichen-jianying-editor/
-│  └─ SKILL.md
 ├─ yichen-agent-memory/
 │  ├─ SKILL.md
 │  └─ agents/
@@ -351,12 +315,6 @@ yichen-skills/
 │  └─ scripts/
 ├─ yichen-wecom-local-vault/
 │  ├─ SKILL.md
-│  ├─ agents/
-│  ├─ references/
-│  └─ scripts/
-├─ yichen-social-bookmarks-exporter/
-│  ├─ SKILL.md
-│  ├─ README.md
 │  ├─ agents/
 │  ├─ references/
 │  └─ scripts/
@@ -454,19 +412,15 @@ Copy this repository into your local skills directory:
 - Custom skill path also works if your setup supports it
 
 Keep directory names unchanged:
-- `yichen-summary`
 - `yichen-x-article-draft-uploader`
 - `yichen-wechat-local-vault`
 - `yichen-mac-wechat-dual-open`
 - `yichen-volc-asr`
-- `yichen-video-content`
 - `yichen-chatgpt-web-research`
 - `codex-chatgpt`
-- `yichen-jianying-editor`
 - `yichen-agent-memory`
 - `yichen-wechat-mp-batch-exporter`
 - `yichen-wecom-local-vault`
-- `yichen-social-bookmarks-exporter`
 - `yichen-web-research`
 - `yichen-unified-search`
 - `yichen-content-archive`
@@ -483,12 +437,6 @@ codex plugin add yichen-grok-consult@yichen-skills
 ```
 
 ## Quick Start (3 Minutes)
-
-### A) Enable `yichen-summary`
-
-1. Ensure `yichen-summary/SKILL.md` is available in your loaded skills path
-2. Start a new session and run `/yichen-summary`
-3. Confirm output is written to your Obsidian folder (example paths may use `<OBSIDIAN_VAULT>/...`)
 
 ### B) Enable `yichen-x-article-draft-uploader`
 
@@ -520,8 +468,6 @@ codex plugin add yichen-grok-consult@yichen-skills
 1. Install Playwright, requests, and ffmpeg
 2. Use `yichen-content-archive` to save known Douyin or Xiaohongshu benchmark media locally
 3. Use `yichen-volc-asr` to transcribe or rough-cut recorded talking-head videos
-4. Use `yichen-video-content` to diagnose benchmark transcripts
-5. Use `yichen-jianying-editor` for final Jianying/CapCut import, subtitle, polish, and export steps
 
 ### F) Enable `yichen-chatgpt-web-research`
 

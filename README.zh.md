@@ -19,30 +19,26 @@
 
 ## 这个仓库能做什么
 
-1. 把 Claude Code 对话沉淀为结构化 Obsidian 笔记（`yichen-summary`）
-2. 把 Obsidian/Markdown 长文上传为 X Articles 草稿（`yichen-x-article-draft-uploader`）
-3. Mac 微信双开，第二个微信带蓝色图标（`yichen-mac-wechat-dual-open`）
-4. 从微信聊天、朋友圈、收藏夹沉淀 AI 数字资产（`yichen-wechat-local-vault`）
-5. 抓取已知抖音链接的对标视频（`yichen-content-archive`）
-6. 抓取已知小红书链接的对标笔记（`yichen-content-archive`）
-7. 用火山 ASR 做转写、字幕和口播粗剪（`yichen-volc-asr`）
-8. 诊断对标视频口播稿（`yichen-video-content`）
-9. 通过 ChatGPT 官网完成可验证调研（`yichen-chatgpt-web-research`）
-10. 把粗剪成片交给剪映/CapCut 做最后精修（`yichen-jianying-editor`）
-11. 安装和维护 Markdown/Obsidian-first 的 Codex 记忆系统（`yichen-agent-memory`）
-12. 批量导出公众号历史文章、原创列表、正文，以及可选阅读量/评论数据（`yichen-wechat-mp-batch-exporter`）
-13. 只读解析并导出本机企业微信 5.x 数据库快照，不操控客户端（`yichen-wecom-local-vault`）
-14. 在 GPT 主导的 Codex 对话中调用 Grok 原生搜索 X 或提供第二意见，不切换主模型（`yichen-grok-consult`）
-15. 通过已退役别名兼容旧的收藏导出调用（`yichen-social-bookmarks-exporter`）
-16. 用一个安全优先的总入口编排跨阶段互联网研究（`yichen-web-research`）
-17. 把公共网页和平台搜索统一成可核验候选（`yichen-unified-search`）
-18. 只读取、下载和归档已知或已确认链接（`yichen-content-archive`）
-19. 在当轮授权闸门后直接执行私人收藏导出（`yichen-bookmarks-export`）
-20. 在 Step 与豆包/火山 ASR 之间安全路由并避免重复提交（`yichen-asr`）
-21. 通过企业微信官方 CLI 创建授权文档并管理待办、会议和日程，不操控客户端（`yichen-wecom-operations`）
-22. 把一条公开 X Post 或 Thread 链接转成经过验收的 3:4 图片切片与成片，完整嵌入原生视频并在有源音轨时保留原声（`yichen-x-slicer`）
-23. 在 Windows 本机实验性、只读分析用户明确提供的脱机微信明文快照，不访问进程、不处理密钥、不解密（`yichen-wechat-windows-reader`）
-24. 让 ChatGPT Pro 负责调研、架构和只读审查，Codex 独占本地代码修改和测试（`codex-chatgpt`）
+1. 把 Obsidian/Markdown 长文上传为 X Articles 草稿（`yichen-x-article-draft-uploader`）
+2. Mac 微信双开，第二个微信带蓝色图标（`yichen-mac-wechat-dual-open`）
+3. 从微信聊天、朋友圈、收藏夹沉淀 AI 数字资产（`yichen-wechat-local-vault`）
+4. 抓取已知抖音链接的对标视频（`yichen-content-archive`）
+5. 抓取已知小红书链接的对标笔记（`yichen-content-archive`）
+6. 用火山 ASR 做转写、字幕和口播粗剪（`yichen-volc-asr`）
+7. 通过 ChatGPT 官网完成可验证调研（`yichen-chatgpt-web-research`）
+8. 安装和维护 Markdown/Obsidian-first 的 Codex 记忆系统（`yichen-agent-memory`）
+9. 批量导出公众号历史文章、原创列表、正文，以及可选阅读量/评论数据（`yichen-wechat-mp-batch-exporter`）
+10. 只读解析并导出本机企业微信 5.x 数据库快照，不操控客户端（`yichen-wecom-local-vault`）
+11. 在 GPT 主导的 Codex 对话中调用 Grok 原生搜索 X 或提供第二意见，不切换主模型（`yichen-grok-consult`）
+12. 用一个安全优先的总入口编排跨阶段互联网研究（`yichen-web-research`）
+13. 把公共网页和平台搜索统一成可核验候选（`yichen-unified-search`）
+14. 只读取、下载和归档已知或已确认链接（`yichen-content-archive`）
+15. 在当轮授权闸门后直接执行私人收藏导出（`yichen-bookmarks-export`）
+16. 在 Step 与豆包/火山 ASR 之间安全路由并避免重复提交（`yichen-asr`）
+17. 通过企业微信官方 CLI 创建授权文档并管理待办、会议和日程，不操控客户端（`yichen-wecom-operations`）
+18. 把一条公开 X Post 或 Thread 链接转成经过验收的 3:4 图片切片与成片，完整嵌入原生视频并在有源音轨时保留原声（`yichen-x-slicer`）
+19. 在 Windows 本机实验性、只读分析用户明确提供的脱机微信明文快照，不访问进程、不处理密钥、不解密（`yichen-wechat-windows-reader`）
+20. 让 ChatGPT Pro 负责调研、架构和只读审查，Codex 独占本地代码修改和测试（`codex-chatgpt`）
 
 ## 包含的技能
 
@@ -59,15 +55,7 @@
 完整说明见 [yichen-wechat-windows-reader/README.md](./yichen-wechat-windows-reader/README.md)。
 
 
-### 1) `yichen-summary`
-- 用途：提炼当前对话精华并保存到 Obsidian
-- 常见触发词：`/yichen-summary`、保存对话、导出精华
-- 关键能力：
-  - 自动过滤低价值过渡内容
-  - 输出结构化笔记（背景、核心内容、解决方案、关键要点、相关）
-  - 适合长期知识沉淀
-
-### 2) `yichen-x-article-draft-uploader`
+### `yichen-x-article-draft-uploader`
 把 Obsidian/Markdown 长文上传到 X Articles 草稿：
 - 文章开头有图片时作为可选 5:2 封面；没有时保持草稿封面为空
 - Markdown 转成 X 编辑器可识别的 rich text
@@ -80,7 +68,7 @@
 
 完整说明见 [yichen-x-article-draft-uploader/README.md](./yichen-x-article-draft-uploader/README.md)。
 
-### 3) `yichen-mac-wechat-dual-open`
+### `yichen-mac-wechat-dual-open`
 Mac 微信双开——无需第三方工具，一条命令搞定：
 - 复制微信、改 Bundle Identifier、本地重签名
 - 第二个微信图标自动改为蓝色，视觉上一眼区分
@@ -91,7 +79,7 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 限制：微信更新后需要重新运行（用 `repair`）；推送通知可能不稳定
 - 方法来源：[@koffuxu](https://x.com/koffuxu/status/2043110831584690427) 的公开教程
 
-### 4) `yichen-wechat-local-vault`
+### `yichen-wechat-local-vault`
 微信数字资产沉淀助手（macOS 专属）：
 - 解密微信 Mac 4.x 本地 SQLCipher 数据库（AES-256-CBC）
 - 提取聊天记录、朋友圈（`sns.db`）和收藏夹（`favorite.db`）
@@ -103,25 +91,20 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 依赖：macOS、微信 Mac 4.x、Python 3.9+、`pycryptodome`、`zstandard`
 - 详细文档见 [yichen-wechat-local-vault/README.md](./yichen-wechat-local-vault/README.md)
 
-### 5–6) 已融合进 `yichen-content-archive` 的社交平台抓取器
+### 已融合进 `yichen-content-archive` 的社交平台抓取器
 原先独立的抖音和小红书抓取器现在只保留一个事实源：
 - `douyin_download.py` 通过 Playwright 拦截读取元数据或下载已知抖音视频
 - `xiaohongshu_fetch.py` 默认匿名读取已知笔记，再按要求下载视频、字幕或图片
 - 旧产物不会被覆盖，目标冲突时自动使用新的 `-run-N` 路径
 - 小红书 Cookie 必须取得当前任务明确授权，可选飞书沉淀也只在用户明确要求时执行
 
-### 7) `yichen-volc-asr`
+### `yichen-volc-asr`
 本地音视频转写和口播粗剪：
 - 火山 ASR 和 TOS 配置全部通过环境变量读取
 - 输出转写稿、SRT 字幕、ASR 缓存和可选粗剪 MP4
 - 清理临时文件前必须得到用户明确允许
 
-### 8) `yichen-video-content`
-对标视频内容拆解：
-- 对口播稿逐句标注作用
-- 输出可模仿结构和改进建议
-
-### 9) `yichen-chatgpt-web-research`
+### `yichen-chatgpt-web-research`
 通过用户已登录的 ChatGPT 官网账号执行调研的旧版独立入口：
 - 使用真实 ChatGPT 网页，不走 OpenAI API，也不切到另一个账号
 - 优先使用 Chrome 扩展控制，必要时才用可视化 Computer Use 兜底
@@ -141,13 +124,7 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 
 这是新的统一调研 + 架构 + 审查入口。旧的 `yichen-chatgpt-web-research` 仍作为历史兼容调研入口保留。安装和外部 Runtime 契约见 [codex-chatgpt/README.md](./codex-chatgpt/README.md)。
 
-### 10) `yichen-jianying-editor`
-剪映/CapCut 桌面端精修助手：
-- 检查素材、导入粗剪、放入时间线
-- 处理字幕、画面精修、导出和项目记录
-- 自动粗剪逻辑交给 `yichen-volc-asr`
-
-### 11) `yichen-agent-memory`
+### `yichen-agent-memory`
 安装和维护公开版 Agent Memory Vault 系统：
 - 从公开模板创建本地 Markdown/Obsidian-first 记忆库
 - Markdown 是事实源，SQLite/FTS 是快速索引
@@ -156,7 +133,7 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 常见触发词：“安装 Codex 记忆系统”、“搭建记忆库”、“运行 memory closeout”、“audit 我的 Codex 记忆”
 - 模板仓库：[mcncarl/agent-memory-vault](https://github.com/mcncarl/agent-memory-vault)
 
-### 12) `yichen-wechat-mp-batch-exporter`
+### `yichen-wechat-mp-batch-exporter`
 批量导出微信公众号文章：
 - 把已知 `mp.weixin.qq.com` 文章链接下载成 Markdown/JSON/text/HTML
 - 通过 `wechat-article-exporter` 做公众号搜索和历史列表同步
@@ -167,14 +144,14 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 
 安装和隐私边界见 [yichen-wechat-mp-batch-exporter/README.md](./yichen-wechat-mp-batch-exporter/README.md)。
 
-### 13) `yichen-wecom-local-vault`
+### `yichen-wecom-local-vault`
 只读解析、查询和导出 macOS 企业微信 5.x 桌面端数据库：
 - 生成私密、带时间戳的明文快照，绝不写回企业微信容器
 - 支持联系人、会话、聊天记录、搜索与 Markdown/JSON 导出
 - raw key、快照和聊天导出都不进入 Git
 - 不操控原始企业微信，也不发送消息
 
-### 14) `yichen-grok-consult`
+### `yichen-grok-consult`
 让 GPT 在不切换主模型的情况下调用 Grok：
 - 通过官方 Grok Build CLI 原生搜索公开 X 帖子
 - 检查隔离 Grok 会话是否真实完成 `XSearch`
@@ -184,11 +161,7 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 
 安装、隐私边界和校验限制见 [plugins/yichen-grok-consult/README.zh.md](./plugins/yichen-grok-consult/README.zh.md)。
 
-### 15) `yichen-social-bookmarks-exporter`
-
-为已有显式调用保留的兼容入口。当前维护实现已完整迁移到 `yichen-bookmarks-export`；兼容入口不会再执行目录中保留的旧脚本。
-
-### 16) `yichen-web-research`
+### `yichen-web-research`
 
 跨搜索、候选确认、归档和按需转写的研究总路由：
 
@@ -201,7 +174,7 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 
 完整家族、可选后端和配置说明见 [yichen-web-research/README.md](./yichen-web-research/README.md)。
 
-### 17) `yichen-unified-search`
+### `yichen-unified-search`
 
 公开网页与平台路由的只读发现计划：
 
@@ -231,7 +204,7 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 | X Quick / Research | 为当前有界搜索生成的每个查询；Grok CLI 使用其账号 OAuth 凭据与 xAI 通信 | 通过官方 Grok CLI 的原生 `x_search` 发给 xAI；只有 Grok 明确额度耗尽时才允许匿名 FxTwitter，OpenCLI/xreach 默认禁用，只能在当前任务明确授权后开启 |
 | 小红书/抖音公开搜索 | 请求的公开搜索词 | 通过有界只读 OpenCLI 复用浏览器会话发给对应平台；该授权不延伸到私人收藏或写操作 |
 
-### 18) `yichen-content-archive`
+### `yichen-content-archive`
 
 已知链接与精确容器处理：
 
@@ -240,7 +213,7 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - 搜索与开放式发现不进入归档层
 - 使用不冲突输出目录、续跑检查点和显式覆盖保护
 
-### 19) `yichen-bookmarks-export`
+### `yichen-bookmarks-export`
 
 当前维护的私人收藏导出实现：
 
@@ -251,7 +224,7 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 
 安装、依赖和隐私边界见 [yichen-bookmarks-export/README.md](./yichen-bookmarks-export/README.md)。
 
-### 20) `yichen-asr`
+### `yichen-asr`
 
 统一 ASR 路由：
 
@@ -259,7 +232,7 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 - App ID 与 Token 只从环境变量读取
 - 已经提交到某服务商的任务不会静默改投另一家
 
-### 21) `yichen-wecom-operations`
+### `yichen-wecom-operations`
 
 通过官方 `@wecom/cli` 操作用户有权管理的企业微信云资源：
 
@@ -272,7 +245,7 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 
 安装、权限边界和本地图片限制见 [yichen-wecom-operations/README.md](./yichen-wecom-operations/README.md)。
 
-### 22) `yichen-x-slicer` — 逸尘 X 切片
+### `yichen-x-slicer` — 逸尘 X 切片
 
 把一条公开 X status 链接直接做成可发布素材：
 
@@ -289,8 +262,6 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 
 ```text
 yichen-skills/
-├─ yichen-summary/
-│  └─ SKILL.md
 ├─ yichen-x-article-draft-uploader/
 │  ├─ SKILL.md
 │  ├─ README.md
@@ -319,10 +290,6 @@ yichen-skills/
 │  ├─ SKILL.md
 │  └─ scripts/
 │     └─ transcribe.py
-├─ yichen-video-content/
-│  ├─ SKILL.md
-│  └─ references/
-│     └─ title-formulas.md
 ├─ yichen-chatgpt-web-research/
 │  ├─ SKILL.md
 │  ├─ README.md
@@ -337,8 +304,6 @@ yichen-skills/
 │  ├─ examples/
 │  └─ references/
 │     └─ setup.md
-├─ yichen-jianying-editor/
-│  └─ SKILL.md
 ├─ yichen-agent-memory/
 │  ├─ SKILL.md
 │  └─ agents/
@@ -350,12 +315,6 @@ yichen-skills/
 │  └─ scripts/
 ├─ yichen-wecom-local-vault/
 │  ├─ SKILL.md
-│  ├─ agents/
-│  ├─ references/
-│  └─ scripts/
-├─ yichen-social-bookmarks-exporter/
-│  ├─ SKILL.md
-│  ├─ README.md
 │  ├─ agents/
 │  ├─ references/
 │  └─ scripts/
@@ -453,19 +412,15 @@ yichen-skills/
 - 如果你有自定义技能目录，也可以使用自定义路径
 
 建议保持目录名不变：
-- `yichen-summary`
 - `yichen-x-article-draft-uploader`
 - `yichen-wechat-local-vault`
 - `yichen-mac-wechat-dual-open`
 - `yichen-volc-asr`
-- `yichen-video-content`
 - `yichen-chatgpt-web-research`
 - `codex-chatgpt`
-- `yichen-jianying-editor`
 - `yichen-agent-memory`
 - `yichen-wechat-mp-batch-exporter`
 - `yichen-wecom-local-vault`
-- `yichen-social-bookmarks-exporter`
 - `yichen-web-research`
 - `yichen-unified-search`
 - `yichen-content-archive`
@@ -482,12 +437,6 @@ codex plugin add yichen-grok-consult@yichen-skills
 ```
 
 ## 3 分钟快速上手
-
-### A）启用 `yichen-summary`
-
-1. 确保 `yichen-summary/SKILL.md` 在已加载的 skills 路径里
-2. 新开会话后输入 `/yichen-summary`
-3. 确认输出写入 Obsidian 目录（示例路径通常是 `<OBSIDIAN_VAULT>/...`）
 
 ### B）启用 `yichen-x-article-draft-uploader`
 
@@ -519,8 +468,6 @@ codex plugin add yichen-grok-consult@yichen-skills
 1. 安装 Playwright、requests 和 ffmpeg
 2. 用 `yichen-content-archive` 保存已知抖音或小红书对标素材
 3. 用 `yichen-volc-asr` 做转写、字幕或口播粗剪
-4. 用 `yichen-video-content` 诊断对标稿
-5. 用 `yichen-jianying-editor` 做剪映/CapCut 导入、字幕、精修和导出
 
 ### F）启用 `yichen-chatgpt-web-research`
 

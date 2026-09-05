@@ -160,7 +160,7 @@ This repository references and adapts ideas/workflows from external projects.
 - `yichen-wechat-local-vault` is an independent implementation that adapts specific technical approaches from `wx-favorites-report`. It does not contain any code directly copied from the upstream project.
 - `yichen-wechat-mp-batch-exporter` references workflows from `wechat-article-exporter` and `wxdown-service`, but does not include their source code, credentials, cached browser data, or downloaded article archives.
 - `yichen-x-article-draft-uploader` references workflow and Markdown parsing ideas from `wshuyi/x-article-publisher-skill`; it stores no real credentials in source control and writes exported X cookies only to a private local file with restricted permissions.
-- `yichen-summary` and the broader skill packaging conventions reference public Claude skill community practices, including JimLiu/baoyu-skills.
+- The broader skill packaging conventions reference public Claude skill community practices, including JimLiu/baoyu-skills.
 - `yichen-grok-consult` references the public isolation pattern from `sudoHG/codex-grok-search`, but includes an independently implemented MCP server and deterministic verification layer.
 - `yichen-bookmarks-export` calls Field Theory as an optional external runtime; Field Theory remains under its upstream MIT License, while this repository's independently implemented adapter remains under this repository's license.
 - The horizontal-and-vertical research mode in `yichen-web-research` is based on, inspired by, and extends KKKKhazix/khazix-skills `hv-analysis`; the upstream author, pinned commit, and MIT license are preserved above.

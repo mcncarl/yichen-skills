@@ -103,7 +103,7 @@ python3 yichen-volc-asr/scripts/transcribe.py '<工作副本路径>' --request-i
 5. 生成粗剪 MP4。长口播、多段删减时优先使用稳定的分段提取 + concat 流程。
 6. 对粗剪 MP4 做复转写审核。
 7. 通过审核后，输出粗剪 MP4、SRT、转写稿、删留方案和复查说明。
-8. 如需进入剪映，交给 `yichen-jianying-editor` 负责导入、放轨道、视觉精修和导出。
+8. 如需继续精修，将粗剪 MP4 和 SRT 作为交付素材，供后续导入剪映/CapCut。
 
 ## 剪辑规则
 

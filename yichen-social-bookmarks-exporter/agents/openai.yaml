@@ -1,6 +1,0 @@
-interface:
-  display_name: "收藏导出旧名兼容入口"
-  short_description: "旧名兼容入口，能力已合并到 yichen-bookmarks-export"
-  default_prompt: "Use $yichen-bookmarks-export because the old $yichen-social-bookmarks-exporter implementation has been merged into it."
-policy:
-  allow_implicit_invocation: false
