@@ -29,12 +29,9 @@ DEFAULT_DECRYPTED_DIR = DEFAULT_VAULT_DIR / "decrypted/current"
 DEFAULT_EXPORTS_DIR = Path("~/Documents/wechat-local-vault/exports").expanduser()
 EXPORT_STATE_FILE = DEFAULT_VAULT_DIR / "state/export_chat_state.json"
 
-MESSAGE_DBS = [
-    "message/message_0.db",
-    "message/message_1.db",
-    "message/message_2.db",
-    "message/message_3.db",
-]
+def message_db_paths(decrypted_dir: Path) -> list[Path]:
+    """扫描全部消息库 message_*.db，兼容 WCDB 按编号分库（0..N）。"""
+    return sorted((decrypted_dir / "message").glob("message_*.db"))
 
 TYPE_LABELS = {
     1: "文字",
@@ -201,10 +198,7 @@ def normalize_content(local_type: int, content: str) -> str:
 def collect_messages(decrypted_dir: Path, chat_id: str, display: str, since_ts: int | None) -> list[dict]:
     table = message_table_for(chat_id)
     rows: list[dict] = []
-    for rel in MESSAGE_DBS:
-        db_path = decrypted_dir / rel
-        if not db_path.exists():
-            continue
+    for db_path in message_db_paths(decrypted_dir):
         con = connect(db_path)
         try:
             if not table_exists(con, table):
