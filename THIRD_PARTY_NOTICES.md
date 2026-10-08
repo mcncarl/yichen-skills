@@ -1,6 +1,6 @@
 ﻿# THIRD_PARTY_NOTICES
 
-Last updated: 2026-08-25
+Last updated: 2026-10-08
 
 This repository references and adapts ideas/workflows from external projects.
 
@@ -160,6 +160,21 @@ This repository references and adapts ideas/workflows from external projects.
 - No Jianying application, official library, native resource package, account data, user media, ASR executor or service credential is distributed here.
 - The Skill and core's original portions use personal-learning and non-commercial terms; upstream MIT / Apache-2.0 licenses remain in effect for their respective portions. This collection's license grants no rights to the separate core, proprietary editor, native materials or paid services; the core is governed by its own terms.
 - This collection distributes only this Skill's instructions, entrypoint and speech-plan helpers. The core is distributed separately under its own terms, and existing collection directories' licenses are unchanged.
+
+## 14) utelle/SQLite3MultipleCiphers
+
+- Upstream: https://github.com/utelle/SQLite3MultipleCiphers
+- Pinned commit: `7a7f16a5270e0157db43c8c3cfcf6088e11f72b1`
+- Source: `src/cipher_wxaes128.c`, `GenerateKeyAES128Cipher`
+- File copyright: (c) 2006-2024 Ulrich Telle
+- License: MIT; complete notice in `licenses/utelle-SQLite3MultipleCiphers-LICENSE.txt`
+- Usage in `yichen-wecom-local-vault/scripts/scan_dbkey_manager_frida_macos.py`:
+  - Python port of the wxSQLite3 AES128 PDF-style password-to-master derivation.
+  - The build-specific process scanner uses the derived master only after local
+    database first-page validation. No captured password, key, account data or
+    vendor application binary is distributed.
+- The third-party-derived KDF retains the upstream MIT notice; surrounding
+  project licensing is unchanged.
 
 ## Notes
 
