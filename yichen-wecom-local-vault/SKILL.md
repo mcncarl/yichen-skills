@@ -89,6 +89,20 @@ python3 "$SKILL_DIR/scripts/scan_dbkey_manager_macos.py" scan --confirm-sudo
 
 该扫描器根据当前进程 load address 定位 `DbKeyManager` vtable，并只读取 `this+0x68` 的 Apple libc++ `std::string` 候选 key；候选通过数据库第一页验证后才写入私密 Vault，终端不显示 raw key。
 
+### 5.0.11 / 70742 arm64 的限定兼容入口
+
+已验证构建可显式使用独立的 Frida DbKeyManager 扫描器。它会附加进程并注入读取脚本，不安装函数 hook，不主动写目标内存；仍须获得用户明确的密钥捕获授权。它不会自动代替上述路线，也不会请求 sudo、重签或重启客户端。
+
+```bash
+python3 "$SKILL_DIR/scripts/scan_dbkey_manager_frida_macos.py" \
+  --confirm-attach --pid <企业微信主进程PID> \
+  --data-dir "/private/path/to/authorized/database-directory"
+```
+
+入口同时限定版本 `5.0.11`、构建 `70742`、运行时 `arm64` 与 Mach-O UUID；任何不匹配都拒绝扫描。该构建的 DbKeyManager 16 字节内容先按 wxSQLite3 AES128 的密码派生算法处理，再尝试 raw master；只有 `message.db`、`session.db`、`user.db` 三库首页均验证成功才私密保存。首页验证不等于完整数据验收，后续仍应验证私密快照的 SQLite 完整性。5.0.9、Intel 和其他构建未经验证。
+
+实现依据、复现范围和离线验证见 [5.0.11 兼容说明](references/wecom-5.0.11-dbkey-manager.md)。
+
 ## 创建明文快照
 
 ```bash
@@ -133,6 +147,7 @@ python3 "$SKILL_DIR/scripts/vault_cli.py" export "群名" \
 ```bash
 cd "$SKILL_DIR/scripts"
 python3 test_wecom_local_vault.py
+python3 -m unittest test_dbkey_manager_frida -v
 python3 -m py_compile *.py
 python3 "$HOME/.codex/skills/.system/skill-creator/scripts/quick_validate.py" "$SKILL_DIR"
 ```
