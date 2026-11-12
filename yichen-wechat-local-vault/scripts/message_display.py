@@ -207,6 +207,21 @@ def _forwarded(app: ET.Element) -> str:
     return "\n".join(_record_lines(record, 0, [MAX_FORWARD_ITEMS]))
 
 
+# paysubtype of a transfer message: 1 the payer sends it, 3 the receiver accepts it,
+# 4 it goes back to the payer (returned or expired).
+TRANSFER_STATES = {"1": "发出", "3": "已收款", "4": "已退还"}
+
+
+def _transfer(app: ET.Element) -> str:
+    pay = _find(app, "wcpayinfo")
+    if pay is None:
+        return "[转账]"
+    amount = _leaf(_child(pay, "feedesc")) or "金额未知"
+    memo = _leaf(_child(pay, "pay_memo"))
+    state = TRANSFER_STATES.get(_leaf(_child(pay, "paysubtype")), "")
+    return f"[转账] {amount}" + (f"（备注：{memo}）" if memo else "") + (f" · {state}" if state else "")
+
+
 def format_message_content(local_type: int | None, content: str) -> str:
     """Return readable content, or a safe placeholder for an unknown envelope."""
     try:
@@ -249,6 +264,8 @@ def format_message_content(local_type: int | None, content: str) -> str:
     app = app if app is not None else root
     title = _leaf(_child(app, "title")) or _leaf(_child(app, "des")) or _leaf(_child(app, "filename"))
     kind = _leaf(_child(app, "type"))
+    if kind == "2000" or subtype == 2000:
+        return _transfer(app)
     if kind == "19":
         forwarded = _forwarded(app)
         return ("[聊天记录] " + title + ("\n" + forwarded if forwarded else "")).strip()

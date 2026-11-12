@@ -348,5 +348,46 @@ class PendingTests(unittest.TestCase):
         self.assertNotIn("wxid_secret_owner", json.dumps(data, ensure_ascii=False))
 
 
+class TransferTests(PendingTests.__base__):
+    setUp = PendingTests.setUp
+    run_cli = PendingTests.run_cli
+
+    def transfers(self, *argv: str) -> dict:
+        return json.loads(self.run_cli("transfers", *argv))
+
+    def test_every_transfer_with_direction_status_and_totals(self):
+        data = self.transfers()
+        self.assertEqual([(t["direction"], t["counterpart"], t["amount"], t["memo"], t["status"]) for t in data["transfers"]], [
+            ("转入", "客户乙", "￥88.00", "", "超时退还"),
+            ("转入", "客户丙", "￥88.00", "", "已退还"),
+            ("转入", "客户丁", "￥88.00", "", "已收款"),
+            ("转出", "客户丁", "￥88.00", "", "待收款"),
+            ("转入", "客户甲", "￥88.00", "定金", "待收款"),
+        ])
+        totals = data["totals"]
+        self.assertEqual((totals["received"]["count"], totals["received"]["amount"]), (1, "￥88.00"))
+        self.assertEqual((totals["paid"]["count"], totals["net"], totals["returned"]), (0, "+￥88.00", 2))
+        self.assertEqual((totals["pending_in"]["count"], totals["pending_out"]["count"]), (1, 1))
+        self.assertTrue(data["transfers"][2]["settled_at"])
+        self.assertNotIn("wxid_", json.dumps(data, ensure_ascii=False))
+
+    def test_chat_and_time_filters(self):
+        self.assertEqual([t["direction"] for t in self.transfers("--chat", "客户丁")["transfers"]], ["转入", "转出"])
+        # BOB's refund falls inside the window, but the payment started before it.
+        start = datetime.fromtimestamp(self.now - 45 * HOUR).strftime("%Y-%m-%d %H:%M")
+        self.assertEqual([t["counterpart"] for t in self.transfers("--start-time", start)["transfers"]],
+                         ["客户丙", "客户丁", "客户丁", "客户甲"])
+        with self.assertRaises(SystemExit):
+            self.run_cli("transfers", "--chat", "不存在的人")
+
+    def test_text_report_and_chat_display(self):
+        report = self.run_cli("transfers", "--format", "text")
+        self.assertIn("转入已收 1 笔 ￥88.00｜转出被收 0 笔 ￥0.00｜净额 +￥88.00", report)
+        self.assertIn("转入 客户甲 ￥88.00（备注：定金） · 待收款", report)
+        history = self.run_cli("history", "客户丁", "--format", "text")
+        self.assertIn("[转账] ￥88.00 · 发出", history)
+        self.assertIn("[转账] ￥88.00 · 已收款", history)
+
+
 if __name__ == "__main__":
     unittest.main()
