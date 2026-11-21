@@ -137,9 +137,20 @@ function installHookAt(address, owner) {
   });
 }
 
-function tryInstallHook() {
-  if (hookInstalled) return true;
-
+function resolveGlobalExport(name) {
+  // Newer Frida resolves exports through the global lookup, which also covers
+  // dyld shared cache libraries whose export tables are not enumerable per
+  // module (e.g. libcommonCrypto.dylib on recent macOS). Older Frida only
+  // exposes the find* spelling.
+  const resolver = Module.getGlobalExportByName || Module.findGlobalExportByName;
+  if (typeof resolver === 'function') {
+    try {
+      const address = resolver.call(Module, name);
+      if (address) return { address: address, owner: 'global export table' };
+    } catch (e) {
+      // Fall through to the per-module scan below.
+    }
+  }
   const modules = Process.enumerateModules();
   for (let i = 0; i < modules.length; i++) {
     let exportsList = [];
@@ -150,13 +161,23 @@ function tryInstallHook() {
     }
     for (let j = 0; j < exportsList.length; j++) {
       const exp = exportsList[j];
-      if (exp.name === 'CCKeyDerivationPBKDF') {
-        installHookAt(exp.address, modules[i].name);
-        hookInstalled = true;
-        sendStatus('Hook installed on ' + modules[i].name + '!' + exp.name);
-        return true;
+      if (exp.name === name) {
+        return { address: exp.address, owner: modules[i].name };
       }
     }
+  }
+  return null;
+}
+
+function tryInstallHook() {
+  if (hookInstalled) return true;
+
+  const found = resolveGlobalExport('CCKeyDerivationPBKDF');
+  if (found) {
+    installHookAt(found.address, found.owner);
+    hookInstalled = true;
+    sendStatus('Hook installed on ' + found.owner + '!' + 'CCKeyDerivationPBKDF');
+    return true;
   }
   return false;
 }
