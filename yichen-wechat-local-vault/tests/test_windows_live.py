@@ -152,6 +152,48 @@ class WindowsLiveTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             crypto.decrypt_pages(encrypted[:-1], KEY, aes_factory=TestAES)
 
+    def test_sqlite_lock_byte_page_passthrough_is_strict(self):
+        self.assertEqual(crypto.LOCK_BYTE_PAGE, 262145)
+        self.assertEqual((crypto.LOCK_BYTE_PAGE - 1) * crypto.PAGE, 0x40000000)
+        self.assertTrue(crypto.is_sqlite_lock_byte_page(bytes(crypto.PAGE), 262145))
+        self.assertFalse(crypto.is_sqlite_lock_byte_page(bytes(crypto.PAGE), 262144))
+        self.assertFalse(crypto.is_sqlite_lock_byte_page(b"\x01" + bytes(crypto.PAGE - 1), 262145))
+
+        encrypted = self.encrypted_fixture()
+        plain = crypto.decrypt_pages(encrypted, KEY, aes_factory=TestAES)
+        total_pages = len(encrypted) // crypto.PAGE
+        self.assertGreaterEqual(total_pages, 3)
+
+        # Page 3 acts as the SQLite 1 GiB lock-byte page in this synthetic fixture.
+        with_zero_lock = bytearray(encrypted)
+        with_zero_lock[2 * crypto.PAGE : 3 * crypto.PAGE] = bytes(crypto.PAGE)
+        with mock.patch.object(crypto, "LOCK_BYTE_PAGE", 3):
+            out = crypto.decrypt_pages(bytes(with_zero_lock), KEY, aes_factory=TestAES)
+            self.assertEqual(out[: 2 * crypto.PAGE], plain[: 2 * crypto.PAGE])
+            self.assertEqual(out[2 * crypto.PAGE : 3 * crypto.PAGE], bytes(crypto.PAGE))
+            self.assertEqual(out[3 * crypto.PAGE :], plain[3 * crypto.PAGE :])
+
+            # A non-zero tampered lock-byte page must still fail HMAC.
+            bad_lock = bytearray(with_zero_lock)
+            bad_lock[2 * crypto.PAGE] = 1
+            with self.assertRaisesRegex(ValueError, "authentication"):
+                crypto.decrypt_pages(bytes(bad_lock), KEY, aes_factory=TestAES)
+
+            # An all-zero page at any non-lock-byte position must still fail HMAC.
+            zero_other = bytearray(encrypted)
+            zero_other[1 * crypto.PAGE : 2 * crypto.PAGE] = bytes(crypto.PAGE)
+            with self.assertRaisesRegex(ValueError, "authentication"):
+                crypto.decrypt_pages(bytes(zero_other), KEY, aes_factory=TestAES)
+
+    def test_wal_growth_across_lock_byte_page_synthesizes_zero_page_only(self):
+        a, b = b"A" * 4096, b"B" * 4096
+        with mock.patch.object(wal, "LOCK_BYTE_OFFSET", 4096):
+            # lock_byte_page = 4096 // 4096 + 1 = 2; growing 1 -> 3 skips writing page 2 in WAL.
+            self.assertEqual(wal.merge_committed_pages(a, wal_bytes([(3, 3, b)])), a + bytes(4096) + b)
+            # Skipping a non-lock-byte page (page 3 missing when growing to 4) must still fail.
+            with self.assertRaises(ValueError):
+                wal.merge_committed_pages(a, wal_bytes([(4, 4, b)]))
+
     def test_wal_only_committed_pages_both_byte_orders_and_corruption(self):
         a, b, pending = b"A" * 4096, b"B" * 4096, b"P" * 4096
         for order in ("<", ">"):

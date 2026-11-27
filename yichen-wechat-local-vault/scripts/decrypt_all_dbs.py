@@ -40,6 +40,9 @@ from Crypto.Cipher import AES
 PAGE_SIZE = 4096
 RESERVE = 80
 IV_SIZE = 16
+LOCK_BYTE_OFFSET = 0x40000000
+LOCK_BYTE_PAGE = LOCK_BYTE_OFFSET // PAGE_SIZE + 1  # SQLite 1 GiB lock-byte page (262145)
+ZERO_PAGE = bytes(PAGE_SIZE)
 NO_KEYS_EXIT_CODE = 1
 ABORT_EXIT_CODE = 2
 ACCOUNT_PLACEHOLDER = "<账号目录>"
@@ -157,6 +160,9 @@ def decrypt_db(src: Path, dst: Path, key_hex: str) -> None:
     result = bytearray()
     for pn in range(total_pages):
         page = data[pn * PAGE_SIZE : (pn + 1) * PAGE_SIZE]
+        if pn + 1 == LOCK_BYTE_PAGE and page == ZERO_PAGE:
+            result.extend(ZERO_PAGE)
+            continue
         enc_start = 16 if pn == 0 else 0
         enc_size = PAGE_SIZE - RESERVE - enc_start
         iv = page[PAGE_SIZE - RESERVE : PAGE_SIZE - RESERVE + IV_SIZE]

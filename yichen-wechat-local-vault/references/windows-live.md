@@ -29,7 +29,7 @@ python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH search CHA
 
 - 进程必须名为 `Weixin.exe`、通过 Windows 信任签名校验且属于所选 Windows 用户。只请求查询和读取内存权限；不提权、不注入、不暂停或重启进程、不修改客户端或源数据库。
 - 主路径读取运行时 `Config.Cipher` 对象并对候选密钥做首个数据库页 HMAC 校验；兼容回退扫描旧格式的密钥字面量。内存布局和 XOR 掩码有版本及架构差异；未命中必须报告，不把抓到任意 32 字节当作成功，不改用调试断点或关闭保护。
-- 每页均验证 HMAC-SHA512，再用 AES-256-CBC 解密。保留 SQLite 的 80 字节保留区，写出后执行完整 `integrity_check`。全库模式下，仅当三个已知搜索索引 `contact/contact_fts.db`、`favorite/favorite_fts.db`、`message/message_fts.db` 返回实测的 `SQL logic error` 时，将其校验明确记为 `unverified`；所有页面仍须认证，主数据失败或其他错误仍使采集失败。带此缺口的回执为 `complete_with_index_gaps`，不是所有库完整性通过；原因尚未确定，不猜测为缺少分词器或损坏。
+- 每页均验证 HMAC-SHA512，再用 AES-256-CBC 解密。保留 SQLite 的 80 字节保留区，写出后执行完整 `integrity_check`。按 SQLite/SQLCipher 文件格式规范，超过 1 GiB 的数据库在 `0x40000000` 处的保留锁字节页（4 KiB 页大小下为第 262145 页）仅在整页严格全零时原样透传，该页若非全零或任意其他页（含全零页）仍须通过完整 HMAC 校验。全库模式下，仅当三个已知搜索索引 `contact/contact_fts.db`、`favorite/favorite_fts.db`、`message/message_fts.db` 返回实测的 `SQL logic error` 时，将其校验明确记为 `unverified`；所有页面仍须认证，主数据失败或其他错误仍使采集失败。带此缺口的回执为 `complete_with_index_gaps`，不是所有库完整性通过；原因尚未确定，不猜测为缺少分词器或损坏。
 - 读取主库与 WAL 前后检查文件元数据，变化时最多重试三次。校验 WAL 格式、代际 salt、滚动校验和，仅重放最后提交的事务；损坏日志、持续变化或 rollback journal 导致失败。不会忽略 WAL 后发布旧的主库副本，也不 checkpoint 源库。
 - 一致性单位是单个数据库；多个库按顺序读取，不能声称整个账号在同一事务时刻取得。manifest 明确记录此限制。
 - 密钥仅驻内存，不保存或打印。Python 运行时不保证所有对象副本立即物理清零；不要输出内存转储。
@@ -61,6 +61,8 @@ python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH search CHA
 权限条件：本次真实全流程由本地测试服务触发，并在现有桌面管理员（高完整性）令牌下复验完整采集与新消息查询；未调整系统安全设置。普通非管理员/中完整性进程尚未验收，不能据此承诺所有权限环境可用。权限不足时报告失败，不自动提权或关闭保护。
 
 2026-10-28 同环境任务验收进一步完成所选账号全部本地库的逐页认证解密、核心库完整 SQLite 校验，以及所有聊天主表的逐行解析和私密文件回读；三个搜索索引的校验仍报 `SQL logic error`。本地收藏、朋友圈样本已复用 `vault_cli.parse_favorite` / `parse_moment` 纯函数完成正文解析和回读，没有触发 Mac 配置或工作流；尚未封装成专用 Windows 查询子命令。详细账号统计仅留在本地任务回执，不进入分发包。该样本只覆盖电脑已同步的短期数据，不能证明手机多年历史、大规模库、媒体文件还原或完整 Mac 功能对齐。运行时必须使用安装了固定 `zstandard` 依赖的微信专用 Python；其他测试 Python 缺该依赖时，压缩正文会明确失败，不能当作已全量解析。
+
+社区补充实测（#29，2026-11-04）：Windows 11 Pro 10.0.26300 x64 + 微信 4.2.0.11 + CPython 3.12.9 AMD64 + zstandard 0.25.0 上 `--scope chat` 跑通（含 838 MiB 消息分片）。同报告指出超过 1 GiB 的旧分片在第 262145 页（`0x40000000`）存在 SQLite 标准锁字节全零页；代码已按 SQLite/SQLCipher 规范增加对该位置全零页的严格透传处理，待实机复验 1 GiB+ 分片。
 
 ## 朋友圈和收藏正文解析
 

@@ -8,6 +8,8 @@ from pathlib import Path
 import os
 import struct
 
+LOCK_BYTE_OFFSET = 0x40000000
+
 
 def _checksum(data, byteorder, state=(0, 0)):
     if len(data) % 8:
@@ -61,13 +63,18 @@ def merge_committed_pages(main, wal, page_size=4096):
             main_available = min(main_available, commit_size)
     if committed_size is None:
         return main
-    if committed_size > main_available + len(committed):
+    lock_byte_page = LOCK_BYTE_OFFSET // page_size + 1
+    implicit_lock_byte = 1 if main_available < lock_byte_page <= committed_size and lock_byte_page not in committed else 0
+    if committed_size > main_available + len(committed) + implicit_lock_byte:
         raise ValueError('WAL commit grows across missing pages')
     output = bytearray()
     for number in range(1, committed_size + 1):
         page = committed.get(number)
         if page is None:
             if number > main_available:
+                if number == lock_byte_page:
+                    output.extend(bytes(page_size))
+                    continue
                 raise ValueError('WAL commit is missing a new page')
             page = main[(number - 1) * page_size:number * page_size]
         output.extend(page)

@@ -13,6 +13,14 @@ import sys
 
 PAGE = 4096
 RESERVE = 80
+LOCK_BYTE_OFFSET = 0x40000000
+LOCK_BYTE_PAGE = LOCK_BYTE_OFFSET // PAGE + 1  # SQLite 1 GiB lock-byte page (262145)
+ZERO_PAGE = bytes(PAGE)
+
+
+def is_sqlite_lock_byte_page(page: bytes, number: int) -> bool:
+    """SQLite/SQLCipher leaves the 4 KiB page at 0x40000000 (page 262145) untouched and all-zero."""
+    return number == LOCK_BYTE_PAGE and len(page) == PAGE and page == ZERO_PAGE
 
 
 def mac_key(key: bytes, salt: bytes) -> bytes:
@@ -99,7 +107,11 @@ def decrypt_pages(data: bytes, key: bytes, *, aes_factory=None) -> bytes:
     try:
         for index in range(len(data) // PAGE):
             page = data[index * PAGE:(index + 1) * PAGE]
-            if not authenticate(page, index + 1, authentication_key):
+            number = index + 1
+            if is_sqlite_lock_byte_page(page, number):
+                output.extend(ZERO_PAGE)
+                continue
+            if not authenticate(page, number, authentication_key):
                 raise ValueError("Database page authentication failed")
             start = 16 if index == 0 else 0
             decoded = aes.decrypt(page[PAGE - RESERVE:PAGE - 64], page[start:PAGE - RESERVE])

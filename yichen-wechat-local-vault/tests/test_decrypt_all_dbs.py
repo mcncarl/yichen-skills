@@ -487,6 +487,25 @@ class DecryptAllDbsTests(unittest.TestCase):
         self.assertEqual(ready_json["status"], "ready")
         self.assertGreaterEqual(ready_json["available_count"], 2)
 
+    def test_decrypt_db_preserves_sqlite_lock_byte_page(self):
+        self.assertEqual(decrypt.LOCK_BYTE_PAGE, 262145)
+        self.assertEqual((decrypt.LOCK_BYTE_PAGE - 1) * decrypt.PAGE_SIZE, 0x40000000)
+        plain = plain_database(self.root / "plain-lock.db", "before lock page")
+        cipher = encrypt_like_wechat(plain, KEY_A)
+        lock_page_number = len(plain) // PAGE + 1
+        tail_plain = b"Z" * (PAGE - RESERVE) + bytes(RESERVE)
+        tail_cipher = encrypt_like_wechat(plain + tail_plain, KEY_A)[-PAGE:]
+        with_lock_cipher = cipher + bytes(PAGE) + tail_cipher
+        src = self.root / "with-lock-cipher.db"
+        out = self.root / "with-lock-plain.db"
+        src.write_bytes(with_lock_cipher)
+        with mock.patch.object(decrypt, "LOCK_BYTE_PAGE", lock_page_number):
+            decrypt.decrypt_db(src, out, KEY_A.hex())
+        decrypted = out.read_bytes()
+        self.assertEqual(decrypted[: len(plain)], plain)
+        self.assertEqual(decrypted[len(plain) : len(plain) + PAGE], bytes(PAGE))
+        self.assertEqual(decrypted[len(plain) + PAGE :], tail_plain)
+
 
 if __name__ == "__main__":
     unittest.main()
