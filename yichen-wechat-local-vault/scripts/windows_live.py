@@ -214,6 +214,39 @@ def _load_reusable_previous(vault: Path, expected_source_id: str) -> dict[str, d
         return {}
 
 
+def _verify_fts_physical_btrees(destination: Path) -> tuple[str, str]:
+    """Verify every non-virtual physical B-tree when custom MMFtsTokenizer blocks whole-DB integrity_check."""
+    try:
+        con_ctx = connect_read_only(destination)
+    except sqlite3.OperationalError as exc:
+        if str(exc) == "SQL logic error":
+            return "unverified", "SQLite integrity_check returned SQL logic error"
+        raise
+    with con_ctx as con:
+        rows = con.execute("SELECT name, sql FROM sqlite_master WHERE type='table' ORDER BY name").fetchall()
+        virts = [
+            (str(r[0]), str(r[1] or ""))
+            for r in rows
+            if str(r[1] or "").lstrip().upper().startswith("CREATE VIRTUAL TABLE")
+        ]
+        if not virts or not any("mmftstokenizer" in sql.lower() for _, sql in virts):
+            raise sqlite3.OperationalError("SQL logic error")
+        phys = [
+            str(r[0])
+            for r in rows
+            if not str(r[1] or "").lstrip().upper().startswith("CREATE VIRTUAL TABLE")
+        ]
+        for tbl in phys:
+            safe_tbl = tbl.replace("]", "]]")
+            checks = con.execute(f"PRAGMA integrity_check([{safe_tbl}])").fetchall()
+            if len(checks) != 1 or checks[0][0] != "ok":
+                raise ValueError(f"Decrypted FTS physical B-tree {tbl} failed SQLite integrity_check")
+        return (
+            "unverified",
+            f"MMFtsTokenizer virtual-table tokenizer unavailable; all {len(phys)} physical B-tree tables passed integrity_check",
+        )
+
+
 def capture(root, files, pids, *, max_bytes, seconds, scope="chat", mode="full"):
     from windows_native import secure_output_root
     if scope not in ("chat", "all"):
@@ -309,13 +342,13 @@ def capture(root, files, pids, *, max_bytes, seconds, scope="chat", mode="full")
                     if len(checks) != 1 or checks[0][0] != "ok":
                         raise ValueError("Decrypted database failed SQLite integrity_check")
             except sqlite3.OperationalError as exc:
-                # Only the observed optional FTS-index check is recorded as a gap.
-                # Authentication is still mandatory; no main data check is waived.
+                # Only the observed optional FTS-index check is recorded as a gap after verifying
+                # every physical B-tree table. Authentication is still mandatory; no main data check is waived.
                 optional_indexes = {"contact/contact_fts.db", "favorite/favorite_fts.db", "message/message_fts.db"}
                 if scope != "all" or rel not in optional_indexes or str(exc) != "SQL logic error":
                     raise
-                integrity = "unverified"
-                integrity_gaps.append({"database": rel, "reason": "SQLite integrity_check returned SQL logic error"})
+                integrity, gap_reason = _verify_fts_physical_btrees(destination)
+                integrity_gaps.append({"database": rel, "reason": gap_reason})
             decrypted_count += 1
             records.append({
                 "database": rel,
@@ -374,7 +407,13 @@ def _configure_utf8_stdio() -> None:
             reconfigure(encoding="utf-8", errors="backslashreplace")
 
 
-def _extract_v2_image_key_live(sample_dat: bytes, pids: list[int], *, seconds: int = 30) -> dict | None:
+def _extract_v2_image_key_live(
+    sample_dat: bytes,
+    pids: list[int],
+    *,
+    account_names: tuple[str, ...] = (),
+    seconds: int = 30,
+) -> dict | None:
     from windows_native import ProcessReader, profile_owner
     from windows_keyscan import scan_v2_image_key_in_regions
     owner = profile_owner()
@@ -387,7 +426,13 @@ def _extract_v2_image_key_live(sample_dat: bytes, pids: list[int], *, seconds: i
         except RuntimeError:
             continue
         try:
-            hit = scan_v2_image_key_in_regions(reader.regions(), reader.read, sample_dat, deadline=deadline)
+            hit = scan_v2_image_key_in_regions(
+                reader.regions(),
+                reader.read,
+                sample_dat,
+                account_names=account_names,
+                deadline=deadline,
+            )
             if hit:
                 return hit
         finally:
@@ -434,11 +479,31 @@ def _run_windows_images(args) -> int:
     if (args.decode or args.ocr) and cache_dir is None:
         cache_dir = secure_output_root(sr.DEFAULT_LOCAL_ROOT / "cache" / "images")
 
+    acct_names: list[str] = []
+    for raw_hint in (
+        str(manifest.get("account_username") or "").strip(),
+        attach_dir.parent.parent.name.strip() if (attach_dir and attach_dir.name.casefold() == "attach" and attach_dir.parent.name.casefold() == "msg") else "",
+    ):
+        if not raw_hint:
+            continue
+        stripped = re.sub(r"_[0-9a-fA-F]{4}$", "", raw_hint)
+        if stripped and stripped not in acct_names:
+            acct_names.append(stripped)
+        if raw_hint.startswith("wxid_") and raw_hint.count("_") > 1:
+            base_wx = "_".join(raw_hint.split("_", 2)[:2])
+            if base_wx and base_wx not in acct_names:
+                acct_names.append(base_wx)
+        if raw_hint not in acct_names:
+            acct_names.append(raw_hint)
+
     memory_fallback = None
     if (args.decode or args.ocr) and not args.no_memory_fallback and not args.aes_key_hex:
         pids = args.pid or process_ids()
         if pids:
-            memory_fallback = lambda sample_raw: _extract_v2_image_key_live(sample_raw, pids, seconds=args.seconds)
+            acct_tuple = tuple(acct_names)
+            memory_fallback = lambda sample_raw: _extract_v2_image_key_live(
+                sample_raw, pids, account_names=acct_tuple, seconds=args.seconds
+            )
 
     try:
         data = wf.snapshot_images(
@@ -448,6 +513,7 @@ def _run_windows_images(args) -> int:
             start=sr.parse_date(args.start),
             end=sr.parse_date(args.end, True),
             limit=args.limit,
+            message_ids=tuple(args.message_id or ()),
             attach_dir=attach_dir,
             kvcomm_dirs=tuple(args.kvcomm_dir or ()),
             decode_images=args.decode,
@@ -491,6 +557,7 @@ def main(argv=None):
     img.add_argument("--start")
     img.add_argument("--end")
     img.add_argument("--limit", type=int, default=20)
+    img.add_argument("--message-id", action="append", help="指定一条或多条 message_id（可跨过 --limit 定位更早图片），可重复")
     img.add_argument("--decode", action="store_true", help="自动解码为可查看图片，写入 NTFS 私有缓存")
     img.add_argument("--ocr", action="store_true", help="解码后用 Windows 原生 WinRT OCR（或 Tesseract）识字；隐含 --decode")
     img.add_argument("--aes-key-hex", help="手动覆盖 V1/V2 .dat 的 16 字节 AES 密钥（32 位十六进制）")

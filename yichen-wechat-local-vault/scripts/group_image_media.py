@@ -459,10 +459,33 @@ def ocr_with_windows_winrt(path: Path) -> dict:
             "text": _normalize_ocr_text(str(payload.get("text") or "")),
         }
         if not any(tag.lower().startswith("zh") for tag in langs):
-            out["note"] = "系统未安装中文 OCR 语言包（当前仅 " + (", ".join(langs) or "无") + "），识别中文建议安装 Windows 简体中文语言包或 Tesseract"
+            out["note"] = (
+                "系统未安装中文 OCR 语言包（当前仅 "
+                + (", ".join(langs) or "无")
+                + "）；可在管理员 PowerShell 运行 Add-WindowsCapability -Online -Name 'Language.OCR~~~zh-CN~0.0.1.0' 安装简体中文包，或安装 Tesseract"
+            )
         return out
     except Exception as error:
         return {"engine": "WinRT", "text": "", "error": type(error).__name__}
+
+
+def _find_tesseract_cmd() -> str:
+    import shutil
+    found = shutil.which("tesseract")
+    if found:
+        return found
+    if sys.platform == "win32":
+        for env_key, rel in (
+            ("ProgramFiles", r"Tesseract-OCR\tesseract.exe"),
+            ("ProgramFiles(x86)", r"Tesseract-OCR\tesseract.exe"),
+            ("LOCALAPPDATA", r"Programs\Tesseract-OCR\tesseract.exe"),
+        ):
+            base = os.environ.get(env_key, "").strip()
+            if base:
+                cand = Path(base) / rel
+                if cand.is_file():
+                    return str(cand)
+    return "tesseract"
 
 
 def ocr_with_tesseract(path: Path) -> dict:
@@ -471,7 +494,7 @@ def ocr_with_tesseract(path: Path) -> dict:
         if sys.platform == "win32" and hasattr(subprocess, "CREATE_NO_WINDOW"):
             kwargs["creationflags"] = subprocess.CREATE_NO_WINDOW
         result = subprocess.run(
-            ["tesseract", str(path), "stdout", "-l", "chi_sim+eng", "--psm", "11"],
+            [_find_tesseract_cmd(), str(path), "stdout", "-l", "chi_sim+eng", "--psm", "11"],
             capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30, check=False,
             **kwargs,
         )
@@ -488,8 +511,12 @@ def ocr_image_with_local_engine(path: Path) -> dict:
         return result if result.get("text") else ocr_with_tesseract(path)
     if sys.platform == "win32":
         result = ocr_with_windows_winrt(path)
-        if result.get("text"):
+        # If WinRT has a Chinese OCR pack installed and recognized text, use it directly.
+        if result.get("text") and not result.get("note"):
             return result
+        # If WinRT failed or lacks a Chinese pack (e.g. English/LTSC Windows), prefer Tesseract chi_sim+eng when available.
         tess = ocr_with_tesseract(path)
-        return tess if tess.get("text") else result
+        if tess.get("text"):
+            return tess
+        return result if not result.get("error") else tess
     return ocr_with_tesseract(path)

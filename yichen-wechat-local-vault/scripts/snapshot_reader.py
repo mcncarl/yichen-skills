@@ -569,6 +569,9 @@ def iter_messages(
     budget: dict[str, int] | None = None,
     start: int | None = None,
     end: int | None = None,
+    *,
+    resolve_media: bool = False,
+    secured_file_dir: Path | None = None,
 ) -> Iterator[dict]:
     root = secure_snapshot_root(root)
     contacts = contact_records(root)
@@ -632,6 +635,12 @@ def iter_messages(
                     MESSAGE_ID_DOMAIN + uuid.UUID(manifest["snapshot_id"]).bytes + b"\0" + source_bytes
                 ).hexdigest()[:24]
                 sort_key = (timestamp, db_path.name, int(row["_source_rowid"]), message_id)
+                formatted = format_message_content(row["local_type"], content)
+                if resolve_media and secured_file_dir is not None and (int(row["local_type"] or 0) & 0xFFFFFFFF) == 49:
+                    import snapshot_workflows as wf
+                    formatted = wf.resolve_snapshot_file_media(
+                        sys.modules[__name__], content, formatted, timestamp, secured_file_dir
+                    )
                 yield {
                     "message_id": message_id,
                     "time": _format_timestamp(timestamp),
@@ -639,7 +648,7 @@ def iter_messages(
                     "type": int(row["local_type"] or 0) & 0xFFFFFFFF,
                     "sender": sender,
                     "direction": direction,
-                    "content": format_message_content(row["local_type"], content),
+                    "content": formatted,
                     "_raw_local_type": row["local_type"],
                     "_sort_key": sort_key,
                 }
@@ -669,17 +678,26 @@ def filtered_messages(
     *,
     type_name: str | None = None,
     offset: int = 0,
+    resolve_media: bool = False,
+    file_dir: Path | None = None,
 ) -> list[dict]:
     limit = _validated_limit(limit)
     if offset < 0 or offset > MAX_SCANNED_ROWS:
         raise ReaderError("offset is out of bounds")
     import snapshot_workflows as wf
     username, _ = select_chat(root, chat_id)
+    secured_file_dir = (
+        _secure_existing_path(file_dir, label="--file-dir", expected="directory")
+        if (resolve_media and file_dir is not None)
+        else None
+    )
     budget = {"rows": 0, "decoded_bytes": 0}
     keep = limit + offset
     newest: list[tuple[tuple, int, dict]] = []
     ordinal = 0
-    for item in iter_messages(root, username, budget, start, end):
+    for item in iter_messages(
+        root, username, budget, start, end, resolve_media=resolve_media, secured_file_dir=secured_file_dir
+    ):
         if start is not None and item["timestamp"] < start:
             continue
         if end is not None and item["timestamp"] > end:
@@ -847,6 +865,7 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("contacts", help="联系人/群聊搜索或详情")
     p.add_argument("--query")
     p.add_argument("--chat-id")
+    p.add_argument("--detail", help="查看指定 chat_id 或精确唯一联系人名称的详情卡片")
     p.add_argument("--limit", type=bounded_limit, default=50)
     p.add_argument("--format", choices=["json", "text"], default="json")
 
@@ -875,6 +894,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--limit", type=bounded_limit, default=500)
     p.add_argument("--offset", type=int, default=0)
     p.add_argument("--type", choices=sorted(wf.MESSAGE_TYPE_FILTERS))
+    p.add_argument("--media", action="store_true", help="配合 --file-dir 解析本地已接收文件路径")
+    p.add_argument("--file-dir", type=Path, help="本账号 msg/file 目录（供 --media 按文件名与字节数校验定位）")
     p.add_argument("--format", choices=["json", "text"], default="json")
 
     p = sub.add_parser("search", help="指定会话或全局关键词搜索")
@@ -901,6 +922,8 @@ def build_parser() -> argparse.ArgumentParser:
     export.add_argument("--end")
     export.add_argument("--limit", type=bounded_limit, default=5000)
     export.add_argument("--type", choices=sorted(wf.MESSAGE_TYPE_FILTERS))
+    export.add_argument("--media", action="store_true", help="配合 --file-dir 解析本地已接收文件路径")
+    export.add_argument("--file-dir", type=Path, help="本账号 msg/file 目录（供 --media 按文件名与字节数校验定位）")
     export.add_argument("--format", choices=["markdown", "txt"], default="markdown")
     export.add_argument("--output", type=Path)
     export.add_argument("--confirm-external-output", action="store_true")
@@ -945,6 +968,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--data-root", type=Path)
     p.add_argument("--confirm-external-output", action="store_true")
     p.add_argument("--limit", type=bounded_limit, default=5000)
+    p.add_argument("--media", action="store_true", help="配合 --file-dir 解析本地已接收文件路径")
+    p.add_argument("--file-dir", type=Path, help="本账号 msg/file 目录（供 --media 按文件名与字节数校验定位）")
     p.add_argument("--format", choices=["json", "text"], default="json")
 
     p = sub.add_parser("images", help="列出或解码本地聊天图片附件（含可选本地 OCR）")
@@ -952,6 +977,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--start")
     p.add_argument("--end")
     p.add_argument("--limit", type=bounded_limit, default=20)
+    p.add_argument("--message-id", action="append", help="指定一条或多条 message_id（可跨过 --limit 定位更早图片），可重复")
     p.add_argument("--attach-dir", type=Path, help="显式指定本账号 msg/attach 目录")
     p.add_argument("--kvcomm-dir", action="append", type=Path, help="额外指定 kvcomm 目录以自动推导 V2 图片密钥，可重复")
     p.add_argument("--decode", action="store_true", help="解码到私密缓存目录")
@@ -1006,7 +1032,9 @@ def main(argv=None) -> int:
             print(json.dumps(_json_envelope(chats=items), ensure_ascii=False, indent=2))
             return 0
         if args.command == "contacts":
-            data = wf.snapshot_contacts(mod, root, query=args.query, chat_id=args.chat_id, limit=args.limit)
+            data = wf.snapshot_contacts(
+                mod, root, query=args.query, chat_id=args.chat_id, detail=args.detail, limit=args.limit
+            )
             _emit(data, args.format, wf.render_contacts_text)
             return 0
         if args.command == "members":
@@ -1078,6 +1106,8 @@ def main(argv=None) -> int:
                 data_root=args.data_root,
                 confirm_external=args.confirm_external_output,
                 limit=args.limit,
+                resolve_media=args.media,
+                file_dir=args.file_dir,
             )
             _emit(data, args.format, lambda s: "\n".join(f"{k}: {v}" for k, v in s.items() if k not in ("trust", "content_warning")))
             return 0
@@ -1089,6 +1119,7 @@ def main(argv=None) -> int:
                 start=parse_date(args.start),
                 end=parse_date(args.end, True),
                 limit=args.limit,
+                message_ids=tuple(args.message_id or ()),
                 attach_dir=args.attach_dir,
                 kvcomm_dirs=tuple(args.kvcomm_dir or ()),
                 decode_images=args.decode,
@@ -1144,6 +1175,8 @@ def main(argv=None) -> int:
             args.limit,
             type_name=args.type,
             offset=getattr(args, "offset", 0),
+            resolve_media=getattr(args, "media", False),
+            file_dir=getattr(args, "file_dir", None),
         )
         _, chat = select_chat(root, args.chat_id)
         if args.command == "export":

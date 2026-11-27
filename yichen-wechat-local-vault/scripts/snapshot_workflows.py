@@ -578,15 +578,32 @@ def render_new_messages_text(data: dict) -> str:
     return "\n".join(lines).rstrip()
 
 
-def snapshot_contacts(reader, root: Path, *, query: str | None = None, chat_id: str | None = None, limit: int = 50) -> dict:
+def snapshot_contacts(
+    reader,
+    root: Path,
+    *,
+    query: str | None = None,
+    chat_id: str | None = None,
+    detail: str | None = None,
+    limit: int = 50,
+) -> dict:
     limit = reader._validated_limit(limit)
     contacts = _contact_rows_full(reader, root)
-    if chat_id:
-        matches = [item for item in contacts.values() if item["chat_id"] == chat_id]
+    target = detail or chat_id
+    if target:
+        matches = [item for item in contacts.values() if item["chat_id"] == target]
+        if not matches and detail:
+            matches = [item for item in contacts.values() if item["display_name"] == detail]
+            if not matches:
+                q = detail.casefold()
+                matches = [item for item in contacts.values() if item["display_name"].casefold() == q]
+            if len(matches) > 1:
+                ids = ", ".join(m["chat_id"] for m in matches[:5])
+                raise reader.ReaderError(f"multiple contacts share that name; pass an exact --chat-id ({ids})")
         if len(matches) != 1:
-            raise reader.ReaderError("chat_id must match exactly one contact; run 'chats' or 'contacts' to pick one")
+            raise reader.ReaderError("chat_id/detail must match exactly one contact; run 'chats' or 'contacts' to pick one")
         item = matches[0]
-        detail = {
+        detail_obj = {
             "chat_id": item["chat_id"],
             "display_name": item["display_name"],
             "remark": item["remark"],
@@ -594,7 +611,7 @@ def snapshot_contacts(reader, root: Path, *, query: str | None = None, chat_id: 
             "kind": item["kind"],
             "is_group": item["is_group"],
         }
-        return reader._json_envelope(contact=detail)
+        return reader._json_envelope(contact=detail_obj)
     needle = (query or "").casefold()
     items = []
     for item in contacts.values():
@@ -1958,6 +1975,62 @@ def _secure_output_dir(reader, path: Path, *, confirmed: bool, snapshot_root: Pa
     return resolved
 
 
+def resolve_snapshot_file_media(
+    reader,
+    raw_content: str,
+    formatted_content: str,
+    timestamp: int,
+    secured_file_dir: Path | None,
+) -> str:
+    """Resolve `[文件] <title>` to a verified local path under `<msg/file>/<YYYY-MM>/` (size-disambiguated, no symlink/traversal)."""
+    if secured_file_dir is None or not formatted_content.startswith("[文件] ") or not timestamp:
+        return formatted_content
+    first_line = formatted_content.splitlines()[0]
+    title = first_line.removeprefix("[文件] ").strip()
+    if not title or Path(title).name != title or title in (".", ".."):
+        return formatted_content
+    if re.search(r"<!\s*(?:DOCTYPE|ENTITY)\b", raw_content or "", re.IGNORECASE):
+        return formatted_content
+    expected_size: int | None = None
+    m_size = re.search(r"<totallen>\s*(\d+)\s*</totallen>", raw_content or "", re.IGNORECASE)
+    if m_size:
+        try:
+            parsed_sz = int(m_size.group(1))
+            if parsed_sz >= 0:
+                expected_size = parsed_sz
+        except ValueError:
+            expected_size = None
+    try:
+        month_str = datetime.fromtimestamp(timestamp).strftime("%Y-%m")
+    except (OverflowError, OSError, ValueError):
+        return formatted_content
+    month_dir = secured_file_dir / month_str
+    try:
+        if month_dir.is_symlink() or not month_dir.is_dir():
+            return formatted_content
+        month_root = month_dir.resolve()
+    except OSError:
+        return formatted_content
+    stem, suffix = os.path.splitext(title)
+    names = [title] + [f"{stem}({n}){suffix}" for n in range(1, 100)]
+    for name in names:
+        cand = month_dir / name
+        try:
+            if cand.is_symlink() or not cand.is_file():
+                continue
+            resolved = cand.resolve()
+            if not resolved.is_relative_to(month_root):
+                continue
+            if expected_size is None:
+                if name == title:
+                    return f"{formatted_content}\n{redact_text(str(cand))}"
+            elif cand.stat().st_size == expected_size:
+                return f"{formatted_content}\n{redact_text(str(cand))}"
+        except OSError:
+            continue
+    return formatted_content
+
+
 def snapshot_digest_source(
     reader,
     root: Path,
@@ -1969,6 +2042,8 @@ def snapshot_digest_source(
     data_root: Path | None = None,
     confirm_external: bool = False,
     limit: int = 5000,
+    resolve_media: bool = False,
+    file_dir: Path | None = None,
 ) -> dict:
     limit = reader._validated_limit(limit)
     root = reader.secure_snapshot_root(root)
@@ -2001,7 +2076,9 @@ def snapshot_digest_source(
             except (OSError, ValueError, TypeError):
                 pass
     end_ts = reader.parse_date(end, end=True)
-    rows = reader.filtered_messages(root, chat_id, None, start_ts, end_ts, limit)
+    rows = reader.filtered_messages(
+        root, chat_id, None, start_ts, end_ts, limit, resolve_media=resolve_media, file_dir=file_dir
+    )
 
     counts: dict[str, int] = {}
     usable = []
@@ -2205,6 +2282,7 @@ def snapshot_images(
     start: int | None = None,
     end: int | None = None,
     limit: int = 20,
+    message_ids: tuple[str, ...] = (),
     attach_dir: Path | None = None,
     kvcomm_dirs: tuple[Path, ...] = (),
     decode_images: bool = False,
@@ -2285,6 +2363,9 @@ def snapshot_images(
                     "sender": sender,
                     "file_hash": file_hash,
                 })
+    target_msg_ids = {m.strip() for m in message_ids if m and m.strip()}
+    if target_msg_ids:
+        rows = [r for r in rows if r["message_id"] in target_msg_ids]
     rows.sort(key=lambda r: (r["timestamp"], r["message_id"]), reverse=True)
     rows = rows[:limit]
     rows.sort(key=lambda r: (r["timestamp"], r["message_id"]))

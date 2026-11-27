@@ -261,6 +261,8 @@ def _scan_windows_v411_config_cipher(
 
 
 _V2_IMG_HEX_RE = re.compile(rb"(?<![0-9a-fA-F])([0-9a-f]{16}|[0-9a-f]{32})(?![0-9a-fA-F])")
+_KVCOMM_KEY_UTF8_RE = re.compile(rb"key_(\d{1,12})_")
+_KVCOMM_KEY_UTF16_RE = re.compile(rb"k\x00e\x00y\x00_\x00((?:[0-9]\x00){1,12})_\x00")
 
 
 def _detect_img_magic(data: bytes) -> str | None:
@@ -333,17 +335,48 @@ def scan_v2_image_key_in_regions(
     read_region: callable,
     sample_dat: bytes,
     *,
+    account_names: tuple[str, ...] = (),
     aes_factory=None,
     deadline: float | None = None,
 ) -> dict | None:
-    """Read-only scan of process regions for a verified 16-byte ASCII V1/V2 image AES key (RAM-only)."""
+    """Read-only scan of process regions for a verified 16-byte ASCII V1/V2 image AES key (RAM-only).
+
+    Checks both:
+    1. UTF-8 / UTF-16LE `key_<code>_` runtime strings combined with `account_names` (exact AES + XOR derivation).
+    2. Direct 16-byte lowercase ASCII hex buffers (`md5(...)[:16]`) verified against the V1/V2 AES-ECB block.
+    """
+    import hashlib
     import time
     if len(sample_dat) < 31 or not sample_dat.startswith((b"\x07\x08V2\x08\x07", b"\x07\x08V1\x08\x07")):
         return None
+    clean_names = tuple(dict.fromkeys(n.strip() for n in account_names if n and n.strip()))
     seen: set[bytes] = set()
-    for _base, chunk in _iter_windows_region_chunks(regions, read_region, overlap=64):
+    seen_codes: set[int] = set()
+    for _base, chunk in _iter_windows_region_chunks(regions, read_region, overlap=96):
         if deadline is not None and time.monotonic() >= deadline:
             break
+        if clean_names:
+            codes_found: list[int] = []
+            for m8 in _KVCOMM_KEY_UTF8_RE.finditer(chunk):
+                codes_found.append(int(m8.group(1)))
+            for m16 in _KVCOMM_KEY_UTF16_RE.finditer(chunk):
+                codes_found.append(int(m16.group(1).decode("utf-16le")))
+            for code in codes_found:
+                if code in seen_codes:
+                    continue
+                seen_codes.add(code)
+                for name in clean_names:
+                    cand = hashlib.md5(f"{code}{name}".encode("utf-8")).hexdigest()[:16].encode("ascii")
+                    if cand in seen:
+                        continue
+                    seen.add(cand)
+                    ok, _fmt, inferred_xor = verify_v2_image_aes_key(sample_dat, cand, aes_factory=aes_factory)
+                    if ok:
+                        return {
+                            "aesKey": cand,
+                            "xorKey": inferred_xor if inferred_xor is not None else (code & 0xFF),
+                            "source": "memory",
+                        }
         for match in _V2_IMG_HEX_RE.finditer(chunk):
             cand = match.group(1)[:16]
             if cand in seen or len(set(cand)) < 6:

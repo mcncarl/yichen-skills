@@ -613,6 +613,225 @@ class WindowsLiveTests(unittest.TestCase):
         )
         self.assertIsNone(hit_none)
 
+        # Also recover when only a C++ wstring UTF-16LE kvcomm path (`key_<code>_...`) is in memory!
+        code_num = 200890261
+        acct = "wxid_owner_fixture"
+        kv_aes = hashlib.md5(f"{code_num}{acct}".encode("utf-8")).hexdigest()[:16].encode("ascii")
+        kv_xor = code_num & 0xFF
+        v2_kv_dat = (
+            b"\x07\x08V2\x08\x07"
+            + struct.pack("<I", len(head))
+            + struct.pack("<I", len(tail))
+            + b"\x00"
+            + ecb_encrypt(kv_aes, head + bytes([8]) * 8)
+            + mid
+            + bytes(b ^ kv_xor for b in tail)
+        )
+        utf16_mem = (
+            b"\x00" * 64
+            + f"C:\\AppData\\Roaming\\Tencent\\xwechat\\net_1\\kvcomm\\key_{code_num}_1_input.statistic".encode("utf-16le")
+            + b"\x00" * 64
+        )
+        hit_utf16 = keyscan.scan_v2_image_key_in_regions(
+            [(base, len(utf16_mem))],
+            lambda addr, size: utf16_mem[addr - base : addr - base + size] if base <= addr < base + len(utf16_mem) else b"",
+            v2_kv_dat,
+            account_names=(acct,),
+            aes_factory=ecb_factory,
+        )
+        self.assertIsNotNone(hit_utf16)
+        self.assertEqual(hit_utf16["aesKey"], kv_aes)
+        self.assertEqual(hit_utf16["xorKey"], kv_xor)
+        self.assertEqual(hit_utf16["source"], "memory")
+
+    def test_fts_mmftstokenizer_verifies_physical_btrees_and_rejects_btree_corruption(self):
+        fts_db = self.root / "synthetic_fts.db"
+        orig_tok = "unicode61 remove_diacritics 2"
+        mm_tok = "MMFtsTokenizer disable_pinyin"
+        self.assertEqual(len(orig_tok), len(mm_tok))
+        con = sqlite3.connect(fts_db)
+        try:
+            con.execute("PRAGMA page_size = 4096")
+            con.execute(f"CREATE VIRTUAL TABLE fav_fts_v1 USING fts5(tokenize = '{orig_tok}', content)")
+            for idx in range(60):
+                con.execute("INSERT INTO fav_fts_v1(content) VALUES (?)", (f"row-{idx}-" + ("X" * 200),))
+            con.commit()
+        finally:
+            con.close()
+
+        # Patch equal-length tokenizer name in page 1 sqlite_master so it mirrors real WeChat 4.x FTS5 DBs.
+        db_bytes = fts_db.read_bytes()
+        self.assertIn(orig_tok.encode("ascii"), db_bytes[:4096])
+        patched = db_bytes[:4096].replace(orig_tok.encode("ascii"), mm_tok.encode("ascii"), 1) + db_bytes[4096:]
+        fts_db.write_bytes(patched)
+
+        # Whole-DB PRAGMA integrity_check fails with SQL logic error due to unregistered MMFtsTokenizer.
+        with live.connect_read_only(fts_db) as ro:
+            with self.assertRaisesRegex(sqlite3.OperationalError, "SQL logic error"):
+                ro.execute("PRAGMA integrity_check").fetchall()
+
+        state, reason = live._verify_fts_physical_btrees(fts_db)
+        self.assertEqual(state, "unverified")
+        self.assertIn("MMFtsTokenizer", reason)
+        self.assertIn("5 physical B-tree tables passed", reason)
+
+        # Corrupt a physical FTS5 shadow B-tree page: _verify_fts_physical_btrees MUST fail closed!
+        raw = bytearray(fts_db.read_bytes())
+        self.assertGreaterEqual(len(raw), 3 * 4096)
+        raw[2 * 4096 : 2 * 4096 + 128] = b"\xff" * 128
+        fts_db.write_bytes(raw)
+        with self.assertRaises((ValueError, sqlite3.DatabaseError)):
+            live._verify_fts_physical_btrees(fts_db)
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows native Medium-Integrity non-admin token check")
+    def test_medium_integrity_non_admin_token_acl_and_memory_read(self):
+        from ctypes import wintypes as w
+        import subprocess
+        import tempfile
+        import uuid
+
+        # Spawn a helper that drops to SAFER_LEVELID_NORMALUSER (Medium Integrity, non-elevated)
+        # and runs ACL + CNG + same-user OpenProcess/ReadProcessMemory checks without admin privileges.
+        scripts_dir = str((Path(__file__).resolve().parents[1] / "scripts").resolve())
+        work_dir = str((self.root / "med-integrity").resolve())
+        os.makedirs(work_dir, exist_ok=True)
+        helper_py = self.root / "med_helper.py"
+        helper_py.write_text(
+            "import ctypes as c, json, os, pathlib, subprocess, sys, time\n"
+            "from ctypes import wintypes as w\n"
+            f"sys.path.insert(0, {scripts_dir!r})\n"
+            "import windows_crypto, windows_native\n"
+            "\n"
+            "def token_integrity_rid():\n"
+            "    adv = c.WinDLL('advapi32', use_last_error=True)\n"
+            "    ker = c.WinDLL('kernel32', use_last_error=True)\n"
+            "    ker.GetCurrentProcess.restype = w.HANDLE\n"
+            "    adv.OpenProcessToken.argtypes = [w.HANDLE, w.DWORD, c.POINTER(w.HANDLE)]\n"
+            "    adv.GetTokenInformation.argtypes = [w.HANDLE, w.DWORD, c.c_void_p, w.DWORD, c.POINTER(w.DWORD)]\n"
+            "    tok = w.HANDLE()\n"
+            "    assert adv.OpenProcessToken(ker.GetCurrentProcess(), 8, c.byref(tok))\n"
+            "    sz = w.DWORD()\n"
+            "    adv.GetTokenInformation(tok, 25, None, 0, c.byref(sz))\n"
+            "    buf = c.create_string_buffer(sz.value)\n"
+            "    assert adv.GetTokenInformation(tok, 25, buf, sz, c.byref(sz))\n"
+            "    sid_ptr = c.cast(buf, c.POINTER(c.c_void_p))[0]\n"
+            "    sid_str = windows_native.sid_text(sid_ptr)\n"
+            "    ker.CloseHandle(tok)\n"
+            "    return sid_str\n"
+            "\n"
+            "if len(sys.argv) > 1 and sys.argv[1] == 'hold':\n"
+            "    secret = b'MED_INTEGRITY_MEM_OK_2026'\n"
+            "    buf = c.create_string_buffer(secret)\n"
+            "    print(c.addressof(buf), len(secret), flush=True)\n"
+            "    time.sleep(10)\n"
+            "    sys.exit(0)\n"
+            "\n"
+            "if len(sys.argv) > 1 and sys.argv[1] == 'worker':\n"
+            "    import shutil, tempfile, uuid\n"
+            "    il = token_integrity_rid()\n"
+            "    owner = windows_native.profile_owner()\n"
+            "    med_tmp = pathlib.Path(tempfile.gettempdir()) / ('wechat-med-' + uuid.uuid4().hex)\n"
+            "    try:\n"
+            "        acl_dir = windows_native.secure_output_root(med_tmp / 'vault')\n"
+            "        acl_ok = acl_dir.is_dir()\n"
+            "    finally:\n"
+            "        shutil.rmtree(med_tmp, ignore_errors=True)\n"
+            "    aes = windows_crypto.CngAES(b'0123456789abcdef', chaining_mode='ChainingModeECB')\n"
+            "    aes.close()\n"
+            "    holder = subprocess.Popen([sys.executable, __file__, 'hold'], stdout=subprocess.PIPE, text=True)\n"
+            "    try:\n"
+            "        addr_s, ln_s = holder.stdout.readline().strip().split()\n"
+            "        addr, ln = int(addr_s), int(ln_s)\n"
+            "        ker = c.WinDLL('kernel32', use_last_error=True)\n"
+            "        ker.OpenProcess.argtypes, ker.OpenProcess.restype = [w.DWORD, w.BOOL, w.DWORD], w.HANDLE\n"
+            "        ker.ReadProcessMemory.argtypes, ker.ReadProcessMemory.restype = [w.HANDLE, c.c_void_p, c.c_void_p, c.c_size_t, c.POINTER(c.c_size_t)], w.BOOL\n"
+            "        h = ker.OpenProcess(0x0010 | 0x0400, False, holder.pid)\n"
+            "        assert h, f'OpenProcess failed err={c.get_last_error()}'\n"
+            "        out = c.create_string_buffer(ln)\n"
+            "        got = c.c_size_t()\n"
+            "        assert ker.ReadProcessMemory(h, c.c_void_p(addr), out, ln, c.byref(got))\n"
+            "        ker.CloseHandle(h)\n"
+            "        assert out.raw[:got.value] == b'MED_INTEGRITY_MEM_OK_2026'\n"
+            "    finally:\n"
+            "        holder.terminate()\n"
+            "        holder.wait(timeout=5)\n"
+            "    print(json.dumps({'integrity_sid': il, 'owner_ok': owner.startswith('S-1-5-21-'), 'acl_exists': acl_ok}))\n"
+            "    sys.exit(0)\n"
+            "\n"
+            "# Launcher: compute SAFER_LEVELID_NORMALUSER token, explicitly lower to Medium Integrity (S-1-16-8192), and spawn worker.\n"
+            "adv = c.WinDLL('advapi32', use_last_error=True)\n"
+            "ker = c.WinDLL('kernel32', use_last_error=True)\n"
+            "adv.SaferCreateLevel.argtypes, adv.SaferCreateLevel.restype = [w.DWORD, w.DWORD, w.DWORD, c.POINTER(w.HANDLE), c.c_void_p], w.BOOL\n"
+            "adv.SaferComputeTokenFromLevel.argtypes, adv.SaferComputeTokenFromLevel.restype = [w.HANDLE, w.HANDLE, c.POINTER(w.HANDLE), w.DWORD, c.c_void_p], w.BOOL\n"
+            "adv.SaferCloseLevel.argtypes, adv.SaferCloseLevel.restype = [w.HANDLE], w.BOOL\n"
+            "adv.ConvertStringSidToSidW.argtypes, adv.ConvertStringSidToSidW.restype = [w.LPCWSTR, c.POINTER(c.c_void_p)], w.BOOL\n"
+            "adv.GetLengthSid.argtypes, adv.GetLengthSid.restype = [c.c_void_p], w.DWORD\n"
+            "adv.SetTokenInformation.argtypes, adv.SetTokenInformation.restype = [w.HANDLE, w.DWORD, c.c_void_p, w.DWORD], w.BOOL\n"
+            "level = w.HANDLE()\n"
+            "assert adv.SaferCreateLevel(2, 0x20000, 1, c.byref(level), None), c.get_last_error()\n"
+            "restricted = w.HANDLE()\n"
+            "assert adv.SaferComputeTokenFromLevel(level, None, c.byref(restricted), 0, None), c.get_last_error()\n"
+            "adv.SaferCloseLevel(level)\n"
+            "\n"
+            "class SID_AND_ATTRIBUTES(c.Structure):\n"
+            "    _fields_ = [('Sid', c.c_void_p), ('Attributes', w.DWORD)]\n"
+            "med_sid = c.c_void_p()\n"
+            "assert adv.ConvertStringSidToSidW('S-1-16-8192', c.byref(med_sid)), c.get_last_error()\n"
+            "tml = SID_AND_ATTRIBUTES(med_sid, 0x20)\n"
+            "tml_len = c.sizeof(SID_AND_ATTRIBUTES) + adv.GetLengthSid(med_sid)\n"
+            "assert adv.SetTokenInformation(restricted, 25, c.byref(tml), tml_len), c.get_last_error()\n"
+            "ker.LocalFree.argtypes = [c.c_void_p]\n"
+            "ker.LocalFree(med_sid)\n"
+            "\n"
+            "class STARTUPINFOW(c.Structure):\n"
+            "    _fields_ = [('cb', w.DWORD), ('lpReserved', w.LPWSTR), ('lpDesktop', w.LPWSTR), ('lpTitle', w.LPWSTR),\n"
+            "                ('dwX', w.DWORD), ('dwY', w.DWORD), ('dwXSize', w.DWORD), ('dwYSize', w.DWORD),\n"
+            "                ('dwXCountChars', w.DWORD), ('dwYCountChars', w.DWORD), ('dwFillAttribute', w.DWORD),\n"
+            "                ('dwFlags', w.DWORD), ('wShowWindow', w.WORD), ('cbReserved2', w.WORD),\n"
+            "                ('lpReserved2', c.c_void_p), ('hStdInput', w.HANDLE), ('hStdOutput', w.HANDLE), ('hStdError', w.HANDLE)]\n"
+            "class PROCESS_INFORMATION(c.Structure):\n"
+            "    _fields_ = [('hProcess', w.HANDLE), ('hThread', w.HANDLE), ('dwProcessId', w.DWORD), ('dwThreadId', w.DWORD)]\n"
+            "\n"
+            "out_file = pathlib.Path(sys.argv[2])\n"
+            "adv.CreateProcessAsUserW.argtypes = [w.HANDLE, w.LPCWSTR, w.LPWSTR, c.c_void_p, c.c_void_p, w.BOOL, w.DWORD, c.c_void_p, w.LPCWSTR, c.POINTER(STARTUPINFOW), c.POINTER(PROCESS_INFORMATION)]\n"
+            "adv.CreateProcessAsUserW.restype = w.BOOL\n"
+            "si = STARTUPINFOW()\n"
+            "si.cb = c.sizeof(si)\n"
+            "pi = PROCESS_INFORMATION()\n"
+            "cmd_str = f'\"{sys.executable}\" -c \"import pathlib, subprocess, sys; p = subprocess.run([sys.executable, {str(pathlib.Path(__file__))!r}, \\'worker\\'], capture_output=True, text=True); pathlib.Path({str(out_file)!r}).write_text(str(p.returncode) + \\'\\\\n\\' + p.stdout + p.stderr, encoding=\\'utf-8\\')\"'\n"
+            "cmd_buf = c.create_unicode_buffer(cmd_str)\n"
+            "ok = adv.CreateProcessAsUserW(restricted, None, cmd_buf, None, None, False, 0x08000000, None, None, c.byref(si), c.byref(pi))\n"
+            "err = c.get_last_error()\n"
+            "ker.CloseHandle(restricted)\n"
+            "assert ok, f'CreateProcessAsUserW failed err={err}'\n"
+            "ker.WaitForSingleObject(pi.hProcess, 30000)\n"
+            "ker.CloseHandle(pi.hThread)\n"
+            "ker.CloseHandle(pi.hProcess)\n",
+            encoding="utf-8",
+        )
+        out_path = Path(tempfile.gettempdir()) / f"wechat-med-res-{uuid.uuid4().hex}.txt"
+        try:
+            proc = subprocess.run(
+                [sys.executable, str(helper_py), "launch", str(out_path)],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=45,
+            )
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            lines = out_path.read_text(encoding="utf-8").splitlines()
+        finally:
+            try:
+                out_path.unlink(missing_ok=True)
+            except OSError:
+                pass
+        self.assertEqual(lines[0], "0", "\n".join(lines))
+        payload = json.loads(lines[1])
+        # S-1-16-8192 is Mandatory Label\Medium Mandatory Level (strictly non-admin/non-elevated).
+        self.assertEqual(payload["integrity_sid"], "S-1-16-8192", payload)
+        self.assertTrue(payload["owner_ok"])
+        self.assertTrue(payload["acl_exists"])
+
 
 if __name__ == "__main__":
     unittest.main()

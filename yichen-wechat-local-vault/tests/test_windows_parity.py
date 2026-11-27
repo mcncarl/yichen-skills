@@ -177,7 +177,7 @@ def build_rich_snapshot(
         alice_rows = [
             (1, 1, 1, now - 10 * HOUR, 1, "我先打个招呼", None, 0, "", 0, None),
             (2, 2, 1, now - 5 * HOUR, 2, "合同方案请确认一下", None, 0, "", 0, None),
-            (3, 3, (6 << 32) | 49, now - 4 * HOUR, 2, "<msg><appmsg><type>6</type><title>报价单.pdf</title></appmsg></msg>", None, 0, "", 0, None),
+            (3, 3, (6 << 32) | 49, now - 4 * HOUR, 2, "<msg><appmsg><type>6</type><title>报价单.pdf</title><totallen>12</totallen></appmsg></msg>", None, 0, "", 0, None),
             (4, 4, 3, now - 3 * HOUR, 2, '<msg><img md5="ffffffffffffffffffffffffffffffff"/></msg>', None, 0, "", 0, packed_v2),
             (5, 5, 3, now - 3 * HOUR + 10, 2, '<msg><img md5="eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"/></msg>', None, 0, "", 0, packed_xor),
             (6, 6, wf.TRANSFER_TYPE, now - 6 * HOUR, 2, _transfer_xml("1", "t-ok-cny", amount="￥100.00", payer=ALICE, receiver=ACCOUNT, memo="定金"), None, 0, "", 0, None),
@@ -557,22 +557,21 @@ class WindowsParityTests(unittest.TestCase):
         self.assertIn("合同金额：￥100.00", res["text"])
         self.assertNotIn("note", res)
 
-        en_only = subprocess.CompletedProcess(
-            args=["powershell.exe"],
-            returncode=0,
-            stdout=json.dumps({
-                "ok": True,
-                "language": "en-US",
-                "available_languages": ["en-US"],
-                "text": "INVOICE 2026",
-            }),
-            stderr="",
-        )
-        with mock.patch("sys.platform", "win32"), mock.patch.object(media.subprocess, "run", return_value=en_only):
+        with mock.patch("sys.platform", "win32"), \
+             mock.patch.object(media, "ocr_with_windows_winrt", return_value={"engine": "WinRT", "language": "en-US", "available_languages": ["en-US"], "text": "INVOICE 2026", "note": "系统未安装中文 OCR 语言包"}), \
+             mock.patch.object(media, "ocr_with_tesseract", return_value={"engine": "Tesseract", "text": "", "error": "FileNotFoundError"}):
             res2 = media.ocr_image_with_local_engine(fake_img)
         self.assertEqual(res2["engine"], "WinRT")
         self.assertEqual(res2["text"], "INVOICE 2026")
         self.assertIn("中文", res2.get("note", ""))
+
+        # When WinRT only has en-US (note present) and Tesseract chi_sim+eng is installed, prefer Tesseract Chinese OCR!
+        with mock.patch("sys.platform", "win32"), \
+             mock.patch.object(media, "ocr_with_windows_winrt", return_value={"engine": "WinRT", "language": "en-US", "available_languages": ["en-US"], "text": "GARBAGE", "note": "系统未安装中文 OCR 语言包"}), \
+             mock.patch.object(media, "ocr_with_tesseract", return_value={"engine": "Tesseract", "text": "合同金额：人民币壹万元整", "error": ""}):
+            res2b = media.ocr_image_with_local_engine(fake_img)
+        self.assertEqual(res2b["engine"], "Tesseract")
+        self.assertEqual(res2b["text"], "合同金额：人民币壹万元整")
 
         # When WinRT fails and Tesseract succeeds, fall back cleanly to Tesseract.
         with mock.patch("sys.platform", "win32"), \
@@ -660,6 +659,63 @@ class WindowsParityTests(unittest.TestCase):
                 self.assertEqual(proc.returncode, 0, f"{sub_args}: stderr={proc.stderr}")
                 self.assertTrue(proc.stdout.strip(), f"{sub_args}: empty stdout")
                 self.assertNotIn("wxid_", proc.stdout)
+
+    def test_contacts_detail_images_message_id_and_file_media_resolution(self):
+        # 1. contacts --detail by display_name and by chat_id
+        code, out, err = self.run_snap("contacts", "--detail", "客户甲")
+        self.assertEqual(code, 0, err)
+        detail = json.loads(out)["contact"]
+        self.assertEqual(detail["chat_id"], self.fx["alice_id"])
+        self.assertEqual(detail["display_name"], "客户甲")
+        self.assertNotIn("wxid_", out)
+
+        code_txt, out_txt, err_txt = self.run_snap("contacts", "--detail", self.fx["alice_id"], "--format", "text")
+        self.assertEqual(code_txt, 0, err_txt)
+        self.assertIn("名称: 客户甲", out_txt)
+        self.assertNotIn("wxid_", out_txt)
+
+        # 2. images --message-id reaches an older image even when --limit 1 would drop it
+        code_all, out_all, err_all = self.run_snap("images", self.fx["alice_id"], "--limit", "10")
+        self.assertEqual(code_all, 0, err_all)
+        all_imgs = json.loads(out_all)["images"]
+        self.assertEqual(len(all_imgs), 2)
+        older_msg_id = all_imgs[0]["message_id"]
+
+        code_one, out_one, err_one = self.run_snap(
+            "images", self.fx["alice_id"], "--limit", "1", "--message-id", older_msg_id
+        )
+        self.assertEqual(code_one, 0, err_one)
+        one_imgs = json.loads(out_one)["images"]
+        self.assertEqual([im["message_id"] for im in one_imgs], [older_msg_id])
+
+        # 3. history & export --media --file-dir resolves size-matched file and scrubs wxid_ in path
+        file_root = self.case / "xwechat_files" / f"{ACCOUNT}_abcd" / "msg" / "file"
+        month_dir = file_root / datetime.fromtimestamp(self.fx["now"] - 4 * HOUR).strftime("%Y-%m")
+        month_dir.mkdir(parents=True)
+        # Wrong-size decoy (5 bytes) vs exact <totallen>12</totallen> match on 报价单(1).pdf
+        (month_dir / "报价单.pdf").write_bytes(b"wrong")
+        (month_dir / "报价单(1).pdf").write_bytes(b"twelve-bytes")
+
+        code_hist, out_hist, err_hist = self.run_snap(
+            "history", self.fx["alice_id"], "--type", "file", "--media", "--file-dir", str(file_root)
+        )
+        self.assertEqual(code_hist, 0, err_hist)
+        hist_msgs = json.loads(out_hist)["messages"]
+        self.assertEqual(len(hist_msgs), 1)
+        lines_hist = hist_msgs[0]["content"].splitlines()
+        self.assertEqual(lines_hist[0], "[文件] 报价单.pdf")
+        self.assertTrue(lines_hist[1].endswith("报价单(1).pdf"), lines_hist)
+        self.assertNotIn("wxid_", out_hist)
+
+        exp_file = self.case / "alice-media.txt"
+        code_exp, out_exp, err_exp = self.run_snap(
+            "export", self.fx["alice_id"], "--type", "file", "--media", "--file-dir", str(file_root),
+            "--format", "txt", "--output", str(exp_file), "--confirm-external-output",
+        )
+        self.assertEqual(code_exp, 0, err_exp)
+        exp_text = exp_file.read_text(encoding="utf-8")
+        self.assertIn("报价单(1).pdf", exp_text)
+        self.assertNotIn("wxid_", exp_text)
 
 
 if __name__ == "__main__":
