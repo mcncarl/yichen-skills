@@ -297,7 +297,7 @@ class WindowsLiveTests(unittest.TestCase):
             destination.write_bytes(encrypt_database(path.read_bytes()))
         return source, fixture
 
-    def run_capture_fixture(self, source, vault, extractor=None, scope="chat"):
+    def run_capture_fixture(self, source, vault, extractor=None, scope="chat", mode="full"):
         import windows_native
         def private_directory(path):
             path.mkdir(parents=True, exist_ok=True)
@@ -308,7 +308,49 @@ class WindowsLiveTests(unittest.TestCase):
                 stack.enter_context(mock.patch.object(windows_native, "secure_output_root", side_effect=private_directory))
             stack.enter_context(mock.patch.object(live, "extract_keys", side_effect=extractor or (lambda *args: ({SALT.hex(): KEY.hex()}, []))))
             stack.enter_context(mock.patch.object(live, "decrypt_pages", side_effect=lambda data, key: crypto.decrypt_pages(data, key, aes_factory=TestAES)))
-            return live.capture(source, live.selected_files(source, scope=scope), [999999], max_bytes=1024**2, seconds=1, scope=scope)
+            return live.capture(source, live.selected_files(source, scope=scope), [999999], max_bytes=1024**2, seconds=1, scope=scope, mode=mode)
+
+    def test_incremental_capture_reuses_verified_unchanged_dbs_and_decrypts_only_changed(self):
+        source, _ = self.capture_fixture(scope="chat")
+        vault = self.root / "vault-inc"
+        first = self.run_capture_fixture(source, vault, scope="chat", mode="full")
+        self.assertEqual(first["mode"], "full")
+        self.assertEqual(first["reused_databases"], 0)
+        self.assertEqual(first["decrypted_databases"], first["databases"])
+
+        # Nothing changed: incremental skips memory key extraction and reuses every DB into a fresh immutable snapshot.
+        def forbid_extract(*args):
+            self.fail("extract_keys should not run when every database is unchanged")
+        second = self.run_capture_fixture(source, vault, extractor=forbid_extract, scope="chat", mode="incremental")
+        self.assertEqual(second["mode"], "incremental")
+        self.assertEqual(second["reused_databases"], second["databases"])
+        self.assertEqual(second["decrypted_databases"], 0)
+        self.assertNotEqual(second["snapshot_id"], first["snapshot_id"])
+        self.assertTrue(reader.validate_snapshot(Path(second["snapshot"]))["valid"])
+
+        # Modify one encrypted message shard: incremental decrypts only that 1 DB and reuses the rest.
+        plain_updated = self.root / "plain-updated"
+        build(plain_updated, first_message="WINDOWS_INCREMENTAL_SECOND_MARKER")
+        updated_msg = plain_updated / "message/message_0.db"
+        reserve_database(updated_msg)
+        (source / "message/message_0.db").write_bytes(encrypt_database(updated_msg.read_bytes()))
+        third = self.run_capture_fixture(source, vault, scope="chat", mode="incremental")
+        self.assertEqual(third["decrypted_databases"], 1)
+        self.assertEqual(third["reused_databases"], third["databases"] - 1)
+        snap3 = Path(third["snapshot"])
+        chat = next(item for item in reader.contact_records(snap3).values() if item["display_name"] == "测试群")
+        hits = reader.filtered_messages(snap3, chat["chat_id"], "WINDOWS_INCREMENTAL_SECOND_MARKER", None, None, 20)
+        self.assertEqual(len(hits), 1)
+        # Previous snapshot remains untouched and still holds the first marker.
+        snap1 = Path(first["snapshot"])
+        chat1 = next(item for item in reader.contact_records(snap1).values() if item["display_name"] == "测试群")
+        self.assertEqual(len(reader.filtered_messages(snap1, chat1["chat_id"], "WINDOWS_INCREMENTAL_SECOND_MARKER", None, None, 20)), 0)
+
+        # If a previous plaintext copy is tampered with, SHA-256 verification catches it and re-decrypts cleanly.
+        (snap3 / "contact/contact.db").write_bytes(b"tampered plaintext")
+        fourth = self.run_capture_fixture(source, vault, scope="chat", mode="incremental")
+        self.assertEqual(fourth["decrypted_databases"], fourth["databases"])
+        self.assertTrue(reader.validate_snapshot(Path(fourth["snapshot"]))["valid"])
 
     def test_full_scope_captures_required_domains_and_retains_chat_default(self):
         source, _ = self.capture_fixture(scope="all")

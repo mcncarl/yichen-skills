@@ -168,10 +168,54 @@ def extract_keys(files, pids, seconds=90):
     return keys, statistics
 
 
-def capture(root, files, pids, *, max_bytes, seconds, scope="chat"):
+def _load_reusable_previous(vault: Path, expected_source_id: str) -> dict[str, dict]:
+    """Return {relative_posix: metadata} from the previous verified snapshot of the same source."""
+    latest_path = vault / "latest.json"
+    if not os.path.lexists(latest_path):
+        return {}
+    try:
+        latest_path = _secure_existing_path(latest_path, label="previous latest.json", expected="file", allowed_root=vault)
+        latest = json.loads(latest_path.read_text(encoding="utf-8"))
+        if not isinstance(latest, dict) or latest.get("source_id") != expected_source_id:
+            return {}
+        prev_snapshot = latest.get("snapshot")
+        if not isinstance(prev_snapshot, str) or not prev_snapshot:
+            return {}
+        prev_root = _secure_existing_path(Path(prev_snapshot), label="previous snapshot", expected="directory", allowed_root=vault)
+        if not validate_snapshot(prev_root)["valid"]:
+            return {}
+        manifest_path = _secure_existing_path(prev_root / "snapshot-manifest.json", label="previous manifest", expected="file", allowed_root=prev_root)
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        if manifest.get("source_id") != expected_source_id:
+            return {}
+        index: dict[str, dict] = {}
+        for item in manifest.get("databases") or []:
+            if not isinstance(item, dict):
+                continue
+            rel = item.get("database")
+            enc_sha = item.get("encrypted_snapshot_sha256")
+            plain_sha = item.get("plaintext_sha256")
+            if not (isinstance(rel, str) and isinstance(enc_sha, str) and isinstance(plain_sha, str)):
+                continue
+            prev_file = _secure_existing_path(prev_root / rel, label=f"previous {rel}", expected="file", allowed_root=prev_root)
+            index[rel] = {
+                "path": prev_file,
+                "encrypted_snapshot_sha256": enc_sha,
+                "plaintext_sha256": plain_sha,
+                "pages": int(item.get("pages") or 0),
+                "sqlite_integrity": str(item.get("sqlite_integrity") or "passed"),
+            }
+        return index
+    except (OSError, ValueError, RuntimeError):
+        return {}
+
+
+def capture(root, files, pids, *, max_bytes, seconds, scope="chat", mode="full"):
     from windows_native import secure_output_root
     if scope not in ("chat", "all"):
         raise ValueError("Unsupported capture scope")
+    if mode not in ("full", "incremental"):
+        raise ValueError("Unsupported capture mode")
     vault = secure_output_root(private_root())
     identifier = str(uuid.uuid4())
     # New directory per attempt: an incomplete capture never replaces a good one.
@@ -180,10 +224,65 @@ def capture(root, files, pids, *, max_bytes, seconds, scope="chat"):
     output.mkdir(exist_ok=False)
     output = _secure_existing_path(output, label="new snapshot", expected="directory", allowed_root=vault)
     started = datetime.now(timezone.utc).isoformat()
-    records, keys, integrity_gaps = [], {}, []
+    src_id = source_id(root)
+    previous_index = _load_reusable_previous(vault, src_id) if mode == "incremental" else {}
+    records, keys, integrity_gaps, statistics = [], {}, [], []
+    reused_count = 0
+    decrypted_count = 0
     try:
-        keys, statistics = extract_keys(files, pids, seconds)
+        reused_map: dict[str, dict] = {}
+        changed_files: list[Path] = []
+        if previous_index:
+            for path in files:
+                for suffix in ("-wal", "-shm", "-journal"):
+                    sidecar = Path(str(path) + suffix)
+                    if os.path.lexists(sidecar):
+                        _secure_existing_path(sidecar, label="source sidecar", expected="file", allowed_root=root)
+                rel = path.relative_to(root).as_posix()
+                prev = previous_index.get(rel)
+                if prev is None:
+                    changed_files.append(path)
+                    continue
+                data = read_snapshot(path, max_bytes=max_bytes)
+                enc_sha = hashlib.sha256(data).hexdigest()
+                if enc_sha != prev["encrypted_snapshot_sha256"]:
+                    changed_files.append(path)
+                    continue
+                plain = prev["path"].read_bytes()
+                if hashlib.sha256(plain).hexdigest() != prev["plaintext_sha256"]:
+                    changed_files.append(path)
+                    continue
+                relative = path.relative_to(root)
+                destination = output / relative
+                child_directory(output, relative.parent)
+                with destination.open("xb") as target:
+                    target.write(plain)
+                    target.flush()
+                    os.fsync(target.fileno())
+                integrity = prev["sqlite_integrity"]
+                if integrity == "unverified":
+                    integrity_gaps.append({"database": rel, "reason": "SQLite integrity_check returned SQL logic error"})
+                reused_map[rel] = {
+                    "database": rel,
+                    "pages": len(data) // PAGE,
+                    "authenticated": True,
+                    "reused": True,
+                    "sqlite_integrity": integrity,
+                    "encrypted_snapshot_sha256": enc_sha,
+                    "plaintext_sha256": prev["plaintext_sha256"],
+                }
+                reused_count += 1
+        else:
+            changed_files = list(files)
+
+        if changed_files:
+            keys, statistics = extract_keys(changed_files, pids, seconds)
         for path in files:
+            relative = path.relative_to(root)
+            rel = relative.as_posix()
+            if rel in reused_map:
+                records.append(reused_map[rel])
+                continue
             for suffix in ("-wal", "-shm", "-journal"):
                 sidecar = Path(str(path) + suffix)
                 if os.path.lexists(sidecar):
@@ -193,7 +292,6 @@ def capture(root, files, pids, *, max_bytes, seconds, scope="chat"):
             if key is None:
                 raise ValueError("Database salt changed during capture; retry")
             plain = decrypt_pages(data, bytes.fromhex(key))
-            relative = path.relative_to(root)
             destination = output / relative
             child_directory(output, relative.parent)
             with destination.open("xb") as target:
@@ -210,17 +308,52 @@ def capture(root, files, pids, *, max_bytes, seconds, scope="chat"):
                 # Only the observed optional FTS-index check is recorded as a gap.
                 # Authentication is still mandatory; no main data check is waived.
                 optional_indexes = {"contact/contact_fts.db", "favorite/favorite_fts.db", "message/message_fts.db"}
-                if scope != "all" or relative.as_posix() not in optional_indexes or str(exc) != "SQL logic error":
+                if scope != "all" or rel not in optional_indexes or str(exc) != "SQL logic error":
                     raise
                 integrity = "unverified"
-                integrity_gaps.append({"database": relative.as_posix(), "reason": "SQLite integrity_check returned SQL logic error"})
-            records.append({"database": relative.as_posix(), "pages": len(data) // PAGE, "authenticated": True, "sqlite_integrity": integrity, "encrypted_snapshot_sha256": hashlib.sha256(data).hexdigest(), "plaintext_sha256": hashlib.sha256(plain).hexdigest()})
-        manifest = {"snapshot_id": identifier, "profile": "full-snapshot-v1" if scope == "all" else PROFILE, "captured_at": datetime.now(timezone.utc).isoformat(), "capture_started_at": started, "capture_consistency": "per-database stable main/WAL pair, committed frames only; not an account-wide atomic transaction", "source_id": source_id(root), "databases": records, "integrity_gaps": integrity_gaps}
+                integrity_gaps.append({"database": rel, "reason": "SQLite integrity_check returned SQL logic error"})
+            decrypted_count += 1
+            records.append({
+                "database": rel,
+                "pages": len(data) // PAGE,
+                "authenticated": True,
+                "reused": False,
+                "sqlite_integrity": integrity,
+                "encrypted_snapshot_sha256": hashlib.sha256(data).hexdigest(),
+                "plaintext_sha256": hashlib.sha256(plain).hexdigest(),
+            })
+        manifest = {
+            "snapshot_id": identifier,
+            "profile": "full-snapshot-v1" if scope == "all" else PROFILE,
+            "mode": mode,
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+            "capture_started_at": started,
+            "capture_consistency": "per-database stable main/WAL pair, committed frames only; not an account-wide atomic transaction",
+            "source_id": src_id,
+            "databases": records,
+            "integrity_gaps": integrity_gaps,
+        }
         atomic_json(output / "snapshot-manifest.json", manifest)
         validation = validate_snapshot(output)
         if not validation["valid"]:
             raise ValueError("Captured chat schema is not supported by the snapshot reader")
-        receipt = {"status": "complete_with_index_gaps" if integrity_gaps else "complete", "scope": scope, "snapshot_id": identifier, "snapshot": str(output), "source_id": source_id(root), "databases": len(records), "authenticated_pages": sum(item["pages"] for item in records), "validation": "passed_core_with_index_gaps" if integrity_gaps else "passed", "integrity_gaps": integrity_gaps, "read_only_source": True, "keys_persisted": False, "scan": statistics}
+        receipt = {
+            "status": "complete_with_index_gaps" if integrity_gaps else "complete",
+            "scope": scope,
+            "mode": mode,
+            "snapshot_id": identifier,
+            "snapshot": str(output),
+            "source_id": src_id,
+            "databases": len(records),
+            "decrypted_databases": decrypted_count,
+            "reused_databases": reused_count,
+            "authenticated_pages": sum(item["pages"] for item in records),
+            "validation": "passed_core_with_index_gaps" if integrity_gaps else "passed",
+            "integrity_gaps": integrity_gaps,
+            "read_only_source": True,
+            "keys_persisted": False,
+            "scan": statistics,
+        }
         atomic_json(vault / "latest.json", receipt)
         return receipt
     except BaseException:
@@ -238,6 +371,7 @@ def main(argv=None):
         command.add_argument("--db-root", help="Explicit local db_storage directory, including a moved data directory")
         if name == "capture":
             command.add_argument("--scope", choices=("chat", "all"), default="chat", help="chat databases (default), or all local account databases")
+            command.add_argument("--mode", choices=("full", "incremental"), default="full", help="full decrypts every DB; incremental reuses verified unchanged DBs from latest snapshot")
             command.add_argument("--source-id")
             command.add_argument("--pid", action="append", type=int)
             command.add_argument("--max-db-mib", type=int, default=512)
@@ -259,7 +393,7 @@ def main(argv=None):
             selected = args.pid or pids
             if not selected or any(pid not in pids for pid in selected):
                 raise ValueError("An authorized running Weixin.exe process is required")
-            result = capture(root, files, selected, max_bytes=args.max_db_mib * 1024**2, seconds=args.seconds, scope=args.scope)
+            result = capture(root, files, selected, max_bytes=args.max_db_mib * 1024**2, seconds=args.seconds, scope=args.scope, mode=args.mode)
         print(json.dumps(result, ensure_ascii=False))
         return 0
     except (OSError, ValueError, RuntimeError, sqlite3.Error) as exc:
