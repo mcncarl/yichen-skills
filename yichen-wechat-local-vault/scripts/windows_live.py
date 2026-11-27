@@ -13,6 +13,10 @@ import sys
 import time
 import uuid
 
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
 from snapshot_reader import _secure_existing_path, validate_snapshot, connect_read_only
 from windows_crypto import PAGE, decrypt_pages, verify_enc_key
 from windows_wal import read_snapshot
@@ -363,7 +367,108 @@ def capture(root, files, pids, *, max_bytes, seconds, scope="chat", mode="full")
         keys.clear()
 
 
+def _configure_utf8_stdio() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="backslashreplace")
+
+
+def _extract_v2_image_key_live(sample_dat: bytes, pids: list[int], *, seconds: int = 30) -> dict | None:
+    from windows_native import ProcessReader, profile_owner
+    from windows_keyscan import scan_v2_image_key_in_regions
+    owner = profile_owner()
+    deadline = time.monotonic() + max(1, min(seconds, 120))
+    for pid in pids:
+        if time.monotonic() >= deadline:
+            break
+        try:
+            reader = ProcessReader(pid, owner)
+        except RuntimeError:
+            continue
+        try:
+            hit = scan_v2_image_key_in_regions(reader.regions(), reader.read, sample_dat, deadline=deadline)
+            if hit:
+                return hit
+        finally:
+            reader.close()
+    return None
+
+
+def _run_windows_images(args) -> int:
+    import snapshot_reader as sr
+    import snapshot_workflows as wf
+    from windows_native import process_ids, secure_output_root
+
+    vault = private_root()
+    if args.snapshot:
+        snap_root = sr.require_valid(args.snapshot)
+    else:
+        latest_path = vault / "latest.json"
+        if not latest_path.is_file():
+            raise ValueError("未找到 latest.json，请先执行 windows capture 或显式传入 --snapshot")
+        latest = json.loads(latest_path.read_text(encoding="utf-8"))
+        snap_str = latest.get("snapshot")
+        if not isinstance(snap_str, str) or not snap_str:
+            raise ValueError("latest.json 缺少有效的 snapshot 路径")
+        snap_root = sr.require_valid(Path(snap_str))
+
+    manifest = sr._read_manifest(snap_root)
+    attach_dir = args.attach_dir
+    if attach_dir is None:
+        candidates = discover(args.db_root)
+        target_sid = args.source_id or manifest.get("source_id") or ""
+        matched_root = None
+        if target_sid:
+            matched = [r for r, _ in candidates if source_id(r) == target_sid]
+            if len(matched) == 1:
+                matched_root = matched[0]
+        if matched_root is None and len(candidates) == 1:
+            matched_root = candidates[0][0]
+        if matched_root is not None:
+            cand_attach = matched_root.parent / "msg" / "attach"
+            if cand_attach.is_dir() and not cand_attach.is_symlink():
+                attach_dir = cand_attach
+
+    cache_dir = args.cache_dir
+    if (args.decode or args.ocr) and cache_dir is None:
+        cache_dir = secure_output_root(sr.DEFAULT_LOCAL_ROOT / "cache" / "images")
+
+    memory_fallback = None
+    if (args.decode or args.ocr) and not args.no_memory_fallback and not args.aes_key_hex:
+        pids = args.pid or process_ids()
+        if pids:
+            memory_fallback = lambda sample_raw: _extract_v2_image_key_live(sample_raw, pids, seconds=args.seconds)
+
+    try:
+        data = wf.snapshot_images(
+            sr,
+            snap_root,
+            args.chat_id,
+            start=sr.parse_date(args.start),
+            end=sr.parse_date(args.end, True),
+            limit=args.limit,
+            attach_dir=attach_dir,
+            kvcomm_dirs=tuple(args.kvcomm_dir or ()),
+            decode_images=args.decode,
+            ocr=args.ocr,
+            aes_key_hex=args.aes_key_hex,
+            xor_key=args.xor_key,
+            memory_key_fallback=memory_fallback,
+            cache_dir=cache_dir,
+            confirm_external=args.confirm_external_output,
+        )
+    except sr.ReaderError as exc:
+        raise ValueError(str(exc)) from None
+    if args.format == "text":
+        print(wf.render_images_text(data))
+    else:
+        print(json.dumps(data, ensure_ascii=False, indent=2))
+    return 0
+
+
 def main(argv=None):
+    _configure_utf8_stdio()
     parser = argparse.ArgumentParser(description="Windows live chat capture; requires explicit authorization for the selected local account")
     sub = parser.add_subparsers(dest="command", required=True)
     for name in ("discover", "capture"):
@@ -376,10 +481,32 @@ def main(argv=None):
             command.add_argument("--pid", action="append", type=int)
             command.add_argument("--max-db-mib", type=int, default=512)
             command.add_argument("--seconds", type=int, default=90)
+    img = sub.add_parser("images", help="定位、自动解码（kvcomm/CNG/内存兜底）并 OCR 识别 Windows 聊天图片")
+    img.add_argument("chat_id")
+    img.add_argument("--snapshot", type=Path, help="已验证的明文快照目录（默认使用 latest.json）")
+    img.add_argument("--db-root", help="显式指定本地 db_storage 目录以自动定位 msg/attach")
+    img.add_argument("--source-id", help="多账号时指定 source_id")
+    img.add_argument("--attach-dir", type=Path, help="显式指定本账号 msg/attach 目录")
+    img.add_argument("--kvcomm-dir", action="append", type=Path, help="额外指定 kvcomm 目录，可重复")
+    img.add_argument("--start")
+    img.add_argument("--end")
+    img.add_argument("--limit", type=int, default=20)
+    img.add_argument("--decode", action="store_true", help="自动解码为可查看图片，写入 NTFS 私有缓存")
+    img.add_argument("--ocr", action="store_true", help="解码后用 Windows 原生 WinRT OCR（或 Tesseract）识字；隐含 --decode")
+    img.add_argument("--aes-key-hex", help="手动覆盖 V1/V2 .dat 的 16 字节 AES 密钥（32 位十六进制）")
+    img.add_argument("--xor-key", type=int, help="手动覆盖 .dat 的单字节 XOR 密钥（0-255）")
+    img.add_argument("--cache-dir", type=Path, help="解码缓存目录，默认本机私有 NTFS ACL cache/images")
+    img.add_argument("--confirm-external-output", action="store_true")
+    img.add_argument("--pid", action="append", type=int)
+    img.add_argument("--seconds", type=int, default=30)
+    img.add_argument("--no-memory-fallback", action="store_true", help="禁用 kvcomm 未命中时的 Weixin.exe 只读内存密钥回退")
+    img.add_argument("--format", choices=["json", "text"], default="json")
     args = parser.parse_args(argv)
     try:
         from windows_native import require_windows, process_ids
         require_windows()
+        if args.command == "images":
+            return _run_windows_images(args)
         if args.command == "capture" and (not 1 <= args.max_db_mib <= 8192 or not 1 <= args.seconds <= 300):
             raise ValueError("Capture bounds are outside the allowed range")
         candidates = discover(args.db_root)

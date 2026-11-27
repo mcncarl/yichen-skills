@@ -491,6 +491,144 @@ class WindowsParityTests(unittest.TestCase):
         self.assertIn(clear_png, previews)
         self.assertIn(clear_jpg, previews)
 
+    def test_images_auto_derives_v2_key_from_kvcomm_without_manual_key(self):
+        # Standard WeChat 4.x layout: xwechat_files/<account_dir>/msg/attach/<md5(chat)>/<YYYY-MM>/Img/<hash>_h.dat
+        acct_dir = self.case / "xwechat_files" / f"{ACCOUNT}_abcd"
+        attach = acct_dir / "msg" / "attach"
+        month = attach / hashlib.md5(ALICE.encode()).hexdigest() / datetime.fromtimestamp(self.fx["now"]).strftime("%Y-%m") / "Img"
+        month.mkdir(parents=True)
+        kvcomm = self.case / "kvcomm"
+        kvcomm.mkdir(parents=True)
+        (kvcomm / "key_0_1111_1_input.statistic").write_bytes(b"")
+        code_num = 200890261
+        (kvcomm / f"key_{code_num}_4065599288_1_input.statistic").write_bytes(b"")
+
+        derived_aes = hashlib.md5(f"{code_num}{ACCOUNT}".encode()).hexdigest()[:16].encode("ascii")
+        derived_xor = code_num & 255
+        clear_png = b"\x89PNG\r\n\x1a\n" + b"synthetic-kvcomm-v2-png"
+        clear_jpg = b"\xff\xd8\xff\xe0" + b"synthetic-kvcomm-xor-jpg"
+        (month / f"{self.fx['img_hash_v2']}_h.dat").write_bytes(_encrypted_v2_dat(clear_png, derived_aes, derived_xor))
+        (month / f"{self.fx['img_hash_xor']}.dat").write_bytes(bytes(b ^ 0x3C for b in clear_jpg))
+
+        # Test even when snapshot-manifest omits account_username (inferred from attach_dir parent.parent).
+        snap_no_acct = self.case / "snap-no-acct"
+        fx_no_acct = build_rich_snapshot(snap_no_acct, account_username=None, now_ts=self.fx["now"])
+        cache = self.case / "kvcomm-cache"
+        code, out, err = self.run_snap(
+            "images", fx_no_acct["alice_id"],
+            "--attach-dir", str(attach),
+            "--kvcomm-dir", str(kvcomm),
+            "--decode",
+            "--cache-dir", str(cache),
+            "--confirm-external-output",
+            snap=snap_no_acct,
+        )
+        self.assertEqual(code, 0, err)
+        data = json.loads(out)
+        self.assertEqual(data["count"], 2)
+        self.assertEqual(data["found"], 2)
+        self.assertEqual(data["decoded"], 2)
+        self.assertEqual(data["key_source"], "kvcomm")
+        self.assertNotIn("wxid_", out)
+        previews = [Path(img["preview_path"]).read_bytes() for img in data["images"]]
+        self.assertIn(clear_png, previews)
+        self.assertIn(clear_jpg, previews)
+
+    def test_windows_winrt_ocr_wrapper_and_fallback(self):
+        import group_image_media as media
+        fake_img = self.case / "sample.png"
+        fake_img.write_bytes(b"\x89PNG\r\n\x1a\nfake")
+
+        ok_zh = subprocess.CompletedProcess(
+            args=["powershell.exe"],
+            returncode=0,
+            stdout=json.dumps({
+                "ok": True,
+                "language": "zh-Hans-CN",
+                "available_languages": ["zh-Hans-CN", "en-US"],
+                "text": "合同金额：￥100.00\n已确认",
+            }, ensure_ascii=False),
+            stderr="",
+        )
+        with mock.patch("sys.platform", "win32"), mock.patch.object(media.subprocess, "run", return_value=ok_zh):
+            res = media.ocr_image_with_local_engine(fake_img)
+        self.assertEqual(res["engine"], "WinRT")
+        self.assertEqual(res["language"], "zh-Hans-CN")
+        self.assertIn("合同金额：￥100.00", res["text"])
+        self.assertNotIn("note", res)
+
+        en_only = subprocess.CompletedProcess(
+            args=["powershell.exe"],
+            returncode=0,
+            stdout=json.dumps({
+                "ok": True,
+                "language": "en-US",
+                "available_languages": ["en-US"],
+                "text": "INVOICE 2026",
+            }),
+            stderr="",
+        )
+        with mock.patch("sys.platform", "win32"), mock.patch.object(media.subprocess, "run", return_value=en_only):
+            res2 = media.ocr_image_with_local_engine(fake_img)
+        self.assertEqual(res2["engine"], "WinRT")
+        self.assertEqual(res2["text"], "INVOICE 2026")
+        self.assertIn("中文", res2.get("note", ""))
+
+        # When WinRT fails and Tesseract succeeds, fall back cleanly to Tesseract.
+        with mock.patch("sys.platform", "win32"), \
+             mock.patch.object(media, "ocr_with_windows_winrt", return_value={"engine": "WinRT", "text": "", "error": "no_ocr_language"}), \
+             mock.patch.object(media, "ocr_with_tesseract", return_value={"engine": "Tesseract", "text": "TESS_FALLBACK", "error": ""}):
+            res3 = media.ocr_image_with_local_engine(fake_img)
+        self.assertEqual(res3["engine"], "Tesseract")
+        self.assertEqual(res3["text"], "TESS_FALLBACK")
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows native WinRT OCR check")
+    def test_real_windows_winrt_ocr_recognizes_synthetic_png(self):
+        import base64
+        import group_image_media as media
+        img_path = self.case / "winrt-ocr-live.png"
+        ps_gen = (
+            "$ProgressPreference = 'SilentlyContinue'; "
+            "Add-Type -AssemblyName System.Drawing; "
+            "$b = New-Object System.Drawing.Bitmap(460, 120); "
+            "$g = [System.Drawing.Graphics]::FromImage($b); "
+            "$g.Clear([System.Drawing.Color]::White); "
+            "$f = New-Object System.Drawing.Font('Segoe UI', 28, [System.Drawing.FontStyle]::Bold); "
+            "$g.DrawString('WECHAT OCR 2026', $f, [System.Drawing.Brushes]::Black, 20, 35); "
+            "$g.Dispose(); "
+            f"$b.Save('{img_path}', [System.Drawing.Imaging.ImageFormat]::Png); "
+            "$b.Dispose()"
+        )
+        subprocess.run(
+            ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-EncodedCommand",
+             base64.b64encode(ps_gen.encode("utf-16le")).decode("ascii")],
+            check=True,
+            timeout=30,
+        )
+        res = media.ocr_with_windows_winrt(img_path)
+        self.assertEqual(res["engine"], "WinRT", res)
+        if res.get("error") == "no_ocr_language":
+            self.skipTest("No WinRT OCR language packs installed on this runner")
+        self.assertIn("2026", res["text"], res)
+
+    def test_entrypoints_work_without_script_dir_on_sys_path(self):
+        # Simulates Windows Embeddable Python (python312._pth) where scripts/ is omitted from sys.path.
+        scripts_dir = str((ROOT / "scripts").resolve())
+        for script_name in ("vault_cli.py", "snapshot_reader.py", "windows_live.py"):
+            with self.subTest(script=script_name):
+                script_path = str((ROOT / "scripts" / script_name).resolve())
+                code = (
+                    "import runpy, sys\n"
+                    f"sys.path[:] = [p for p in sys.path if p and p != {scripts_dir!r}]\n"
+                    f"sys.argv = [{script_path!r}, '--help']\n"
+                    "try:\n"
+                    f"    runpy.run_path({script_path!r}, run_name='__main__')\n"
+                    "except SystemExit as e:\n"
+                    "    sys.exit(0 if e.code in (0, None) else e.code)\n"
+                )
+                proc = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, encoding="utf-8")
+                self.assertEqual(proc.returncode, 0, f"{script_name}: stderr={proc.stderr}")
+
     def test_workflows_module_contains_no_forbidden_live_extraction_symbols(self):
         source = (ROOT / "scripts/snapshot_workflows.py").read_text(encoding="utf-8").casefold()
         for forbidden in ("openprocess", "readprocessmemory", "dpapi", "sqlcipher", "frida", "wx-cli"):

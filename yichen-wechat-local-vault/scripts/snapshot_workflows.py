@@ -2109,31 +2109,74 @@ def _detect_image_format(data: bytes) -> str | None:
     return None
 
 
-def _decode_dat_bytes_portable(raw: bytes, *, aes_key: bytes | None = None, xor_key: int | None = None) -> tuple[bytes, str]:
-    """Decode plain image, legacy single-byte XOR .dat, or WeChat 4.x V1/V2 .dat."""
+def _infer_v2_xor_key(raw: bytes, fmt: str) -> int | None:
+    """Recover single-byte XOR tail key from known image EOF markers when xor_size > 0."""
+    if len(raw) < 15:
+        return None
+    xor_size = struct.unpack("<I", raw[10:14])[0]
+    if xor_size == 0:
+        return 0
+    if xor_size > len(raw) - 15:
+        return None
+    tail = raw[len(raw) - xor_size :]
+    if fmt == "jpg" and len(tail) >= 2:
+        k = tail[-1] ^ 0xD9
+        if (tail[-2] ^ k) == 0xFF:
+            return k
+    if fmt == "png" and len(tail) >= 2:
+        k = tail[-1] ^ 0x82
+        if (tail[-2] ^ k) == 0x60:
+            return k
+    if fmt == "gif" and len(tail) >= 1:
+        return tail[-1] ^ 0x3B
+    return None
+
+
+def _decode_dat_bytes_with_candidates(
+    raw: bytes,
+    *,
+    key_candidates: list[dict] = (),
+    explicit_xor_key: int | None = None,
+) -> tuple[bytes, str, dict | None]:
+    """Decode plain image, V1/V2 .dat (trying candidate keys), or legacy single-byte XOR .dat."""
     direct = _detect_image_format(raw)
     if direct:
-        return raw, direct
+        return raw, direct, None
     if len(raw) >= 15 and raw.startswith((b"\x07\x08V2\x08\x07", b"\x07\x08V1\x08\x07")):
-        if aes_key is None or xor_key is None:
-            raise ValueError("V1/V2 .dat 需要提供图片 AES 密钥和 XOR 密钥")
         aes_size = struct.unpack("<I", raw[6:10])[0]
         xor_size = struct.unpack("<I", raw[10:14])[0]
         aes_end = 15 + aes_size + (16 - aes_size % 16)
         raw_end = len(raw) - xor_size
         if aes_end > raw_end:
             raise ValueError("invalid image layout")
-        clear_head = _aes_ecb_decrypt(aes_key, raw[15:aes_end])
-        pad = clear_head[-1]
-        if not 1 <= pad <= 16 or clear_head[-pad:] != bytes([pad]) * pad:
-            raise ValueError("invalid image key")
-        clear = clear_head[:-pad] + raw[aes_end:raw_end] + bytes(v ^ (xor_key & 0xFF) for v in raw[raw_end:])
-        fmt = _detect_image_format(clear)
-        if not fmt:
-            raise ValueError("unknown image format")
-        return clear, fmt
+        if not key_candidates:
+            raise ValueError("V1/V2 .dat 未找到可用图片密钥（可传 --aes-key-hex/--xor-key 或在 Windows 下使用 windows images）")
+        last_err = "invalid image key"
+        for cand in key_candidates:
+            aes_key = cand.get("aesKey")
+            xor_key = cand.get("xorKey")
+            if not isinstance(aes_key, (bytes, bytearray)) or len(aes_key) != 16:
+                continue
+            try:
+                clear_head = _aes_ecb_decrypt(bytes(aes_key), raw[15:aes_end])
+                pad = clear_head[-1]
+                if not 1 <= pad <= 16 or clear_head[-pad:] != bytes([pad]) * pad:
+                    continue
+                head_plain = clear_head[:-pad]
+                fmt = _detect_image_format(head_plain)
+                if not fmt:
+                    continue
+                eff_xor = xor_key if xor_key is not None else _infer_v2_xor_key(raw, fmt)
+                if eff_xor is None:
+                    last_err = "missing XOR key for V1/V2 tail"
+                    continue
+                clear = head_plain + raw[aes_end:raw_end] + bytes(v ^ (int(eff_xor) & 0xFF) for v in raw[raw_end:])
+                return clear, fmt, {"aesKey": bytes(aes_key), "xorKey": int(eff_xor) & 0xFF, "source": cand.get("source", "explicit")}
+            except Exception as exc:
+                last_err = str(exc)
+        raise ValueError(last_err)
     # Legacy pure-XOR .dat: try explicit xor_key first, then magic-byte auto-detection.
-    candidates: list[int] = [xor_key & 0xFF] if xor_key is not None else []
+    candidates: list[int] = [explicit_xor_key & 0xFF] if explicit_xor_key is not None else []
     if len(raw) >= 4:
         for magic in (b"\xff\xd8\xff", b"\x89PNG", b"GIF8", b"RIFF"):
             k = raw[0] ^ magic[0]
@@ -2143,8 +2186,15 @@ def _decode_dat_bytes_portable(raw: bytes, *, aes_key: bytes | None = None, xor_
         clear = bytes(b ^ k for b in raw)
         fmt = _detect_image_format(clear)
         if fmt:
-            return clear, fmt
+            return clear, fmt, None
     raise ValueError("unsupported or encrypted image .dat")
+
+
+def _decode_dat_bytes_portable(raw: bytes, *, aes_key: bytes | None = None, xor_key: int | None = None) -> tuple[bytes, str]:
+    """Decode plain image, legacy single-byte XOR .dat, or WeChat 4.x V1/V2 .dat."""
+    cands = [{"aesKey": aes_key, "xorKey": xor_key, "source": "explicit"}] if aes_key is not None else []
+    clear, fmt, _ = _decode_dat_bytes_with_candidates(raw, key_candidates=cands, explicit_xor_key=xor_key)
+    return clear, fmt
 
 
 def snapshot_images(
@@ -2156,10 +2206,13 @@ def snapshot_images(
     end: int | None = None,
     limit: int = 20,
     attach_dir: Path | None = None,
+    kvcomm_dirs: tuple[Path, ...] = (),
     decode_images: bool = False,
     ocr: bool = False,
     aes_key_hex: str | None = None,
     xor_key: int | None = None,
+    extra_key_candidates: list[dict] | None = None,
+    memory_key_fallback=None,
     cache_dir: Path | None = None,
     confirm_external: bool = False,
 ) -> dict:
@@ -2247,6 +2300,7 @@ def snapshot_images(
     do_decode = decode_images or ocr
     default_cache = reader.DEFAULT_LOCAL_ROOT / "cache/images"
     resolved_cache: Path | None = None
+    v2_candidates: list[dict] = []
     if do_decode and finder:
         resolved_cache = _secure_output_dir(
             reader,
@@ -2260,9 +2314,29 @@ def snapshot_images(
             os.chmod(resolved_cache, 0o700)
         except OSError:
             pass
-        if aes_key is None:
-            gaps.append("未提供 --aes-key-hex：纯 XOR 或未加密图片可自动解码；Windows 微信 4.x V2 .dat 图片密钥自动提取尚未实机验收")
+        if aes_key is not None:
+            v2_candidates.append({"aesKey": aes_key, "xorKey": xor_key, "source": "explicit"})
+        if extra_key_candidates:
+            v2_candidates.extend(extra_key_candidates)
+        secured_kvcomm = tuple(
+            reader._secure_existing_path(d, label="--kvcomm-dir", expected="directory")
+            for d in kvcomm_dirs
+        )
+        kv_cands = media.kvcomm_image_key_candidates(
+            manifest.get("account_username", ""),
+            attach_dir=secured_attach,
+            extra_kvcomm_dirs=secured_kvcomm,
+        )
+        seen_pairs = {(bytes(c["aesKey"]), c.get("xorKey")) for c in v2_candidates if c.get("aesKey")}
+        for cand in kv_cands:
+            pair = (bytes(cand["aesKey"]), cand.get("xorKey"))
+            if pair not in seen_pairs:
+                seen_pairs.add(pair)
+                v2_candidates.append(cand)
 
+    memory_fallback_tried = False
+    key_source_used = ""
+    v2_missing_key = False
     images = []
     for row in rows:
         item = {k: row[k] for k in ("message_id", "time", "timestamp", "sender")}
@@ -2280,7 +2354,32 @@ def snapshot_images(
             for p in sorted(paths, key=lambda x: IMAGE_ASSET_ORDER.index(_image_asset_level(x))):
                 try:
                     raw = p.read_bytes()
-                    clear, fmt = _decode_dat_bytes_portable(raw, aes_key=aes_key, xor_key=xor_key)
+                    try:
+                        clear, fmt, matched_cand = _decode_dat_bytes_with_candidates(
+                            raw, key_candidates=v2_candidates, explicit_xor_key=xor_key
+                        )
+                    except ValueError:
+                        is_v12 = len(raw) >= 15 and raw.startswith((b"\x07\x08V2\x08\x07", b"\x07\x08V1\x08\x07"))
+                        if is_v12 and memory_key_fallback is not None and not memory_fallback_tried:
+                            memory_fallback_tried = True
+                            mem_cand = memory_key_fallback(raw)
+                            if mem_cand:
+                                v2_candidates.insert(0, mem_cand)
+                                clear, fmt, matched_cand = _decode_dat_bytes_with_candidates(
+                                    raw, key_candidates=v2_candidates, explicit_xor_key=xor_key
+                                )
+                            else:
+                                v2_missing_key = True
+                                raise
+                        else:
+                            if is_v12:
+                                v2_missing_key = True
+                            raise
+                    if matched_cand:
+                        key_source_used = key_source_used or str(matched_cand.get("source") or "")
+                        # Promote matched candidate to index 0 in RAM only (never persisted).
+                        if not v2_candidates or v2_candidates[0].get("aesKey") != matched_cand["aesKey"]:
+                            v2_candidates.insert(0, matched_cand)
                     stem = hashlib.sha256((row["message_id"] + "|" + p.name).encode()).hexdigest()[:20]
                     target = resolved_cache / f"{stem}.{fmt}"
                     target.write_bytes(clear)
@@ -2296,13 +2395,11 @@ def snapshot_images(
             if "preview_path" not in item:
                 item["decode_error"] = "；".join(errors) or "没有可解码的附件"
             elif ocr:
-                item["ocr"] = (
-                    media.ocr_image_with_local_engine(Path(item["preview_path"]))
-                    if sys.platform == "darwin"
-                    else media.ocr_with_tesseract(Path(item["preview_path"]))
-                )
+                item["ocr"] = media.ocr_image_with_local_engine(Path(item["preview_path"]))
         images.append(item)
 
+    if v2_missing_key and not any(item.get("preview_path") for item in images):
+        gaps.append("未能自动匹配 V1/V2 .dat 图片密钥：可检查本地 kvcomm 目录、手动传 --aes-key-hex/--xor-key，或在 Windows 上保持微信运行后用 windows images 解码")
     if finder:
         gaps.extend(f"附件目录扫描受阻: {gap['reason']}" for gap in finder.gaps)
     statuses = Counter(item["status"] for item in images)
@@ -2312,6 +2409,7 @@ def snapshot_images(
         count=len(images),
         found=statuses.get("found", 0),
         decoded=sum(1 for item in images if item.get("preview_path")),
+        key_source=key_source_used,
         cache_dir=str(resolved_cache) if resolved_cache else "",
         gaps=gaps,
         images=images,
@@ -2339,5 +2437,8 @@ def render_images_text(data: dict) -> str:
         ocr = item.get("ocr")
         if ocr:
             text = ocr.get("text") or ""
-            lines.append(f"  识字（{ocr.get('engine')}，仅供参考）: " + (text.replace("\n", " / ")[:300] if text else f"未识别出文字 {ocr.get('error') or ''}".rstrip()))
+            lang = f"/{ocr['language']}" if ocr.get("language") else ""
+            lines.append(f"  识字（{ocr.get('engine')}{lang}，仅供参考）: " + (text.replace("\n", " / ")[:300] if text else f"未识别出文字 {ocr.get('error') or ''}".rstrip()))
+            if ocr.get("note"):
+                lines.append(f"  识字提示: {ocr['note']}")
     return "\n".join(lines)

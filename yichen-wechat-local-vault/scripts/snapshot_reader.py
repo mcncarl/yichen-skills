@@ -20,6 +20,10 @@ import tempfile
 from typing import Iterator
 import uuid
 
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
 from wechat_schema import message_columns as shared_message_columns
 from wechat_schema import message_table as shared_message_table
 from message_display import format_message_content, public_value
@@ -949,6 +953,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--end")
     p.add_argument("--limit", type=bounded_limit, default=20)
     p.add_argument("--attach-dir", type=Path, help="显式指定本账号 msg/attach 目录")
+    p.add_argument("--kvcomm-dir", action="append", type=Path, help="额外指定 kvcomm 目录以自动推导 V2 图片密钥，可重复")
     p.add_argument("--decode", action="store_true", help="解码到私密缓存目录")
     p.add_argument("--ocr", action="store_true", help="解码并运行本地 OCR（隐含 --decode）")
     p.add_argument("--aes-key-hex", help="V1/V2 .dat 的 16 字节 AES 密钥（32 位十六进制）")
@@ -1085,6 +1090,7 @@ def main(argv=None) -> int:
                 end=parse_date(args.end, True),
                 limit=args.limit,
                 attach_dir=args.attach_dir,
+                kvcomm_dirs=tuple(args.kvcomm_dir or ()),
                 decode_images=args.decode,
                 ocr=args.ocr,
                 aes_key_hex=args.aes_key_hex,

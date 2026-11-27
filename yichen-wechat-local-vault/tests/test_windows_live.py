@@ -548,6 +548,71 @@ class WindowsLiveTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "not a Windows-trusted Weixin"):
             ProcessReader(os.getpid(), owner)
 
+    def test_v2_image_key_memory_scan_recovers_key_and_rejects_wrong_candidates(self):
+        def ecb_encrypt(key_bytes: bytes, data: bytes) -> bytes:
+            if sys.platform == "win32":
+                from ctypes import wintypes as w
+                aes = crypto.CngAES(key_bytes, chaining_mode="ChainingModeECB")
+                try:
+                    api = aes.api.BCryptEncrypt
+                    api.argtypes = aes.api.BCryptDecrypt.argtypes
+                    api.restype = w.LONG
+                    src = c.create_string_buffer(data, len(data))
+                    out = c.create_string_buffer(len(data))
+                    written = w.ULONG()
+                    crypto.CngAES._check(api(aes.key, src, len(data), None, None, 0, out, len(data), c.byref(written), 0))
+                    return out.raw
+                finally:
+                    aes.close()
+            from Crypto.Cipher import AES
+            return AES.new(key_bytes, AES.MODE_ECB).encrypt(data)
+
+        def ecb_factory(key_bytes: bytes):
+            if sys.platform == "win32":
+                return crypto.CngAES(key_bytes, chaining_mode="ChainingModeECB")
+            from Crypto.Cipher import AES
+            class _PyECB:
+                def decrypt(self, _iv, data):
+                    return AES.new(key_bytes, AES.MODE_ECB).decrypt(data)
+                def close(self):
+                    pass
+            return _PyECB()
+
+        real_key = b"a1b2c3d4e5f60718"
+        xor_key = 0x42
+        clear_jpg = b"\xff\xd8\xff\xe0" + b"synthetic-v2-jpeg-body" + b"\xff\xd9"
+        head, mid, tail = clear_jpg[:8], clear_jpg[8:-2], clear_jpg[-2:]
+        v2_dat = (
+            b"\x07\x08V2\x08\x07"
+            + struct.pack("<I", len(head))
+            + struct.pack("<I", len(tail))
+            + b"\x00"
+            + ecb_encrypt(real_key, head + bytes([8]) * 8)
+            + mid
+            + bytes(b ^ xor_key for b in tail)
+        )
+
+        base = 0x20000
+        mem = b"\x00" * 128 + b"deadbeef00112233" + b"\x00" * 64 + real_key + b"9988776655443322" + b"\x00" * 128
+        def read_mem(addr, size):
+            return mem[addr - base : addr - base + size] if base <= addr < base + len(mem) else b""
+
+        hit = keyscan.scan_v2_image_key_in_regions([(base, len(mem))], read_mem, v2_dat, aes_factory=ecb_factory)
+        self.assertIsNotNone(hit)
+        self.assertEqual(hit["aesKey"], real_key)
+        self.assertEqual(hit["xorKey"], xor_key)
+        self.assertEqual(hit["source"], "memory")
+
+        # Without the real key in memory, scanner returns None cleanly.
+        decoy_mem = b"\x00" * 128 + b"deadbeef00112233" + b"\x00" * 128
+        hit_none = keyscan.scan_v2_image_key_in_regions(
+            [(base, len(decoy_mem))],
+            lambda addr, size: decoy_mem[addr - base : addr - base + size] if base <= addr < base + len(decoy_mem) else b"",
+            v2_dat,
+            aes_factory=ecb_factory,
+        )
+        self.assertIsNone(hit_none)
+
 
 if __name__ == "__main__":
     unittest.main()

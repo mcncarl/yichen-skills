@@ -258,3 +258,99 @@ def _scan_windows_v411_config_cipher(
             f"(pid={pid}, nodes={stats['node_candidates']}, candidates={stats['candidate_count']})"
         )
     return stats
+
+
+_V2_IMG_HEX_RE = re.compile(rb"(?<![0-9a-fA-F])([0-9a-f]{16}|[0-9a-f]{32})(?![0-9a-fA-F])")
+
+
+def _detect_img_magic(data: bytes) -> str | None:
+    if data.startswith(b"\xff\xd8\xff"):
+        return "jpg"
+    if data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return "png"
+    if data.startswith((b"GIF87a", b"GIF89a")):
+        return "gif"
+    if data.startswith(b"RIFF") and len(data) >= 12 and data[8:12] == b"WEBP":
+        return "webp"
+    return None
+
+
+def _infer_v2_tail_xor(raw: bytes, fmt: str) -> int | None:
+    if len(raw) < 15:
+        return None
+    xor_size = struct.unpack("<I", raw[10:14])[0]
+    if xor_size == 0:
+        return 0
+    if xor_size > len(raw) - 15:
+        return None
+    tail = raw[len(raw) - xor_size :]
+    if fmt == "jpg" and len(tail) >= 2:
+        k = tail[-1] ^ 0xD9
+        if (tail[-2] ^ k) == 0xFF:
+            return k
+    if fmt == "png" and len(tail) >= 2:
+        k = tail[-1] ^ 0x82
+        if (tail[-2] ^ k) == 0x60:
+            return k
+    if fmt == "gif" and len(tail) >= 1:
+        return tail[-1] ^ 0x3B
+    return None
+
+
+def verify_v2_image_aes_key(raw: bytes, aes_key: bytes, *, aes_factory=None) -> tuple[bool, str | None, int | None]:
+    """Cryptographically verify a 16-byte AES-128-ECB image key against a V1/V2 .dat header block."""
+    if len(aes_key) != 16 or len(raw) < 31 or not raw.startswith((b"\x07\x08V2\x08\x07", b"\x07\x08V1\x08\x07")):
+        return False, None, None
+    aes_size = struct.unpack("<I", raw[6:10])[0]
+    xor_size = struct.unpack("<I", raw[10:14])[0]
+    aes_end = 15 + aes_size + (16 - aes_size % 16)
+    raw_end = len(raw) - xor_size
+    if aes_end > raw_end or aes_end <= 15:
+        return False, None, None
+    # Quick first-block filter: image magic lives in the first 16 decrypted bytes.
+    first_block = raw[15:31]
+    from windows_crypto import CngAES
+    cipher = aes_factory(aes_key) if aes_factory is not None else CngAES(aes_key, chaining_mode="ChainingModeECB")
+    try:
+        plain0 = cipher.decrypt(None, first_block)
+        fmt = _detect_img_magic(plain0)
+        if not fmt:
+            return False, None, None
+        full_plain = plain0 if aes_end == 31 else cipher.decrypt(None, raw[15:aes_end])
+        pad = full_plain[-1]
+        if not 1 <= pad <= 16 or full_plain[-pad:] != bytes([pad]) * pad:
+            return False, None, None
+        return True, fmt, _infer_v2_tail_xor(raw, fmt)
+    except Exception:
+        return False, None, None
+    finally:
+        if hasattr(cipher, "close"):
+            cipher.close()
+
+
+def scan_v2_image_key_in_regions(
+    regions: list[tuple[int, int]],
+    read_region: callable,
+    sample_dat: bytes,
+    *,
+    aes_factory=None,
+    deadline: float | None = None,
+) -> dict | None:
+    """Read-only scan of process regions for a verified 16-byte ASCII V1/V2 image AES key (RAM-only)."""
+    import time
+    if len(sample_dat) < 31 or not sample_dat.startswith((b"\x07\x08V2\x08\x07", b"\x07\x08V1\x08\x07")):
+        return None
+    seen: set[bytes] = set()
+    for _base, chunk in _iter_windows_region_chunks(regions, read_region, overlap=64):
+        if deadline is not None and time.monotonic() >= deadline:
+            break
+        for match in _V2_IMG_HEX_RE.finditer(chunk):
+            cand = match.group(1)[:16]
+            if cand in seen or len(set(cand)) < 6:
+                continue
+            seen.add(cand)
+            ok, _fmt, xor_key = verify_v2_image_aes_key(sample_dat, cand, aes_factory=aes_factory)
+            if ok:
+                return {"aesKey": cand, "xorKey": xor_key, "source": "memory"}
+    return None
+

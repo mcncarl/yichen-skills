@@ -25,6 +25,10 @@ import sys
 import time
 from xml.etree import ElementTree as ET
 
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
 from wechat_schema import message_columns as shared_message_columns
 from wechat_schema import message_table as shared_message_table
 from message_display import ENVELOPE, HIDDEN_ID, PLACEHOLDER_TYPES, file_attachment_size, format_message_content, public_value, redact_text, transfer_fields, transfer_text
@@ -2543,7 +2547,19 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _configure_utf8_stdio() -> None:
+    """Keep Chinese help/output safe on non-UTF-8 Windows consoles (e.g. cp1252/gbk)."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            try:
+                reconfigure(encoding="utf-8", errors="replace")
+            except (OSError, ValueError):
+                pass
+
+
 def main(argv: list[str] | None = None) -> int | None:
+    _configure_utf8_stdio()
     arguments = list(sys.argv[1:] if argv is None else argv)
     if arguments and arguments[0] == "windows":
         import windows_live

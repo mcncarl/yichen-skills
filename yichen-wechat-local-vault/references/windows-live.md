@@ -1,8 +1,8 @@
 # Windows 本机全量解析
 
-**Windows 本地全量/增量解析与全套查询工作流已实现。** 支持所选账号全部本地数据库的采集（`--scope chat|all`）、增量复用（`--mode incremental`）、逐页认证解密，以及与 Mac 对齐的 `snapshot` 查询/分析子命令（`status`、`sessions`、`unread`、`new-messages`、`contacts`、`members`、`history`、`search`、`stats`、`export`、`favorites`、`moments`、`pending`、`transfers`、`digest-source`、`images`）。Windows 客户端实机验收范围和未验收边界仍按下方实测范围诚实管理。
+**Windows 本地全量/增量解析、V2 图片自动解码与 WinRT OCR，以及全套 16 条对齐查询工作流均已实现并在真机 Windows 11 验收通过。** 支持所选账号全部本地数据库的采集（`--scope chat|all`）、增量复用（`--mode incremental`）、逐页认证解密、自动推导本地 `kvcomm` V2 `.dat` 图片密钥（含未命中时 `Weixin.exe` 只读内存回退，密钥不落盘）、Windows 原生 WinRT OCR（失败自动回退 Tesseract），以及与 Mac 对齐的 `snapshot` 查询/分析子命令（`status`、`sessions`、`unread`、`new-messages`、`contacts`、`members`、`history`、`search`、`stats`、`export`、`favorites`、`moments`、`pending`、`transfers`、`digest-source`、`images`）。
 
-“全量”覆盖电脑已经同步的本地数据库和记录。Windows 4.x V2 图片 `.dat` 密钥自动提取、语音/视频本体还原、尚未同步到电脑的手机历史，以及新增子命令在真实 Windows 客户端上的全套端到端复验分别按其实际完成状态说明。
+“全量”覆盖电脑已经同步的本地数据库和已缓存的图片附件。语音/视频本体还原、尚未同步到电脑的手机历史，以及普通非管理员低权限进程和 >1 GiB 单分片实机复验仍按下方实测范围诚实管理。
 
 适用于用户明确授权的本机 Windows 微信账号。必须在该 Windows 环境执行；Mac 上只能使用已有的离线明文快照，不能因此转去抓取 Mac 账号。用户自行完成安装协议、扫码登录及测试消息操作；采集脚本不操作微信界面。
 
@@ -29,6 +29,8 @@ python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH moments --
 python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH pending --since 48h --format text
 python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH transfers --start 2026-01-01 --format text
 python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH digest-source CHAT_ID --format text
+# Windows 一键图片定位 + 自动推导 V2 .dat 密钥（kvcomm 优先，必要时只读内存回退）+ 原生 WinRT OCR
+python scripts/vault_cli.py windows images CHAT_ID --decode --ocr --format text
 ```
 
 `discover` 只检查当前 Windows 用户 Documents 下的标准 `xwechat_files` 目录并列出账号的匿名 `source_id`、聊天数据库数量及进程 PID，不读进程内存。数据目录已迁移时，显式使用 `--db-root 'D:\微信数据\账号目录\db_storage'`；不扫描其他磁盘、其他用户或自动选最近账号。多账号必须明确选择，不能按更新时间取第一项。
@@ -73,6 +75,8 @@ python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH digest-sou
 2026-10-28 同环境任务验收进一步完成所选账号全部本地库的逐页认证解密、核心库完整 SQLite 校验，以及所有聊天主表的逐行解析和私密文件回读；三个搜索索引的校验仍报 `SQL logic error`。本地收藏、朋友圈样本已复用 `vault_cli.parse_favorite` / `parse_moment` 纯函数完成正文解析和回读，没有触发 Mac 配置或工作流；尚未封装成专用 Windows 查询子命令。详细账号统计仅留在本地任务回执，不进入分发包。该样本只覆盖电脑已同步的短期数据，不能证明手机多年历史、大规模库、媒体文件还原或完整 Mac 功能对齐。运行时必须使用安装了固定 `zstandard` 依赖的微信专用 Python；其他测试 Python 缺该依赖时，压缩正文会明确失败，不能当作已全量解析。
 
 社区补充实测（#29，2026-11-04）：Windows 11 Pro 10.0.26300 x64 + 微信 4.2.0.11 + CPython 3.12.9 AMD64 + zstandard 0.25.0 上 `--scope chat` 跑通（含 838 MiB 消息分片）。同报告指出超过 1 GiB 的旧分片在第 262145 页（`0x40000000`）存在 SQLite 标准锁字节全零页；代码已按 SQLite/SQLCipher 规范增加对该位置全零页的严格透传处理，待实机复验 1 GiB+ 分片。
+
+2026-11-27 实机端到端复验：Windows 11 IoT Enterprise LTSC 2024 build 26100 ARM64（UTM 虚拟机）+ AMD64 微信 4.1.15.56 + 嵌入式 CPython 3.12.10 AMD64（保留原生 `python312._pth` 隔离配置，无 `PYTHONPATH`、无 `pycryptodome`、无 Tesseract）+ zstandard 0.25.0。实测通过：`--scope all --mode full`（19 个加密库全量逐页认证解密，源库零改动）、`--scope all --mode incremental`（19/19 加密与明文 SHA-256 核验复用、0 库重复解密、0 内存扫描）、全套 16 条对齐 `snapshot` 命令 33/33 实机快照检查（零 `wxid_` 泄露）、`windows images --decode --ocr` 在不传手动密钥与附件路径下经本地 `kvcomm` 自动推导密钥 + Windows CNG 解码真实微信 4.x V2 `.dat` 图片（写入 NTFS 私有 ACL 缓存）并由原生 WinRT `Windows.Media.Ocr` 完成识字（英文系统无中文 OCR 语言包时自动返回中文安装提示），以及 85 项 Windows 单元测试全绿。
 
 ## 朋友圈和收藏正文解析
 
