@@ -8,13 +8,13 @@
 | --- | --- | --- |
 | 本地全库采集、解密 | 已支持 | 已支持（`windows capture --scope all`） |
 | 增量刷新 | 已支持（`decrypt_all_dbs.py --mode incremental`） | 已支持（`windows capture --mode incremental`，核验加密/明文 SHA-256 复用未变化库） |
-| 会话、未读、增量新消息、联系人、群成员 | 已支持 | 已对齐（`snapshot status/sessions/unread/new-messages/contacts/members`） |
-| 聊天记录、全局搜索、类型过滤、统计、导出 | 已支持 | 已对齐（`snapshot history/search/stats/export`） |
+| 会话、未读、增量新消息、联系人、群成员 | 已支持 | 已对齐（`snapshot status/sessions/unread/new-messages/contacts(--detail)/members`） |
+| 聊天记录、全局搜索、类型过滤、统计、导出 | 已支持 | 已对齐（`snapshot history/search/stats/export`，含 `--media --file-dir` 文件定位） |
 | 收藏、朋友圈正文解析 | 已支持 | 已封装独立子命令（`snapshot favorites` / `snapshot moments`） |
 | 漏看/待回复、转账汇总、群聊摘要素材包 | 已支持 | 已对齐（`snapshot pending` / `transfers` / `digest-source`） |
-| 聊天图片定位、解码与本地 OCR | 已支持（含 `kvcomm` 密钥自动候选） | 已对齐命令（`snapshot images` 支持 `--attach-dir` 定位、XOR 与显式密钥 V1/V2 `.dat` CNG 解码及 Tesseract OCR；Windows 4.x V2 图片密钥自动提取待实机验收） |
+| 聊天图片定位、解码与本地 OCR | 已支持（含 `kvcomm` 密钥自动候选） | 已对齐（`windows images` 与 `snapshot images` 支持 `--message-id`、`kvcomm` 自动推导 V2 `.dat` 密钥 + Windows CNG 解码 + `Weixin.exe` 只读内存回退 + 原生 WinRT / Tesseract 中文 OCR） |
 
-三个搜索索引库的 SQLite 校验缺口会明确返回，不影响聊天主表解析；Windows 新增子命令与增量模式已通过完整合成回归测试，真实 Windows 客户端复验范围以 [本机全量解析说明](references/windows-live.md) 为准。
+三个 `MMFtsTokenizer` 搜索索引库会对底层全部物理表与 FTS5 影子 B-tree 逐表执行 `integrity_check`，仅将私有虚拟表分词器缺口明确返回，不影响聊天主表解析；Windows 全套能力已通过 Windows 11 真机端到端验收与 GitHub Actions（`windows-latest` + `macos-latest`）持续集成回归，实测范围以 [本机全量解析说明](references/windows-live.md) 为准。
 
 ## 隐私路径
 
@@ -82,9 +82,9 @@ python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot se
 python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot unread --format text
 python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot new-messages --previous-snapshot /path/to/old-snapshot --format text
 python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot chats --query "群名"
-python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot contacts --query "关键词" --format text
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot contacts --detail CHAT_ID --format text
 python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot members CHAT_ID --format text
-python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot history CHAT_ID --type text --format text
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot history CHAT_ID --type file --media --file-dir /path/to/msg/file --format text
 python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot search CHAT_ID "关键词"
 python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot search --all "关键词" --format text
 python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot stats CHAT_ID --format text
@@ -94,7 +94,9 @@ python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot mo
 python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot pending --since 48h --format text
 python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot transfers --start 2026-01-01 --format text
 python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot digest-source CHAT_ID --start 2026-05-01 --end 2026-05-14 --format text
-python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot images CHAT_ID --attach-dir /path/to/msg/attach --format text
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot images CHAT_ID --attach-dir /path/to/msg/attach --decode --ocr --format text
+# Windows 本机一键自动绑定最新快照与 msg/attach、自动推导 V2 密钥并 OCR：
+python scripts/vault_cli.py windows images CHAT_ID --decode --ocr --format text
 ```
 
 输入必须是静止且已 checkpoint 的明文快照，附有效 manifest。支持的 Schema、导出规则、依赖和原始贡献来源见 [Windows 快照模式](references/windows-snapshot.md)。合成测试不等于真实 Windows 微信版本验收。

@@ -6,7 +6,7 @@
 
 使用 `scripts/vault_cli.py snapshot ...`。它直接进入快照后端，不加载 Mac 配置、查找 Mac 数据目录、执行增量刷新、抓密钥、解密或操作客户端。未知来源不能自动降级成 Mac 模式。
 
-支持与 Mac 对齐的全部只读分析子命令：结构校验（`validate`/`status`）、会话与未读（`sessions`/`unread`/`new-messages`）、联系人与群成员（`chats`/`contacts`/`members`）、指定会话历史（`history`，支持 `--type`/`--offset`/`--format text`）、单会话或全局关键词搜索（`search`）、统计（`stats`）、Markdown/TXT 导出（`export`）、收藏夹与朋友圈正文（`favorites`/`moments`，需 `full-snapshot-v1`）、漏看/待回复（`pending`）、转账多币种汇总（`transfers`）、群聊摘要素材包（`digest-source`）及本地图片附件定位/解码（`images`）。本身不触发实时同步或内存采集；新增工作流均保持只读、匿名 `chat_id`、`untrusted_snapshot_data` 标记和输出目录边界。
+支持与 Mac 对齐的全部只读分析子命令与细粒度参数：结构校验（`validate`/`status`）、会话与未读（`sessions`/`unread`/`new-messages`）、联系人与群成员（`chats`/`contacts --detail`/`members`）、指定会话历史（`history`，支持 `--type`/`--offset`/`--media --file-dir`/`--format text`）、单会话或全局关键词搜索（`search`）、统计（`stats`）、Markdown/TXT 导出（`export`，支持 `--media --file-dir`）、收藏夹与朋友圈正文（`favorites`/`moments`，需 `full-snapshot-v1`）、漏看/待回复（`pending`）、转账多币种汇总（`transfers`）、群聊摘要素材包（`digest-source`，支持 `--media --file-dir`）及本地图片附件定位/自动推导 `kvcomm` 密钥解码/本地 WinRT 或 Tesseract OCR（`images`，支持 `--message-id`）。本身不触发实时同步或内存采集；新增工作流均保持只读、匿名 `chat_id`、`untrusted_snapshot_data` 标记和输出目录边界。
 
 ## 输入与选择
 
@@ -24,7 +24,7 @@ python3 "{{SKILL_DIR}}/scripts/vault_cli.py" snapshot --snapshot /path/to/author
 python3 "{{SKILL_DIR}}/scripts/vault_cli.py" snapshot --snapshot /path/to/authorized-snapshot export CHAT_ID --output /authorized/export/chat.md --confirm-external-output
 ```
 
-Windows 上可用 `py -3.12` 替换 `python3`，使用 Windows 本地路径。参数位于 `snapshot` 后；不与 Mac 的 `--decrypted-dir`、`--media`、`--start-time` 等参数混用。
+Windows 上可用 `py -3.12` 替换 `python3`，使用 Windows 本地路径。参数位于 `snapshot` 后；不与 Mac 根级的 `--decrypted-dir` 或 `--start-time` 参数名混用（快照模式统一用 `--start`/`--end`，文件附件定位配合 `--media --file-dir`）。
 
 ## 快照契约
 

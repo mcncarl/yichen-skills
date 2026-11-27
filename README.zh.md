@@ -77,10 +77,10 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 
 - macOS：全量/增量解密，聊天、图片附件解码与识字、转账汇总、朋友圈、收藏夹、摘要和漏看/待回复检查
 - Windows 本地全量/增量采集：`windows capture --scope all --source-id SOURCE_ID` 覆盖所选账号全部本地库；`--mode incremental` 核验加密与明文双 SHA-256 复用未变化库并生成新的不可变快照
-- Windows 与 Mac 颗粒度对齐：`snapshot --snapshot <目录>` 现已覆盖 `validate`、`status`、`sessions`、`unread`、`new-messages`、`chats`、`contacts`、`members`、`history`、`search`（单会话/全局 `--all`）、`stats`、`export`（Markdown/TXT）、`favorites`、`moments`、`pending`、`transfers`、`digest-source` 与 `images`（显式 `--attach-dir`、XOR 及显式密钥 V1/V2 `.dat` 解码）
+- Windows 与 Mac 颗粒度对齐：`snapshot --snapshot <目录>` 已完整覆盖 `validate`、`status`、`sessions`、`unread`、`new-messages`、`chats`、`contacts`（`--detail`）、`members`、`history`（`--media --file-dir`）、`search`（单会话/全局 `--all`）、`stats`、`export`（Markdown/TXT，`--media --file-dir`）、`favorites`、`moments`、`pending`、`transfers`、`digest-source` 与 `images`（`--message-id`、本地 `kvcomm` 自动推导 V2 `.dat` 密钥 + Windows CNG 解码 + `windows images` 下 `Weixin.exe` 只读内存回退 + 原生 WinRT / 自动发现 Tesseract `chi_sim+eng` 中文识字）
 - Windows 收藏/朋友圈正文：已封装为 `snapshot favorites` 与 `snapshot moments` 独立子命令（只读打开、拒绝 `DOCTYPE`/`ENTITY` XML、隐藏内部账号标识）
-- 已在 Windows 11 build 26300 ARM64、AMD64 微信 4.1.15.56、CPython 3.12.10 AMD64 环境完成全库采集、聊天全量解析、收藏/朋友圈正文、新消息刷新及导出回读验收
-- 解析范围是电脑已同步的本地数据；三个已知搜索索引校验缺口会明确返回。Windows 4.x V2 图片密钥自动提取、语音/视频本体还原、普通非管理员执行、其他客户端版本/架构，以及新增对齐命令在真实 Windows 客户端上的端到端复验仍需实机验证
+- 已在 Windows 11 ARM64 + AMD64 微信 4.1.15.56 + CPython 3.12.10 AMD64（含原生嵌入式 Python `._pth` 隔离模式）完成全库全量/增量采集（19 库）、>1 GiB（265,481 页）`0x40000000` 锁字节页解密校验、三个 `MMFtsTokenizer` 索引库全部 89 张物理 B-tree 表校验、非管理员中完整性令牌（`S-1-16-8192`）、真实 V2 `.dat` 图片自动解码与中文 OCR，以及全套 16 条对齐命令端到端验收（并配有 `windows-latest` + `macos-latest` GitHub Actions CI）
+- 解析范围是电脑已同步的本地数据；语音/视频转码还原与原生 ARM64 微信客户端内存布局尚未纳入验收范围，详见 [Windows 本地全量解析](./yichen-wechat-local-vault/references/windows-live.md)
 - 不操作微信界面；登录和测试消息由用户手动完成，Windows 密钥只驻内存，明文快照写入本地私密目录
 - Mac 依赖：Python 3.9+、`pycryptodome`、`zstandard`；Windows 使用 CPython 3.12 AMD64、系统 CNG 和固定版本的 `zstandard`
 - 详见 [Skill 说明](./yichen-wechat-local-vault/README.md)、[Windows 本地全量解析](./yichen-wechat-local-vault/references/windows-live.md)和[离线快照](./yichen-wechat-local-vault/references/windows-snapshot.md)
