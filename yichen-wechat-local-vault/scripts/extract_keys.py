@@ -95,7 +95,7 @@ function isInteresting(rounds, saltHex, dkLen) {
 }
 
 function installHookAt(address, owner) {
-  Interceptor.attach(address, {
+  const callbacks = {
     onEnter: function(args) {
       this.password = args[1];
       this.passwordLen = args[2].toInt32();
@@ -134,7 +134,45 @@ function installHookAt(address, owner) {
       appendJsonLine(item);
       send({ type: 'pbkdf2', data: item });
     }
-  });
+  };
+
+  try {
+    Interceptor.attach(address, callbacks);
+    return { offset: 0 };
+  } catch (attachErr) {
+    // On macOS 27.2+ arm64, libcommonCrypto functions may start with a PAuth_LR
+    // prologue instruction (e.g. pacibsppc, 0xdac1a7fe) that Frida cannot
+    // disassemble yet. That instruction only signs LR and leaves all argument
+    // registers (x0..x7 and stack args) untouched, so attaching at +4 is safe
+    // only when +0 fails Instruction.parse and +4 parses cleanly.
+    if (Process.arch !== 'arm64') throw attachErr;
+    let zeroDecodable = true;
+    try {
+      Instruction.parse(address);
+    } catch (parseErr) {
+      zeroDecodable = false;
+    }
+    if (zeroDecodable) throw attachErr;
+
+    let firstInsn = null;
+    try {
+      firstInsn = address.readU32();
+    } catch (readErr) {
+      throw attachErr;
+    }
+    const nextAddress = address.add(4);
+    try {
+      Instruction.parse(nextAddress);
+    } catch (nextErr) {
+      throw attachErr;
+    }
+    Interceptor.attach(nextAddress, callbacks);
+    sendStatus(
+      'Entry insn 0x' + (firstInsn >>> 0).toString(16) +
+      ' undecodable on arm64; hooking ' + owner + '!CCKeyDerivationPBKDF at +4'
+    );
+    return { offset: 4 };
+  }
 }
 
 function resolveGlobalExport(name) {
@@ -146,7 +184,9 @@ function resolveGlobalExport(name) {
   if (typeof resolver === 'function') {
     try {
       const address = resolver.call(Module, name);
-      if (address) return { address: address, owner: 'global export table' };
+      if (address && !address.isNull()) {
+        return { address: address, owner: 'global export table' };
+      }
     } catch (e) {
       // Fall through to the per-module scan below.
     }
@@ -174,9 +214,10 @@ function tryInstallHook() {
 
   const found = resolveGlobalExport('CCKeyDerivationPBKDF');
   if (found) {
-    installHookAt(found.address, found.owner);
+    const installed = installHookAt(found.address, found.owner);
     hookInstalled = true;
-    sendStatus('Hook installed on ' + found.owner + '!' + 'CCKeyDerivationPBKDF');
+    const suffix = installed && installed.offset ? ' (+' + installed.offset + ')' : '';
+    sendStatus('Hook installed on ' + found.owner + '!CCKeyDerivationPBKDF' + suffix);
     return true;
   }
   return false;
