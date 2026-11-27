@@ -13,6 +13,7 @@ import argparse
 from collections import Counter
 from contextvars import ContextVar
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 import hashlib
 import html
 import json
@@ -1907,6 +1908,186 @@ def render_pending_text(data: dict) -> str:
     return "\n".join(lines).rstrip()
 
 
+# transfers: every transfer in a period, one row per transferid. The payer's message
+# (paysubtype 1) names the parties, amount and memo; 3 is the receipt, 4 the return.
+TRANSFER_SETTLE_DAYS = 3  # a receipt or return can land after the window that holds the payment
+TRANSFER_OWNER_SESSIONS = 50
+TRANSFER_DIRECTIONS = {"in": "转入", "out": "转出", "others": "他人之间"}
+
+
+def transfer_amount(text: str) -> Decimal | None:
+    match = re.search(r"\d[\d,]*(?:\.\d+)?", text or "")
+    try:
+        return Decimal(match.group(0).replace(",", "")) if match else None
+    except InvalidOperation:
+        return None
+
+
+def yuan(value: Decimal) -> str:
+    return f"￥{value:,.2f}"
+
+
+def transfer_status(entry: dict, until: int) -> tuple[str, int]:
+    states, invalid = entry["states"], entry["invalid"]
+    if "3" in states:
+        return "已收款", states["3"]["ts"]
+    if "4" in states:
+        refund = states["4"]
+        # The receiver returns a transfer before its deadline; one that runs out comes back by itself.
+        returned = refund["sender"] == entry["receiver"] and not (invalid and refund["ts"] >= invalid)
+        return ("已退还" if returned else "超时退还"), refund["ts"]
+    if invalid and invalid < until:
+        return "已过期未收", 0
+    return "待收款", 0
+
+
+def collect_transfers(scan: PendingScan, usernames: list[str], start: int | None, end: int | None, until: int) -> tuple[list[dict], int]:
+    margin = TRANSFER_SETTLE_DAYS * 86400
+    fetch_start = start - margin if start is not None else None
+    fetch_end = end + margin if end is not None else None
+    entries: dict[str, dict] = {}
+    for username in usernames:
+        for msg in scan.fetch(username, start=fetch_start, end=fetch_end, local_type=TRANSFER_TYPE):
+            body = msg["body"]
+            tid = xml_field(body, "transferid") or f"{chat_key(username)}-{msg['ts']}"
+            entry = entries.setdefault(tid, {"username": username, "states": {}, "invalid": 0})
+            state = xml_field(body, "paysubtype")
+            entry["states"].setdefault(state, {"ts": msg["ts"], "sender": msg["sender"]})
+            if state == "1":
+                invalid = xml_field(body, "invalidtime")
+                entry.update({
+                    "payer": xml_field(body, "payer_username") or msg["sender"],
+                    "receiver": xml_field(body, "receiver_username"),
+                    "amount": xml_field(body, "feedesc"),
+                    "memo": xml_field(body, "pay_memo"),
+                    "invalid": int(invalid) if invalid.isdigit() else 0,
+                })
+    rows, unmatched = [], 0
+    for entry in entries.values():
+        states = entry["states"]
+        first = min(item["ts"] for item in states.values())
+        if "1" not in states:
+            # The payment message is gone or older than the fetch: amount and parties are unknown.
+            if (start is None or first >= start) and (end is None or first <= end):
+                unmatched += 1
+            continue
+        sent = states["1"]["ts"]
+        if (start is not None and sent < start) or (end is not None and sent > end):
+            continue
+        if entry["receiver"] == scan.me:
+            direction, other = "in", entry["payer"]
+        elif entry["payer"] == scan.me:
+            direction, other = "out", entry["receiver"]
+        else:
+            direction, other = "others", ""
+        status, settled = transfer_status(entry, until)
+        amount = transfer_amount(entry["amount"])
+        rows.append({
+            "ts": sent,
+            "time": fmt_minute(sent),
+            "chat": scan.name_of(entry["username"], "未知会话"),
+            "username": entry["username"],
+            "direction": TRANSFER_DIRECTIONS[direction],
+            "counterpart": scan.name_of(other, "对方") if other else f"{scan.name_of(entry['payer'], '某人')} → {scan.name_of(entry['receiver'], '某人')}",
+            "amount": display_text(entry["amount"]) or "金额未知",
+            "amount_value": str(amount) if amount is not None else None,
+            "memo": display_text(entry["memo"], 120),
+            "status": status,
+            "settled_at": fmt_minute(settled),
+            "expires": fmt_minute(entry["invalid"]) if status == "待收款" and entry["invalid"] else "",
+        })
+    rows.sort(key=lambda row: row["ts"])
+    return rows, unmatched
+
+
+def transfer_totals(rows: list[dict]) -> dict:
+    buckets = {
+        "received": ("转入", "已收款"), "paid": ("转出", "已收款"),
+        "pending_in": ("转入", "待收款"), "pending_out": ("转出", "待收款"),
+    }
+    totals = {}
+    for key, (direction, status) in buckets.items():
+        picked = [row for row in rows if row["direction"] == direction and row["status"] == status]
+        values = [Decimal(row["amount_value"]) for row in picked if row["amount_value"] is not None]
+        totals[key] = {"count": len(picked), "amount": yuan(sum(values, Decimal(0))), "unknown_amount": len(picked) - len(values)}
+    received = sum((Decimal(row["amount_value"]) for row in rows if row["direction"] == "转入" and row["status"] == "已收款" and row["amount_value"]), Decimal(0))
+    paid = sum((Decimal(row["amount_value"]) for row in rows if row["direction"] == "转出" and row["status"] == "已收款" and row["amount_value"]), Decimal(0))
+    totals["net"] = ("+" if received >= paid else "-") + yuan(abs(received - paid))
+    totals["returned"] = sum(1 for row in rows if row["status"] in ("已退还", "超时退还", "已过期未收"))
+    return totals
+
+
+def command_transfers(args: argparse.Namespace) -> None:
+    decrypted_dir = resolve_decrypted_dir(args.decrypted_dir)
+    start, end = parse_time(args.start_time), parse_time(args.end_time, end_of_day=True)
+    if start is not None and end is not None and start > end:
+        raise SystemExit("--start-time 晚于 --end-time")
+    manifest = pending_manifest(decrypted_dir)
+    now = time.time()
+    until = int(min(manifest["created_ts"], now)) if manifest["created_ts"] else int(now)
+    sessions = session_rows(decrypted_dir, False, None)
+    scan = PendingScan(decrypted_dir)
+    try:
+        private = [s["username"] for s in sessions if is_private_chat(s["username"])][:TRANSFER_OWNER_SESSIONS]
+        scan.identify_self({username: scan.fetch(username, end=until, last=PENDING_PRIVATE_TAIL) for username in private})
+        if args.chat:
+            chats = []
+            for query in args.chat:
+                chat = resolve_chat(query, scan.contacts)
+                if not chat:
+                    raise SystemExit(f"找不到聊天对象: {query}")
+                chats.append(chat["username"])
+        else:
+            # Every chat that still has a message table, including ones no longer in the session list.
+            tables = set().union(*(tables for _, tables, _ in scan.dbs)) if scan.dbs else set()
+            known = dict.fromkeys([*scan.contacts, *(s["username"] for s in sessions)])
+            chats = [username for username in known if message_table(username) in tables]
+            unnamed = len(tables) - len({message_table(username) for username in chats})
+            if unnamed:
+                manifest["gaps"].append(f"{unnamed} 个消息表对不上联系人或会话，未统计")
+        rows, unmatched = collect_transfers(scan, list(dict.fromkeys(chats)), start, end, until)
+    finally:
+        scan.close()
+    if unmatched:
+        manifest["gaps"].append(f"{unmatched} 笔只有收款或退还消息、缺少发起消息，金额和双方未知，未列出")
+    data = {
+        "range": {"start": fmt_minute(start) if start else "最早", "end": fmt_minute(end) if end else "最新"},
+        "chats": "全部会话" if not args.chat else "、".join(scan.name_of(username, "未知会话") for username in dict.fromkeys(chats)),
+        "data_until": fmt_minute(until),
+        "count": len(rows),
+        "totals": transfer_totals(rows),
+        "gaps": manifest["gaps"],
+        "transfers": rows,
+    }
+    output(data, args.format, render_transfers_text)
+
+
+def render_transfers_text(data: dict) -> str:
+    totals = data["totals"]
+    lines = [
+        f"# 微信转账（{data['range']['start']} → {data['range']['end']}，{data['chats']}）",
+        f"数据截至 {data['data_until']}，共 {data['count']} 笔",
+        f"转入已收 {totals['received']['count']} 笔 {totals['received']['amount']}"
+        f"｜转出被收 {totals['paid']['count']} 笔 {totals['paid']['amount']}｜净额 {totals['net']}",
+        f"待我收 {totals['pending_in']['count']} 笔 {totals['pending_in']['amount']}"
+        f"｜待对方收 {totals['pending_out']['count']} 笔 {totals['pending_out']['amount']}｜退还或过期 {totals['returned']} 笔",
+    ]
+    unknown = sum(item["unknown_amount"] for key, item in totals.items() if isinstance(item, dict))
+    if unknown:
+        lines.append(f"{unknown} 笔金额无法识别，未计入合计")
+    for gap in data["gaps"]:
+        lines.append(f"⚠ {gap}")
+    lines.append("")
+    for row in data["transfers"]:
+        where = "" if row["chat"] == row["counterpart"] else f"（{row['chat']}）"
+        memo = f"（备注：{row['memo']}）" if row["memo"] else ""
+        status = row["status"] + (f" {row['settled_at']}" if row["settled_at"] else "") + (f"，{row['expires']} 过期" if row["expires"] else "")
+        lines.append(f"- {row['time']} {row['direction']} {row['counterpart']}{where} {row['amount']}{memo} · {status}")
+    if not data["transfers"]:
+        lines.append("这段时间没有转账")
+    return "\n".join(lines).rstrip()
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Query the local Mac vault or an explicit Windows plaintext snapshot.")
     parser.add_argument("--decrypted-dir", help="覆盖明文 vault 目录")
@@ -1940,6 +2121,13 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--output", help="完整结果写入此私密文件（权限 600），终端只打印摘要")
     p.add_argument("--format", choices=["json", "text"], default="json")
     p.set_defaults(func=command_pending)
+
+    p = sub.add_parser("transfers", help="转账记录：金额、方向、备注、状态和合计")
+    p.add_argument("--chat", action="append", help="只看这些联系人或群，可重复；不填为全部会话")
+    p.add_argument("--start-time", default="", help="起点 YYYY-MM-DD [HH:MM[:SS]]，按发起转账的时间算")
+    p.add_argument("--end-time", default="", help="终点 YYYY-MM-DD [HH:MM[:SS]]，只写日期时含当天")
+    p.add_argument("--format", choices=["json", "text"], default="json")
+    p.set_defaults(func=command_transfers)
 
     p = sub.add_parser("contacts", help="联系人/群聊搜索")
     p.add_argument("--query")

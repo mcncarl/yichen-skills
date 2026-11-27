@@ -53,6 +53,7 @@ python3 scripts/export_chat.py --chat-id "contact_username" --since "2025-01-01"
 - `status`：检查明文库是否齐全。
 - `sessions` / `unread` / `new-messages`：最近会话、未读和增量新消息。
 - `pending`：漏看/待回复候选，含已读未回的私聊、群里 @我/引用我/提到我/@所有人、待收或超时退回的转账、私聊红包和未接来电；`--previous` + `--since last` 接续上次检查，`--output` 写入权限 600 的私密文件。
+- `transfers`：转账记录，每笔给出转入/转出、对方、金额、备注和状态，并合计转入、转出和待收；`history`/`export` 里的转账也显示金额和状态。只含聊天里的转账消息，不是微信支付账单。
 - `contacts` / `members`：联系人、群聊和群成员。
 - `history` / `search`：按聊天对象、关键词、时间、消息类型查询；`search` 同样覆盖压缩存储的长文本、文件名和链接标题。
 - `stats`：消息总数、类型分布、发言排行、24 小时分布。

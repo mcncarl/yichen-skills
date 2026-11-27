@@ -73,7 +73,8 @@ description: |
 5. 用户问朋友圈/收藏夹：只读取对应已解密库；缺 key 再补抓。
 6. 用户明确说“群聊摘要、群聊精华、日报、复盘、从上次继续”时，优先用 `vault_cli.py digest-source` 生成素材包，再基于素材写简报；不要把整个 skill 解释成摘要工具。
 7. 用户问“有没有漏回/漏看”“谁在等我回复”“有没有人 @我”时：先过“强制新鲜度闸门”，再用 `vault_cli.py pending`；不要只看 `unread`，对方已读未回、群里被 @ 或引用都可能是 0 未读。
-8. 用户要求不操作微信界面时，只能使用 `--match-only`、已保存 key、已解密库或本地数据库文件；不要启动 Computer Use。
+8. 用户问“转账记录”“谁转了我多少钱”“某段时间收了多少转账”时：先过“强制新鲜度闸门”，再用 `vault_cli.py transfers`；它只覆盖聊天里的转账消息，不是微信支付账单。
+9. 用户要求不操作微信界面时，只能使用 `--match-only`、已保存 key、已解密库或本地数据库文件；不要启动 Computer Use。
 
 ## 统一查询入口
 
@@ -85,6 +86,7 @@ python3 {{SKILL_DIR}}/scripts/vault_cli.py sessions --limit 20 --format text
 python3 {{SKILL_DIR}}/scripts/vault_cli.py unread --format text
 python3 {{SKILL_DIR}}/scripts/vault_cli.py new-messages --format text
 python3 {{SKILL_DIR}}/scripts/vault_cli.py pending --since 48h --format text
+python3 {{SKILL_DIR}}/scripts/vault_cli.py transfers --chat "联系人或群名" --start-time "2026-01-01" --format text
 python3 {{SKILL_DIR}}/scripts/vault_cli.py contacts --query "关键词" --format text
 python3 {{SKILL_DIR}}/scripts/vault_cli.py members "群名" --format text
 python3 {{SKILL_DIR}}/scripts/vault_cli.py history "联系人或群名" --start-time "2026-05-01" --end-time "2026-05-14" --format text
@@ -98,6 +100,15 @@ python3 {{SKILL_DIR}}/scripts/vault_cli.py moments --name "联系人" --start "2
 消息类型过滤支持：`text`、`image`、`voice`、`video`、`sticker`、`location`、`link`、`file`、`call`、`system`。
 
 `search` 会解开压缩存储的长文本、文件、链接、引用和合并转发，按可读文字（文件名、链接标题等）匹配；`--chat` 覆盖整个会话历史，不只最新几十条。只命中“[文件]”“[图片]”这类标签不算匹配。`history --media` 按消息记录的文件大小核对本地文件，能认出微信给同名文件自动改名的 `name(1).ext`；大小对不上时不给路径，避免指向别的会话的同名文件。
+
+### 转账记录
+
+`history`、`search`、`export` 把转账显示为“[转账] ￥88.00（备注：定金） · 发出/已收款/已退还”。要按时间段汇总，用 `transfers`：
+
+- 每笔转账一行：发起时间、转入/转出、对方、金额、备注、状态（已收款、已退还、超时退还、已过期未收、待收款）和收款或退还时间；文本报告开头给转入已收、转出被收、净额、待收合计。
+- `--chat` 可重复，不填为全部会话；`--start-time`/`--end-time` 按发起时间筛选，会多读 3 天以找到窗口外的收款或退还。
+- 只统计聊天里留下的转账消息：删掉的聊天、扫码付款、红包和商户付款都不在内；完整流水以微信支付账单为准。只有收款或退还消息、缺少发起消息的转账不列出，数量写在 `gaps`。
+- 账号标识默认隐藏；结果含金额和备注，回复里只给用户问到的部分。
 
 ### 漏看/待回复检查
 
@@ -242,7 +253,7 @@ python3 {{SKILL_DIR}}/scripts/export_chat.py --chat-id "contact_username" --sinc
 
 ## 现有脚本
 
-- `scripts/vault_cli.py`：统一本地查询入口，保留 Mac 命令（含 `pending` 漏看/待回复检查）并路由 Windows `snapshot` 子命令。
+- `scripts/vault_cli.py`：统一本地查询入口，保留 Mac 命令（含 `pending` 漏看/待回复检查和 `transfers` 转账记录）并路由 Windows `snapshot` 子命令。
 - `scripts/snapshot_reader.py`：有边界的 Windows 离线明文快照查询/导出后端。
 - `scripts/wechat_schema.py`：两种来源共用的消息表名和字段别名；来源验证与解码策略分别保留。
 - `scripts/message_display.py`：查询、会话摘要和聊天导出共用的消息展示与字段脱敏；不读配置、不访问客户端、不改写源库。
