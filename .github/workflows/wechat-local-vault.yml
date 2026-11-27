@@ -56,6 +56,7 @@ jobs:
         shell: python
         run: |
           import json, subprocess, sys
+          sys.stdout.reconfigure(encoding="utf-8", errors="replace")
           disc = subprocess.run([sys.executable, "scripts/vault_cli.py", "windows", "discover"], capture_output=True, text=True, encoding="utf-8")
           print("windows discover rc:", disc.returncode, "stdout:", disc.stdout.strip(), "stderr:", disc.stderr.strip())
           assert disc.returncode == 0, disc.stderr
