@@ -1,6 +1,6 @@
 ﻿# yichen-skills
 
-English | [中文](./README.zh.md)
+English | [中文](./README.zh.md) | [Türkçe](./README.tr.md)
 
 A skill collection for creators who want to streamline writing, X content slicing, X Articles draft publishing, WeChat digital-asset capture, and local workflows with Claude Code and Codex.
 
