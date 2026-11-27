@@ -1,7 +1,7 @@
 ---
 name: yichen-wechat-local-vault
 description: |
-  微信本地数字资产库：支持 macOS 与已实测 Windows 环境的本地全量解析，包括全库采集、认证解密、聊天记录读取/搜索/导出，以及朋友圈和收藏正文解析。Mac 另支持增量刷新和漏看/待回复检查，默认微信1，微信2须明确指定。Windows 本机采集走 windows，离线聊天查询走 snapshot，朋友圈/收藏复用包内纯函数工作流；不触发 Mac 配置或流程。依赖最新聊天时必须先刷新相应来源，不能拿旧记录代替目标。Windows 版本及功能边界见本机采集参考。
+  微信本地数字资产库：支持 macOS 与 Windows 的本地全量/增量解析及对齐的查询工作流，包括全库采集、认证解密、会话/未读/新增消息、联系人与群成员、聊天记录读取/全局搜索/统计/导出、收藏与朋友圈正文、漏看/待回复检查、转账多币种汇总、群聊摘要素材包及图片附件定位解码。Mac 默认微信1，微信2须明确指定。Windows 本机采集走 windows（支持 --scope chat|all 与 --mode full|incremental），离线与快照分析走 snapshot，不触发 Mac 配置或流程。依赖最新聊天时必须先刷新相应来源，不能拿旧记录代替目标。Windows 实机验证范围及功能边界见本机采集参考。
 ---
 
 # 微信本地解析 Vault
@@ -28,7 +28,7 @@ description: |
 - **Mac 本机聊天 / 增量刷新**：先按下方账号选择规则确定微信1或微信2，再沿用 Mac 工作流和现有 `vault_cli.py` 命令；不能把“当前登录账号”当作默认账号。
 - **用户提供的 Windows 离线明文快照**：阅读 [Windows 快照模式](references/windows-snapshot.md)，使用 `vault_cli.py snapshot --snapshot <目录> ...`。先 `validate`，再 `chats` 选出精确 `chat_id`，最后查询或导出。不要求另装独立 Windows Skill。
 - **Windows 本机已登录账号，且明确授权采集与解密**：阅读 [Windows 本机采集](references/windows-live.md)，使用 `vault_cli.py windows discover/capture`，再把成功生成的快照交给 `snapshot` 查询。只读目标账号的聊天库与签名通过、同属该 Windows 用户的 `Weixin.exe` 内存；密钥仅驻内存。此路径仍为实验性，已验证环境及未完成的验收见该参考文档，不扩展为所有 Windows 版本和功能兼容。
-- **Windows 本地全量解析已实现**：用户要求“全量”“全部本地数据”时，使用 `windows capture --scope all --source-id ...`，采集所选账号的全部本地数据库，包括收藏、朋友圈和媒体库；未要求全库时默认只选聊天必需库。聊天查询使用 `snapshot` 的 `validate`、`chats`、`history`、`search` 和 Markdown `export`；朋友圈/收藏正文按 [Windows 正文解析工作流](references/windows-live.md#朋友圈和收藏正文解析)复用包内纯函数执行。当前未单独封装这两个查询子命令。`complete_with_index_gaps` 表示搜索索引校验仍有缺口，不能说所有库完整性均通过；媒体库解密也不等于媒体文件已还原。最新消息必须重新采集；新快照须重新选择 chat_id。缺库、Schema 不兼容或快照内有 WAL/SHM 时报告缺口，不尝试 Mac 流程、不删除 sidecar、不伪造缺失库。
+- **Windows 本地全量/增量解析与工作流对齐**：用户要求“全量”“全部本地数据”时，使用 `windows capture --scope all --source-id ...`，采集所选账号的全部本地数据库（包括收藏、朋友圈和媒体库）；日常增量刷新可加 `--mode incremental`（按加密主库+WAL 与明文双 SHA-256 复用未变化库，输出仍为全新不可变快照）。查询与分析统一使用 `snapshot` 子命令，已对齐 Mac 全部颗粒度：`validate`、`status`、`sessions`、`unread`、`new-messages`、`chats`、`contacts`、`members`、`history`（含 `--type`/`--offset`/`--format text`）、`search`（单会话或 `--all` 全局 / `--chat-id` 多会话）、`stats`、`export`（`markdown`/`txt`）、`favorites`、`moments`、`pending`、`transfers`、`digest-source`、`images`（需显式 `--attach-dir` 定位；Windows 4.x V2 图片密钥自动提取尚未实机验收，需显式密钥或仅解码 XOR/未加密图）。`complete_with_index_gaps` 表示搜索索引校验仍有缺口，不能说所有库完整性均通过；最新消息必须重新采集；新快照须重新选择 `chat_id`。缺库、Schema 不兼容或快照内有 WAL/SHM 时报告缺口，不尝试 Mac 流程、不删除 sidecar、不伪造缺失库。
 - 快照源系统由用户提供的信息确定，不根据当前运行的是 Mac 还是 Windows 猜测。可以在 Mac 上分析已授权的 Windows 明文快照，但真实 Windows 微信版本兼容性仍为实验性。
 
 ## Mac 模式：账号选择规则
@@ -261,8 +261,9 @@ python3 {{SKILL_DIR}}/scripts/export_chat.py --chat-id "contact_username" --sinc
 
 ## 现有脚本
 
-- `scripts/vault_cli.py`：统一本地查询入口，保留 Mac 命令（含 `pending` 漏看/待回复检查和 `transfers` 转账记录）并路由 Windows `snapshot` 子命令。
-- `scripts/snapshot_reader.py`：有边界的 Windows 离线明文快照查询/导出后端。
+- `scripts/vault_cli.py`：统一本地查询入口，保留 Mac 命令（含 `pending` 漏看/待回复检查和 `transfers` 转账记录）并路由 Windows `windows` / `snapshot` 子命令。
+- `scripts/snapshot_reader.py`：有边界的 Windows 离线明文快照校验、查询、导出与子命令路由后端。
+- `scripts/snapshot_workflows.py`：与 Mac 颗粒度对齐的只读快照工作流（`status`、`sessions`、`unread`、`new-messages`、`contacts`、`members`、`stats`、`favorites`、`moments`、`pending`、`transfers`、`digest-source`、`images`、全局 `search`），严守只读与匿名化边界。
 - `scripts/wechat_schema.py`：两种来源共用的消息表名和字段别名；来源验证与解码策略分别保留。
 - `scripts/group_image_media.py`：私聊/群聊图片的本地附件定位、解码和本机识字；不查询消息库，由 `vault_cli.py images` 调用。
 - `scripts/message_display.py`：查询、会话摘要和聊天导出共用的消息展示与字段脱敏；不读配置、不访问客户端、不改写源库。

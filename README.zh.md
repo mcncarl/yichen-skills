@@ -76,11 +76,11 @@ Mac 微信双开——无需第三方工具，一条命令搞定：
 统一的 **macOS / Windows 微信本地全量解析 Skill**。Windows 已实现本机全库采集、认证解密和聊天主表逐行解析；收藏、朋友圈正文解析也已通过共用函数工作流完成真实验收。
 
 - macOS：全量/增量解密，聊天、图片附件解码与识字、转账汇总、朋友圈、收藏夹、摘要和漏看/待回复检查
-- Windows 本地全库：`windows capture --scope all --source-id SOURCE_ID` 采集所选账号本地数据目录中的全部数据库，包括收藏、朋友圈、媒体和搜索索引；默认采集范围仍为聊天必需库
-- Windows 聊天查询：`snapshot --snapshot <目录>` 验证、查询、搜索和导出快照。全量解析以源行数、解析行数和文件回读行数核对，单次查询/导出的条数限制另行管理
-- Windows 收藏/朋友圈正文：按 [共用纯函数工作流](./yichen-wechat-local-vault/references/windows-live.md#朋友圈和收藏正文解析)读取已解密快照，现有包内函数已实测可用，暂未单独封装查询子命令
+- Windows 本地全量/增量采集：`windows capture --scope all --source-id SOURCE_ID` 覆盖所选账号全部本地库；`--mode incremental` 核验加密与明文双 SHA-256 复用未变化库并生成新的不可变快照
+- Windows 与 Mac 颗粒度对齐：`snapshot --snapshot <目录>` 现已覆盖 `validate`、`status`、`sessions`、`unread`、`new-messages`、`chats`、`contacts`、`members`、`history`、`search`（单会话/全局 `--all`）、`stats`、`export`（Markdown/TXT）、`favorites`、`moments`、`pending`、`transfers`、`digest-source` 与 `images`（显式 `--attach-dir`、XOR 及显式密钥 V1/V2 `.dat` 解码）
+- Windows 收藏/朋友圈正文：已封装为 `snapshot favorites` 与 `snapshot moments` 独立子命令（只读打开、拒绝 `DOCTYPE`/`ENTITY` XML、隐藏内部账号标识）
 - 已在 Windows 11 build 26300 ARM64、AMD64 微信 4.1.15.56、CPython 3.12.10 AMD64 环境完成全库采集、聊天全量解析、收藏/朋友圈正文、新消息刷新及导出回读验收
-- 解析范围是电脑已同步的本地数据；三个已知搜索索引校验缺口会明确返回。媒体文件本体还原、普通非管理员执行、其他版本/客户端架构和完整 Mac 工作流对齐仍需继续适配或验证
+- 解析范围是电脑已同步的本地数据；三个已知搜索索引校验缺口会明确返回。Windows 4.x V2 图片密钥自动提取、语音/视频本体还原、普通非管理员执行、其他客户端版本/架构，以及新增对齐命令在真实 Windows 客户端上的端到端复验仍需实机验证
 - 不操作微信界面；登录和测试消息由用户手动完成，Windows 密钥只驻内存，明文快照写入本地私密目录
 - Mac 依赖：Python 3.9+、`pycryptodome`、`zstandard`；Windows 使用 CPython 3.12 AMD64、系统 CNG 和固定版本的 `zstandard`
 - 详见 [Skill 说明](./yichen-wechat-local-vault/README.md)、[Windows 本地全量解析](./yichen-wechat-local-vault/references/windows-live.md)和[离线快照](./yichen-wechat-local-vault/references/windows-snapshot.md)

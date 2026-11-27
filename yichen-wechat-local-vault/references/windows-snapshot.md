@@ -6,7 +6,7 @@
 
 使用 `scripts/vault_cli.py snapshot ...`。它直接进入快照后端，不加载 Mac 配置、查找 Mac 数据目录、执行增量刷新、抓密钥、解密或操作客户端。未知来源不能自动降级成 Mac 模式。
 
-支持：结构校验、会话列表、指定会话历史、解压后关键词搜索、日期过滤、Markdown 导出。没有朋友圈/收藏正文解析或实时同步能力；目录中要求存在这些库不等于能分析其中的所有内容。
+支持与 Mac 对齐的全部只读分析子命令：结构校验（`validate`/`status`）、会话与未读（`sessions`/`unread`/`new-messages`）、联系人与群成员（`chats`/`contacts`/`members`）、指定会话历史（`history`，支持 `--type`/`--offset`/`--format text`）、单会话或全局关键词搜索（`search`）、统计（`stats`）、Markdown/TXT 导出（`export`）、收藏夹与朋友圈正文（`favorites`/`moments`，需 `full-snapshot-v1`）、漏看/待回复（`pending`）、转账多币种汇总（`transfers`）、群聊摘要素材包（`digest-source`）及本地图片附件定位/解码（`images`）。本身不触发实时同步或内存采集；新增工作流均保持只读、匿名 `chat_id`、`untrusted_snapshot_data` 标记和输出目录边界。
 
 ## 输入与选择
 

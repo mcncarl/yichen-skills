@@ -1,17 +1,20 @@
 # yichen-wechat-local-vault
 
-微信本地数字资产库，支持 **macOS / Windows 本地全量解析**。Windows 已实现所选账号全部本地数据库的采集和认证解密、聊天主表逐行解析，以及收藏、朋友圈正文解析；Mac 另支持增量刷新、漏看/待回复等工作流。Windows 已实测环境和边界见 [本机全量解析说明](references/windows-live.md)。
+微信本地数字资产库，支持 **macOS / Windows 本地全量解析与查询工作流对齐**。Windows 已实现所选账号全部本地数据库的采集/增量复用和认证解密，并通过统一的 `snapshot` 子命令对齐 Mac 的全套分析颗粒度（会话、未读、增量新消息、联系人/群成员、历史、全局搜索、统计、导出、收藏、朋友圈、漏看/待回复、转账汇总、群聊摘要素材包及本地图片定位/解码）。Windows 已实测环境和边界见 [本机全量解析说明](references/windows-live.md)。
 
 这里的“全量”指已经同步到电脑、位于所选账号本地数据目录中的数据库和记录。
 
 | 能力 | macOS | Windows |
 | --- | --- | --- |
-| 本地全库采集、解密 | 已支持 | 已支持，使用 `windows capture --scope all` |
-| 聊天记录解析、查询、搜索、导出 | 已支持 | 已实测逐行解析和回读 |
-| 收藏、朋友圈正文解析 | 已支持 | 已实测，复用包内纯函数工作流 |
-| 漏看、待回复等高级工作流 | 已支持 | 尚未完整对齐 |
+| 本地全库采集、解密 | 已支持 | 已支持（`windows capture --scope all`） |
+| 增量刷新 | 已支持（`decrypt_all_dbs.py --mode incremental`） | 已支持（`windows capture --mode incremental`，核验加密/明文 SHA-256 复用未变化库） |
+| 会话、未读、增量新消息、联系人、群成员 | 已支持 | 已对齐（`snapshot status/sessions/unread/new-messages/contacts/members`） |
+| 聊天记录、全局搜索、类型过滤、统计、导出 | 已支持 | 已对齐（`snapshot history/search/stats/export`） |
+| 收藏、朋友圈正文解析 | 已支持 | 已封装独立子命令（`snapshot favorites` / `snapshot moments`） |
+| 漏看/待回复、转账汇总、群聊摘要素材包 | 已支持 | 已对齐（`snapshot pending` / `transfers` / `digest-source`） |
+| 聊天图片定位、解码与本地 OCR | 已支持（含 `kvcomm` 密钥自动候选） | 已对齐命令（`snapshot images` 支持 `--attach-dir` 定位、XOR 与显式密钥 V1/V2 `.dat` CNG 解码及 Tesseract OCR；Windows 4.x V2 图片密钥自动提取待实机验收） |
 
-Windows 媒体数据库可以采集解密；图片、语音、视频文件本体还原仍需另行适配。三个搜索索引库的 SQLite 校验缺口会明确返回，不影响本次已完成的聊天主表解析。
+三个搜索索引库的 SQLite 校验缺口会明确返回，不影响聊天主表解析；Windows 新增子命令与增量模式已通过完整合成回归测试，真实 Windows 客户端复验范围以 [本机全量解析说明](references/windows-live.md) 为准。
 
 ## 隐私路径
 
@@ -68,15 +71,30 @@ python3 scripts/export_chat.py --chat-id "contact_username" --since "2025-01-01"
 
 Windows 本机采集使用 `python scripts/vault_cli.py windows discover/capture`，详见 [Windows 本机采集](references/windows-live.md)。它只读明确授权的账号和签名通过的微信进程，在私密应用数据区生成带逐页认证、WAL 提交事务处理及完整性校验的聊天快照；不会操作微信界面。当前已在 Windows 11 ARM64、AMD64 微信 4.1.15.56 环境完成真实采集、解密、新消息刷新及导出回读；版本与权限范围见该参考文档。
 
-明确要求全量本地数据库时，使用 `windows capture --scope all --source-id SOURCE_ID`。它生成包含收藏、朋友圈和媒体数据库的完整核心快照；已知搜索索引的 SQLite 校验缺口会通过 `complete_with_index_gaps` 和 `integrity_gaps` 明确返回，逐页认证仍须全部通过。收藏、朋友圈正文按 [共用纯函数工作流](references/windows-live.md#朋友圈和收藏正文解析)读取，暂未单独封装查询子命令。
+明确要求全量本地数据库时，使用 `windows capture --scope all --source-id SOURCE_ID`；日常刷新可加 `--mode incremental` 复用上一份已校验快照中 SHA-256 未变化的数据库，只重新解密变化库。它生成包含收藏、朋友圈和媒体数据库的完整核心快照；已知搜索索引的 SQLite 校验缺口会通过 `complete_with_index_gaps` 和 `integrity_gaps` 明确返回，逐页认证仍须全部通过。
 
-Windows 来源使用同一个 CLI 的 `snapshot` 子命令，不读取 Mac 配置、不刷新或解密任何数据库：
+Windows 来源使用同一个 CLI 的 `snapshot` 子命令（已对齐 Mac 全部查询与分析工作流），不读取 Mac 配置、不刷新或解密任何数据库：
 
 ```bash
 python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot validate
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot status --format text
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot sessions --limit 20 --format text
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot unread --format text
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot new-messages --previous-snapshot /path/to/old-snapshot --format text
 python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot chats --query "群名"
-python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot history CHAT_ID
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot contacts --query "关键词" --format text
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot members CHAT_ID --format text
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot history CHAT_ID --type text --format text
 python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot search CHAT_ID "关键词"
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot search --all "关键词" --format text
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot stats CHAT_ID --format text
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot export CHAT_ID --format markdown --output /path/to/chat.md --confirm-external-output
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot favorites --type article --query "关键词" --format text
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot moments --name "联系人" --format text
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot pending --since 48h --format text
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot transfers --start 2026-01-01 --format text
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot digest-source CHAT_ID --start 2026-05-01 --end 2026-05-14 --format text
+python3 scripts/vault_cli.py snapshot --snapshot /path/to/authorized-snapshot images CHAT_ID --attach-dir /path/to/msg/attach --format text
 ```
 
 输入必须是静止且已 checkpoint 的明文快照，附有效 manifest。支持的 Schema、导出规则、依赖和原始贡献来源见 [Windows 快照模式](references/windows-snapshot.md)。合成测试不等于真实 Windows 微信版本验收。

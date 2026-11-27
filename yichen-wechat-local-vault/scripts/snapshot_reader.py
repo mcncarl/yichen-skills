@@ -261,7 +261,25 @@ def _read_manifest(root: Path) -> dict:
         gap_paths.add(gap["database"])
     # Manifest text is untrusted: expose only fixed, recognized paths and state.
     sanitized_gaps = [{"database": path, "check": "unverified"} for path in sorted(gap_paths)]
-    return {"snapshot_id": snapshot_id, "account_username": account, "profile": profile, "integrity_gaps": sanitized_gaps}
+    captured_at = ""
+    raw_captured = raw.get("captured_at")
+    if isinstance(raw_captured, str) and len(raw_captured) <= 64:
+        try:
+            datetime.fromisoformat(raw_captured.replace("Z", "+00:00"))
+            captured_at = raw_captured
+        except ValueError:
+            captured_at = ""
+    source_id_val = raw.get("source_id", "")
+    if not isinstance(source_id_val, str) or not re.fullmatch(r"[0-9a-f]{16}", source_id_val):
+        source_id_val = ""
+    return {
+        "snapshot_id": snapshot_id,
+        "account_username": account,
+        "profile": profile,
+        "integrity_gaps": sanitized_gaps,
+        "captured_at": captured_at,
+        "source_id": source_id_val,
+    }
 
 
 def required_databases_for(manifest: dict) -> tuple[str, ...]:
@@ -618,6 +636,7 @@ def iter_messages(
                     "sender": sender,
                     "direction": direction,
                     "content": format_message_content(row["local_type"], content),
+                    "_raw_local_type": row["local_type"],
                     "_sort_key": sort_key,
                 }
 
@@ -636,10 +655,24 @@ def bounded_limit(value: str) -> int:
         raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
-def filtered_messages(root: Path, chat_id: str, keyword: str | None, start: int | None, end: int | None, limit: int) -> list[dict]:
+def filtered_messages(
+    root: Path,
+    chat_id: str,
+    keyword: str | None,
+    start: int | None,
+    end: int | None,
+    limit: int,
+    *,
+    type_name: str | None = None,
+    offset: int = 0,
+) -> list[dict]:
     limit = _validated_limit(limit)
+    if offset < 0 or offset > MAX_SCANNED_ROWS:
+        raise ReaderError("offset is out of bounds")
+    import snapshot_workflows as wf
     username, _ = select_chat(root, chat_id)
     budget = {"rows": 0, "decoded_bytes": 0}
+    keep = limit + offset
     newest: list[tuple[tuple, int, dict]] = []
     ordinal = 0
     for item in iter_messages(root, username, budget, start, end):
@@ -647,17 +680,22 @@ def filtered_messages(root: Path, chat_id: str, keyword: str | None, start: int 
             continue
         if end is not None and item["timestamp"] > end:
             continue
+        if not wf.matches_type(item.get("_raw_local_type", item["type"]), type_name):
+            continue
         if keyword is not None and keyword.casefold() not in item["content"].casefold():
             continue
         ordinal += 1
         entry = (item["_sort_key"], ordinal, item)
-        if len(newest) < limit:
+        if len(newest) < keep:
             heapq.heappush(newest, entry)
         elif entry[0] > newest[0][0]:
             heapq.heapreplace(newest, entry)
+    ordered_desc = sorted(newest, key=lambda entry: (entry[0], entry[1]), reverse=True)
+    window = ordered_desc[offset : offset + limit]
     messages: list[dict] = []
-    for _, _, item in sorted(newest, key=lambda entry: (entry[0], entry[1])):
+    for _, _, item in sorted(window, key=lambda entry: (entry[0], entry[1])):
         item.pop("_sort_key", None)
+        item.pop("_raw_local_type", None)
         messages.append(item)
     return messages
 
@@ -665,10 +703,16 @@ def filtered_messages(root: Path, chat_id: str, keyword: str | None, start: int 
 def parse_date(value: str | None, end=False) -> int | None:
     if not value:
         return None
-    dt = datetime.strptime(value, "%Y-%m-%d")
-    if end:
-        dt = dt.replace(hour=23, minute=59, second=59)
-    return int(dt.timestamp())
+    text = value.strip()
+    for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M", "%Y-%m-%d"):
+        try:
+            dt = datetime.strptime(text, fmt)
+            if fmt == "%Y-%m-%d" and end:
+                dt = dt.replace(hour=23, minute=59, second=59)
+            return int(dt.timestamp())
+        except ValueError:
+            continue
+    raise ReaderError(f"unsupported date/time format (expected YYYY-MM-DD[ HH:MM[:SS]]): {value}")
 
 
 def _markdown_code_block(value: object) -> str:
@@ -762,7 +806,7 @@ def require_safe_output(path: Path, confirmed: bool, snapshot_root: Path) -> Pat
     return resolved
 
 
-def atomic_write(path: Path, content: str, overwrite: bool) -> None:
+def atomic_write(path: Path, content: str, overwrite: bool, *, private_mode: bool = False) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     if _path_exists_without_following(path) and not overwrite:
         raise ReaderError("output exists; pass --overwrite to replace it")
@@ -772,26 +816,158 @@ def atomic_write(path: Path, content: str, overwrite: bool) -> None:
             stream.write(content)
             stream.flush()
             os.fsync(stream.fileno())
+        if private_mode:
+            try:
+                os.chmod(name, 0o600)
+            except OSError:
+                pass
         os.replace(name, path)
     except OSError as exc:
         raise ReaderError(f"atomic write failed; the temporary file was retained at {name}: {exc}") from exc
 
 
 def build_parser() -> argparse.ArgumentParser:
+    import snapshot_workflows as wf
+
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--snapshot", required=True, type=Path, help="user-supplied plaintext snapshot root")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("validate")
-    chats = sub.add_parser("chats"); chats.add_argument("--query", default="")
-    for name in ("history", "search"):
-        cmd = sub.add_parser(name); cmd.add_argument("chat_id"); cmd.add_argument("--start"); cmd.add_argument("--end"); cmd.add_argument("--limit", type=bounded_limit, default=500)
-        if name == "search": cmd.add_argument("keyword")
-    export = sub.add_parser("export"); export.add_argument("chat_id"); export.add_argument("--start"); export.add_argument("--end"); export.add_argument("--limit", type=bounded_limit, default=5000); export.add_argument("--output", type=Path); export.add_argument("--confirm-external-output", action="store_true"); export.add_argument("--overwrite", action="store_true")
+
+    p = sub.add_parser("status", help="查看快照状态与可用数据库")
+    p.add_argument("--format", choices=["json", "text"], default="json")
+
+    chats = sub.add_parser("chats", help="列出或按名称筛选会话（返回匿名 chat_id）")
+    chats.add_argument("--query", default="")
+
+    p = sub.add_parser("contacts", help="联系人/群聊搜索或详情")
+    p.add_argument("--query")
+    p.add_argument("--chat-id")
+    p.add_argument("--limit", type=bounded_limit, default=50)
+    p.add_argument("--format", choices=["json", "text"], default="json")
+
+    p = sub.add_parser("members", help="群成员")
+    p.add_argument("chat_id")
+    p.add_argument("--format", choices=["json", "text"], default="json")
+
+    p = sub.add_parser("sessions", help="最近会话")
+    p.add_argument("--limit", type=bounded_limit, default=20)
+    p.add_argument("--format", choices=["json", "text"], default="json")
+
+    p = sub.add_parser("unread", help="未读会话")
+    p.add_argument("--limit", type=bounded_limit, default=50)
+    p.add_argument("--format", choices=["json", "text"], default="json")
+
+    p = sub.add_parser("new-messages", help="对比上一份快照或时间起点的新增消息")
+    p.add_argument("--previous-snapshot", type=Path, help="上一份已验证的明文快照目录")
+    p.add_argument("--since", help="起点 YYYY-MM-DD[ HH:MM[:SS]]")
+    p.add_argument("--limit", type=bounded_limit, default=50)
+    p.add_argument("--format", choices=["json", "text"], default="json")
+
+    p = sub.add_parser("history", help="指定会话聊天记录")
+    p.add_argument("chat_id")
+    p.add_argument("--start")
+    p.add_argument("--end")
+    p.add_argument("--limit", type=bounded_limit, default=500)
+    p.add_argument("--offset", type=int, default=0)
+    p.add_argument("--type", choices=sorted(wf.MESSAGE_TYPE_FILTERS))
+    p.add_argument("--format", choices=["json", "text"], default="json")
+
+    p = sub.add_parser("search", help="指定会话或全局关键词搜索")
+    p.add_argument("target", help="chat_id（2参数模式）或 keyword（配合 --all / --chat-id）")
+    p.add_argument("keyword", nargs="?", default=None, help="关键词（2参数模式：search CHAT_ID KEYWORD）")
+    p.add_argument("--chat-id", action="append", help="限定一个或多个 chat_id，可重复")
+    p.add_argument("--all", dest="all_chats", action="store_true", help="跨全部会话全局搜索")
+    p.add_argument("--start")
+    p.add_argument("--end")
+    p.add_argument("--limit", type=bounded_limit, default=500)
+    p.add_argument("--offset", type=int, default=0)
+    p.add_argument("--type", choices=sorted(wf.MESSAGE_TYPE_FILTERS))
+    p.add_argument("--format", choices=["json", "text"], default="json")
+
+    p = sub.add_parser("stats", help="聊天统计")
+    p.add_argument("chat_id")
+    p.add_argument("--start")
+    p.add_argument("--end")
+    p.add_argument("--format", choices=["json", "text"], default="json")
+
+    export = sub.add_parser("export", help="导出聊天记录")
+    export.add_argument("chat_id")
+    export.add_argument("--start")
+    export.add_argument("--end")
+    export.add_argument("--limit", type=bounded_limit, default=5000)
+    export.add_argument("--type", choices=sorted(wf.MESSAGE_TYPE_FILTERS))
+    export.add_argument("--format", choices=["markdown", "txt"], default="markdown")
+    export.add_argument("--output", type=Path)
+    export.add_argument("--confirm-external-output", action="store_true")
+    export.add_argument("--overwrite", action="store_true")
+
+    p = sub.add_parser("favorites", help="收藏夹正文解析")
+    p.add_argument("--type", choices=sorted(wf.FAVORITE_TYPE_FILTERS))
+    p.add_argument("--query")
+    p.add_argument("--limit", type=bounded_limit, default=20)
+    p.add_argument("--format", choices=["json", "text"], default="json")
+
+    p = sub.add_parser("moments", help="朋友圈正文解析")
+    p.add_argument("--chat-id", action="append", help="按匿名 chat_id 筛选作者，可重复")
+    p.add_argument("--name", help="按联系人备注/昵称关键词筛选作者")
+    p.add_argument("--all", dest="all_authors", action="store_true", help="读取全部作者的朋友圈")
+    p.add_argument("--start")
+    p.add_argument("--end")
+    p.add_argument("--keyword")
+    p.add_argument("--limit", type=bounded_limit, default=50)
+    p.add_argument("--format", choices=["json", "text"], default="json")
+
+    p = sub.add_parser("pending", help="漏看/待回复检查：私聊、群 @/引用、转账、红包、未接来电")
+    p.add_argument("--since", default="48h", help="窗口起点：48h、7d、'YYYY-MM-DD HH:MM' 或 last")
+    p.add_argument("--pending-days", type=int, default=7, help="私聊待回复回看天数")
+    p.add_argument("--previous", type=Path, help="上次 pending JSON 文件，供去重和 --since last")
+    p.add_argument("--output", type=Path, help="完整结果写入此私密文件（权限 600）")
+    p.add_argument("--confirm-external-output", action="store_true")
+    p.add_argument("--overwrite", action="store_true")
+    p.add_argument("--format", choices=["json", "text"], default="json")
+
+    p = sub.add_parser("transfers", help="聊天转账记录与多币种汇总")
+    p.add_argument("--chat-id", action="append", help="只看这些 chat_id，可重复；不填为全部会话")
+    p.add_argument("--start", help="起点 YYYY-MM-DD[ HH:MM[:SS]]")
+    p.add_argument("--end", help="终点 YYYY-MM-DD[ HH:MM[:SS]]")
+    p.add_argument("--format", choices=["json", "text"], default="json")
+
+    p = sub.add_parser("digest-source", help="生成群聊摘要素材包")
+    p.add_argument("chat_id")
+    p.add_argument("--start")
+    p.add_argument("--end")
+    p.add_argument("--since-last", action="store_true")
+    p.add_argument("--data-root", type=Path)
+    p.add_argument("--confirm-external-output", action="store_true")
+    p.add_argument("--limit", type=bounded_limit, default=5000)
+    p.add_argument("--format", choices=["json", "text"], default="json")
+
+    p = sub.add_parser("images", help="列出或解码本地聊天图片附件（含可选本地 OCR）")
+    p.add_argument("chat_id")
+    p.add_argument("--start")
+    p.add_argument("--end")
+    p.add_argument("--limit", type=bounded_limit, default=20)
+    p.add_argument("--attach-dir", type=Path, help="显式指定本账号 msg/attach 目录")
+    p.add_argument("--decode", action="store_true", help="解码到私密缓存目录")
+    p.add_argument("--ocr", action="store_true", help="解码并运行本地 OCR（隐含 --decode）")
+    p.add_argument("--aes-key-hex", help="V1/V2 .dat 的 16 字节 AES 密钥（32 位十六进制）")
+    p.add_argument("--xor-key", type=int, help=".dat 的单字节 XOR 密钥（0-255）")
+    p.add_argument("--cache-dir", type=Path, help="解码缓存目录，默认本机私有 cache/images")
+    p.add_argument("--confirm-external-output", action="store_true")
+    p.add_argument("--format", choices=["json", "text"], default="json")
     return parser
 
 
 def _json_envelope(**fields) -> dict:
     return public_value({"trust": TRUST_MARKER, "content_warning": TRUST_WARNING, **fields})
+
+
+def _emit(data: dict, fmt: str, render_text=None) -> None:
+    if fmt == "text" and render_text is not None:
+        print(render_text(data))
+    else:
+        print(json.dumps(data, ensure_ascii=False, indent=2))
 
 
 def _configure_utf8_stdio() -> None:
@@ -803,25 +979,185 @@ def _configure_utf8_stdio() -> None:
 
 
 def main(argv=None) -> int:
+    import snapshot_workflows as wf
+
     _configure_utf8_stdio()
     args = build_parser().parse_args(argv)
     try:
         if args.command == "validate":
-            report = validate_snapshot(args.snapshot); print(json.dumps(report, ensure_ascii=False, indent=2)); return 0 if report["valid"] else 2
+            report = validate_snapshot(args.snapshot)
+            print(json.dumps(report, ensure_ascii=False, indent=2))
+            return 0 if report["valid"] else 2
+        if args.command == "status":
+            data = wf.snapshot_status(sys.modules[__name__], args.snapshot)
+            _emit(data, args.format, wf.render_status_text)
+            return 0 if data["valid"] else 2
+
         root = require_valid(args.snapshot)
+        mod = sys.modules[__name__]
         if args.command == "chats":
-            query = args.query.casefold(); items = [item for item in contact_records(root).values() if not query or query in item["display_name"].casefold()]
-            print(json.dumps(_json_envelope(chats=items), ensure_ascii=False, indent=2)); return 0
-        messages = filtered_messages(root, args.chat_id, getattr(args, "keyword", None), parse_date(args.start), parse_date(args.end, True), args.limit)
+            query = args.query.casefold()
+            items = [item for item in contact_records(root).values() if not query or query in item["display_name"].casefold()]
+            print(json.dumps(_json_envelope(chats=items), ensure_ascii=False, indent=2))
+            return 0
+        if args.command == "contacts":
+            data = wf.snapshot_contacts(mod, root, query=args.query, chat_id=args.chat_id, limit=args.limit)
+            _emit(data, args.format, wf.render_contacts_text)
+            return 0
+        if args.command == "members":
+            data = wf.snapshot_members(mod, root, args.chat_id)
+            _emit(data, args.format, wf.render_members_text)
+            return 0
+        if args.command in ("sessions", "unread"):
+            data = wf.snapshot_sessions(mod, root, only_unread=(args.command == "unread"), limit=args.limit)
+            _emit(data, args.format, wf.render_sessions_text)
+            return 0
+        if args.command == "new-messages":
+            data = wf.snapshot_new_messages(
+                mod, root, previous_snapshot=args.previous_snapshot, since=parse_date(args.since), limit=args.limit
+            )
+            _emit(data, args.format, wf.render_new_messages_text)
+            return 0
+        if args.command == "stats":
+            data = wf.snapshot_stats(mod, root, args.chat_id, start=parse_date(args.start), end=parse_date(args.end, True))
+            _emit(data, args.format, wf.render_stats_text)
+            return 0
+        if args.command == "favorites":
+            data = wf.snapshot_favorites(mod, root, fav_type=args.type, query=args.query, limit=args.limit)
+            _emit(data, args.format, wf.render_favorites_text)
+            return 0
+        if args.command == "moments":
+            data = wf.snapshot_moments(
+                mod,
+                root,
+                chat_ids=args.chat_id,
+                name=args.name,
+                all_authors=args.all_authors,
+                start=parse_date(args.start),
+                end=parse_date(args.end, True),
+                keyword=args.keyword,
+                limit=args.limit,
+            )
+            _emit(data, args.format, wf.render_moments_text)
+            return 0
+        if args.command == "pending":
+            data = wf.snapshot_pending(mod, root, since=args.since, pending_days=args.pending_days, previous_path=args.previous)
+            if args.output:
+                target = require_safe_output(args.output, args.confirm_external_output, root)
+                content = wf.render_pending_text(data) if args.format == "text" else json.dumps(data, ensure_ascii=False, indent=2)
+                atomic_write(target, content + "\n", args.overwrite, private_mode=True)
+                summary = _json_envelope(
+                    output=str(target),
+                    window=data["window"],
+                    manifest_gaps=data["manifest"]["gaps"],
+                    counts=data["counts"],
+                )
+                _emit(summary, args.format, lambda s: f"已写入私密报告：{s['output']}")
+                return 0
+            _emit(data, args.format, wf.render_pending_text)
+            return 0
+        if args.command == "transfers":
+            data = wf.snapshot_transfers(
+                mod, root, chat_ids=args.chat_id, start=parse_date(args.start), end=parse_date(args.end, True)
+            )
+            _emit(data, args.format, wf.render_transfers_text)
+            return 0
+        if args.command == "digest-source":
+            data = wf.snapshot_digest_source(
+                mod,
+                root,
+                args.chat_id,
+                start=args.start,
+                end=args.end,
+                since_last=args.since_last,
+                data_root=args.data_root,
+                confirm_external=args.confirm_external_output,
+                limit=args.limit,
+            )
+            _emit(data, args.format, lambda s: "\n".join(f"{k}: {v}" for k, v in s.items() if k not in ("trust", "content_warning")))
+            return 0
+        if args.command == "images":
+            data = wf.snapshot_images(
+                mod,
+                root,
+                args.chat_id,
+                start=parse_date(args.start),
+                end=parse_date(args.end, True),
+                limit=args.limit,
+                attach_dir=args.attach_dir,
+                decode_images=args.decode,
+                ocr=args.ocr,
+                aes_key_hex=args.aes_key_hex,
+                xor_key=args.xor_key,
+                cache_dir=args.cache_dir,
+                confirm_external=args.confirm_external_output,
+            )
+            _emit(data, args.format, wf.render_images_text)
+            return 0
+        if args.command == "search":
+            if args.all_chats or args.chat_id:
+                if args.keyword is not None:
+                    raise ReaderError("when using --all or --chat-id, pass only a single positional keyword")
+                data = wf.snapshot_search_multi(
+                    mod,
+                    root,
+                    args.target,
+                    chat_ids=args.chat_id,
+                    start=parse_date(args.start),
+                    end=parse_date(args.end, True),
+                    type_name=args.type,
+                    limit=args.limit,
+                    offset=args.offset,
+                )
+                _emit(data, args.format, lambda d: wf.render_messages_text(d["messages"], include_chat=True))
+                return 0
+            if args.keyword is None:
+                raise ReaderError("search requires CHAT_ID KEYWORD, or pass --all KEYWORD / --chat-id CHAT_ID KEYWORD")
+            messages = filtered_messages(
+                root,
+                args.target,
+                args.keyword,
+                parse_date(args.start),
+                parse_date(args.end, True),
+                args.limit,
+                type_name=args.type,
+                offset=args.offset,
+            )
+            _, chat = select_chat(root, args.target)
+            data = _json_envelope(chat=chat, messages=messages)
+            _emit(data, args.format, lambda d: wf.render_messages_text(d["messages"]))
+            return 0
+
+        # history & export
+        messages = filtered_messages(
+            root,
+            args.chat_id,
+            None,
+            parse_date(args.start),
+            parse_date(args.end, True),
+            args.limit,
+            type_name=args.type,
+            offset=getattr(args, "offset", 0),
+        )
         _, chat = select_chat(root, args.chat_id)
         if args.command == "export":
-            target = args.output or DEFAULT_EXPORTS / f"{chat['chat_id']}.md"
+            suffix = "txt" if args.format == "txt" else "md"
+            target = args.output or DEFAULT_EXPORTS / f"{chat['chat_id']}.{suffix}"
             target = require_safe_output(target, args.confirm_external_output, root)
-            atomic_write(target, render_markdown(chat, messages), args.overwrite)
-            print(json.dumps(_json_envelope(output=str(target), messages=len(messages)), ensure_ascii=False)); return 0
-        print(json.dumps(_json_envelope(chat=chat, messages=messages), ensure_ascii=False, indent=2)); return 0
+            rendered = (
+                wf.render_messages_text(messages) + "\n"
+                if args.format == "txt"
+                else render_markdown(chat, messages)
+            )
+            atomic_write(target, rendered, args.overwrite)
+            print(json.dumps(_json_envelope(output=str(target), messages=len(messages)), ensure_ascii=False))
+            return 0
+        data = _json_envelope(chat=chat, messages=messages)
+        _emit(data, args.format, lambda d: wf.render_messages_text(d["messages"]))
+        return 0
     except (ReaderError, sqlite3.Error, OSError, ValueError) as exc:
-        print(f"error: {exc}", file=sys.stderr); return 2
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":

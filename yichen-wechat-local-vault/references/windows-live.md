@@ -1,8 +1,8 @@
 # Windows 本机全量解析
 
-**Windows 本地全量解析已实现，并已在指定客户端环境完成真实验收。** 支持所选账号全部本地数据库的采集、逐页认证解密、聊天主表逐行解析，以及收藏和朋友圈正文解析。完整流程使用 `windows capture --scope all`；Windows 客户端版本和权限适配仍按下方实测范围管理。
+**Windows 本地全量/增量解析与全套查询工作流已实现。** 支持所选账号全部本地数据库的采集（`--scope chat|all`）、增量复用（`--mode incremental`）、逐页认证解密，以及与 Mac 对齐的 `snapshot` 查询/分析子命令（`status`、`sessions`、`unread`、`new-messages`、`contacts`、`members`、`history`、`search`、`stats`、`export`、`favorites`、`moments`、`pending`、`transfers`、`digest-source`、`images`）。Windows 客户端实机验收范围和未验收边界仍按下方实测范围诚实管理。
 
-“全量”覆盖电脑已经同步的本地数据库和记录。媒体文件本体还原、尚未同步到电脑的手机历史、漏看/待回复等高级工作流分别按其实际完成状态说明。
+“全量”覆盖电脑已经同步的本地数据库和记录。Windows 4.x V2 图片 `.dat` 密钥自动提取、语音/视频本体还原、尚未同步到电脑的手机历史，以及新增子命令在真实 Windows 客户端上的全套端到端复验分别按其实际完成状态说明。
 
 适用于用户明确授权的本机 Windows 微信账号。必须在该 Windows 环境执行；Mac 上只能使用已有的离线明文快照，不能因此转去抓取 Mac 账号。用户自行完成安装协议、扫码登录及测试消息操作；采集脚本不操作微信界面。
 
@@ -15,10 +15,20 @@ python scripts/vault_cli.py windows discover
 python scripts/vault_cli.py windows capture --source-id SOURCE_ID
 # 全量采集所选账号的本地数据库，仍不跨账号
 python scripts/vault_cli.py windows capture --scope all --source-id SOURCE_ID
+# 增量刷新：核验上一份有效快照的加密+明文 SHA-256，仅重新解密变化库并生成新的不可变快照
+python scripts/vault_cli.py windows capture --scope all --mode incremental --source-id SOURCE_ID
 python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH validate
+python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH status --format text
+python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH sessions --limit 20 --format text
 python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH chats --query "测试会话"
-python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH history CHAT_ID --limit 20
+python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH history CHAT_ID --limit 20 --format text
 python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH search CHAT_ID "测试标记"
+python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH search --all "测试标记" --format text
+python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH favorites --limit 20 --format text
+python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH moments --all --limit 20 --format text
+python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH pending --since 48h --format text
+python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH transfers --start 2026-01-01 --format text
+python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH digest-source CHAT_ID --format text
 ```
 
 `discover` 只检查当前 Windows 用户 Documents 下的标准 `xwechat_files` 目录并列出账号的匿名 `source_id`、聊天数据库数量及进程 PID，不读进程内存。数据目录已迁移时，显式使用 `--db-root 'D:\微信数据\账号目录\db_storage'`；不扫描其他磁盘、其他用户或自动选最近账号。多账号必须明确选择，不能按更新时间取第一项。
@@ -66,13 +76,15 @@ python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH search CHA
 
 ## 朋友圈和收藏正文解析
 
-Windows 的这两项能力通过包内现成函数和只读快照提供。仅调用下列纯函数，不执行 Mac 命令、不读取 Mac 配置。
+这两项能力现已直接封装为只读 `snapshot` 子命令（同时也继续支持通过包内纯函数调用），不执行 Mac 命令、不读取 Mac 配置：
 
-1. 先对明确选择的账号运行 `windows capture --scope all`，再用 `snapshot ... validate` 核对核心库和 `integrity_gaps`；需要最新内容时重新采集。
-2. 用 `snapshot_reader.connect_read_only` 打开快照中的 `favorite/favorite.db` 或 `sns/sns.db`，按用户明确的时间、类型或联系人范围读取。保留单条解码和累计扫描预算，不一次把大量正文装入上下文。
-3. 收藏读取 `fav_db_item` 的 `type`、`update_time`、`content` 等字段；用 `snapshot_reader.decode` 解码正文后交给 `vault_cli.parse_favorite(content, fav_type)`。
-4. 朋友圈读取 `SnsTimeLine` 的 `tid`、`user_name`、`content`；解码后交给 `vault_cli.parse_moment(content, tid, db_user)`。函数只提取本地正文及媒体引用，不访问链接或下载远程媒体。
-5. XML 含 `DOCTYPE` / `ENTITY` 时拒绝解析；不因失败而输出原始 XML。结果按共用展示规则隐藏账号标识和显式凭据，只保存到授权的本地私密输出目录；不要写进输入快照或回传完整正文。
-6. 回读输出并核对源行数、成功解析数、失败或空正文数及文件行数。聊天主表全量解析同样逐行计数；CLI 查询和导出的默认条数限制不代表整库记录总数，大结果按会话和时间分批落盘。
+```powershell
+python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH favorites --type article --query "关键词" --format text
+python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH moments --name "联系人" --start 2026-05-01 --format text
+python scripts/vault_cli.py snapshot --snapshot PRIVATE_SNAPSHOT_PATH moments --all --limit 50 --format text
+```
 
-已完成真实收藏和朋友圈正文的解析、私密文件保存及回读。当前接口形式为上述共用函数工作流，尚未单独提供 `snapshot favorites` / `snapshot moments` 命令。
+1. 先对明确选择的账号运行 `windows capture --scope all`，再用 `snapshot ... validate` 核对核心库和 `integrity_gaps`；需要最新内容时可用 `--mode incremental` 刷新。
+2. `snapshot favorites` / `snapshot moments` 只读打开 `favorite/favorite.db`（`fav_db_item`）与 `sns/sns.db`（`SnsTimeLine`），沿用单条解码、行数与累计字节预算，不访问远程链接或下载远程媒体。
+3. XML 含 `DOCTYPE` / `ENTITY` 时严格拒绝解析，返回安全占位提示，不因失败输出原始 XML；所有结构字段隐藏内部账号标识并附带 `untrusted_snapshot_data` 标记。
+4. 聊天主表全量解析同样逐行计数；CLI 查询和导出的默认条数限制不代表整库记录总数，大结果按会话和时间分批落盘。
