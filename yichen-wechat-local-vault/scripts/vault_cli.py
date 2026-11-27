@@ -540,6 +540,23 @@ def collect_history(decrypted_dir: Path, chat: dict, start_ts: int | None, end_t
     return page
 
 
+def db_is_readable(path: Path) -> bool:
+    if not path.is_file():
+        return False
+    con: sqlite3.Connection | None = None
+    try:
+        if path.stat().st_size < 100:
+            return False
+        con = sqlite3.connect(f"{path.resolve().as_uri()}?mode=ro&immutable=1", uri=True)
+        con.execute("SELECT 1 FROM sqlite_master LIMIT 1").fetchone()
+        return True
+    except (OSError, sqlite3.Error):
+        return False
+    finally:
+        if con is not None:
+            con.close()
+
+
 def command_status(args: argparse.Namespace) -> None:
     decrypted_dir = resolve_decrypted_dir(args.decrypted_dir)
     names = [
@@ -550,16 +567,30 @@ def command_status(args: argparse.Namespace) -> None:
         "message/message_resource.db",
     ]
     names.extend(str(p.relative_to(decrypted_dir)) for p in message_dbs(decrypted_dir))
+    exists = decrypted_dir.exists()
+    databases = [{"path": rel, "available": db_is_readable(decrypted_dir / rel)} for rel in sorted(set(names))]
+    available_count = sum(1 for item in databases if item["available"])
+    ready = exists and available_count > 0
+    state = "ready" if ready else ("empty" if exists else "missing")
     data = {
         "decrypted_dir": str(decrypted_dir),
-        "exists": decrypted_dir.exists(),
-        "databases": [{"path": rel, "available": (decrypted_dir / rel).exists()} for rel in sorted(set(names))],
+        "exists": exists,
+        "ready": ready,
+        "status": state,
+        "available_count": available_count,
+        "databases": databases,
     }
     output(data, args.format, render_status_text)
 
 
 def render_status_text(data: dict) -> str:
-    lines = [f"明文 vault: {data['decrypted_dir']}", f"状态: {'可用' if data['exists'] else '不存在'}", "", "数据库:"]
+    if not data["exists"]:
+        status_text = "不存在"
+    elif not data.get("ready", False):
+        status_text = "尚未就绪：没有可读数据库"
+    else:
+        status_text = "可用"
+    lines = [f"明文 vault: {data['decrypted_dir']}", f"状态: {status_text}", "", "数据库:"]
     for item in data["databases"]:
         lines.append(f"  {'OK' if item['available'] else '--'} {item['path']}")
     return "\n".join(lines)
