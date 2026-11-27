@@ -1,4 +1,8 @@
-"""Local Mac WeChat group-image attachment lookup, preview decoding, and OCR.
+"""Local Mac WeChat chat-image attachment lookup, preview decoding, and OCR.
+
+Private and group chats share one layout: msg/attach/<md5(chat username)>/<YYYY-MM>/Img/
+<hash>[_t|_h].dat, where <hash> comes from the message row's packed_info_data (see
+extract_image_md5), not from the md5 attribute of the message XML.
 
 This module reads already authorized local files. It does not open WeChat, read
 message tables, contact a network service, or depend on a sidecar application.
@@ -43,9 +47,13 @@ def image_key_candidates(source_config: Path, db_base: Path) -> list[dict]:
 
     codes: set[int] = set()
     for directory in directories:
-        if not directory.is_dir():
+        try:
+            if not directory.is_dir():
+                continue
+            entries = list(directory.iterdir())
+        except OSError:
             continue
-        for entry in directory.iterdir():
+        for entry in entries:
             match = re.fullmatch(r"key_(\d+)(?:_.*)?", entry.name)
             if match:
                 codes.add(int(match.group(1)))
@@ -57,6 +65,7 @@ def image_key_candidates(source_config: Path, db_base: Path) -> list[dict]:
 
 
 def extract_image_md5(data: bytes) -> str | None:
+    """Attachment file hash from an image message's packed_info_data bytes."""
     match = re.search(rb"(?i)(?:^|[^0-9a-f])([0-9a-f]{32})(?:$|[^0-9a-f])", data)
     return match.group(1).decode("ascii").lower() if match else None
 
@@ -67,7 +76,7 @@ def dat_file_priority(path: Path) -> tuple[bool, str]:
 
 
 class AttachmentFinder:
-    """Index only the hash directory of each authorized group, once per group."""
+    """Index only the hash directory of each authorized chat (private or group), once per chat."""
 
     def __init__(self, root: Path, *, max_seconds_per_chat: float = 15, max_files_per_chat: int = 300_000):
         self.root = root
@@ -199,7 +208,9 @@ def ocr_with_macos_vision(path: Path) -> dict:
         from Vision import VNImageRequestHandler, VNRecognizeTextRequest
 
         request = VNRecognizeTextRequest.alloc().init()
-        request.setRecognitionLevel_(1)
+        # 0 = VNRequestTextRecognitionLevelAccurate. The fast level (1) only reads
+        # Latin scripts and turns Chinese screenshots into garbage.
+        request.setRecognitionLevel_(0)
         request.setUsesLanguageCorrection_(True)
         request.setRecognitionLanguages_(["zh-Hans", "en-US"])
         handler = VNImageRequestHandler.alloc().initWithURL_options_(NSURL.fileURLWithPath_(str(path)), None)

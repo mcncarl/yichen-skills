@@ -12,6 +12,7 @@ import struct
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import group_image_media as media
@@ -69,7 +70,8 @@ class GroupImageMediaTests(unittest.TestCase):
             source_config = root / "config.json"
             source_config.write_text(json.dumps({"wxid": "wxid_example_suffix"}))
             expected_key = hashlib.md5(b"42wxid_example").hexdigest()[:16].encode()
-            keys = media.image_key_candidates(source_config, db_base)
+            with mock.patch.object(Path, "home", return_value=root):
+                keys = media.image_key_candidates(source_config, db_base)
             self.assertIn({"aesKey": expected_key, "xorKey": 42}, keys)
 
             clear = b"\x89PNG\r\n\x1a\n" + b"fixture-bytes"

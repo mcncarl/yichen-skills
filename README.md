@@ -75,7 +75,7 @@ Run two WeChat accounts simultaneously on macOS — no third-party tools:
 
 Unified **full local WeChat data parsing on macOS and Windows**. Windows full-database capture, authenticated decryption, and row-by-row chat parsing are implemented; Favorites and Moments body parsing has also passed real-data acceptance through the bundled shared-function workflow.
 
-- macOS: full/incremental decryption, chats, Moments, Favorites, digests, and missed/reply-pending checks
+- macOS: full/incremental decryption, chats, chat images/OCR, transfers, Moments, Favorites, digests, and missed/reply-pending checks
 - Windows full local capture: `windows capture --scope all --source-id SOURCE_ID` covers all databases in the selected account's local data directory, including Favorites, Moments, media, and search indexes; the default capture scope remains chat databases
 - Windows chat queries: `snapshot --snapshot <directory>` validates, queries, searches, and exports the captured plaintext snapshot. Complete parsing is verified by comparing source rows, parsed rows, and output readback; individual query/export limits are separate
 - Windows Favorites/Moments bodies: use the existing pure functions and read-only snapshot workflow in the [Windows guide](./yichen-wechat-local-vault/references/windows-live.md#朋友圈和收藏正文解析); dedicated query subcommands are not yet packaged

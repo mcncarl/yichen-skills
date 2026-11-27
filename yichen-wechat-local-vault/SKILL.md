@@ -73,8 +73,9 @@ description: |
 5. 用户问朋友圈/收藏夹：只读取对应已解密库；缺 key 再补抓。
 6. 用户明确说“群聊摘要、群聊精华、日报、复盘、从上次继续”时，优先用 `vault_cli.py digest-source` 生成素材包，再基于素材写简报；不要把整个 skill 解释成摘要工具。
 7. 用户问“有没有漏回/漏看”“谁在等我回复”“有没有人 @我”时：先过“强制新鲜度闸门”，再用 `vault_cli.py pending`；不要只看 `unread`，对方已读未回、群里被 @ 或引用都可能是 0 未读。
-8. 用户问“转账记录”“谁转了我多少钱”“某段时间收了多少转账”时：先过“强制新鲜度闸门”，再用 `vault_cli.py transfers`；它只覆盖聊天里的转账消息，不是微信支付账单。
-9. 用户要求不操作微信界面时，只能使用 `--match-only`、已保存 key、已解密库或本地数据库文件；不要启动 Computer Use。
+8. 用户要看、识别或引用某个私聊/群聊里的图片（地图、截图、海报等）时：先过“强制新鲜度闸门”，再用 `vault_cli.py images` 定位并解码，用 Read 查看预览图；不要自己按 XML 里的 md5 或文件修改时间去找附件。
+9. 用户问“转账记录”“谁转了我多少钱”“某段时间收了多少转账”时：先过“强制新鲜度闸门”，再用 `vault_cli.py transfers`；它只覆盖聊天里的转账消息，不是微信支付账单。
+10. 用户要求不操作微信界面时，只能使用 `--match-only`、已保存 key、已解密库或本地数据库文件；不要启动 Computer Use。
 
 ## 统一查询入口
 
@@ -91,6 +92,8 @@ python3 {{SKILL_DIR}}/scripts/vault_cli.py contacts --query "关键词" --format
 python3 {{SKILL_DIR}}/scripts/vault_cli.py members "群名" --format text
 python3 {{SKILL_DIR}}/scripts/vault_cli.py history "联系人或群名" --start-time "2026-05-01" --end-time "2026-05-14" --format text
 python3 {{SKILL_DIR}}/scripts/vault_cli.py search "关键词" --chat "群名" --type link --format text
+python3 {{SKILL_DIR}}/scripts/vault_cli.py images "联系人或群名" --limit 10 --format text
+python3 {{SKILL_DIR}}/scripts/vault_cli.py images "联系人或群名" --local-id 123 --ocr --format text
 python3 {{SKILL_DIR}}/scripts/vault_cli.py stats "群名" --start-time "2026-05-01" --format text
 python3 {{SKILL_DIR}}/scripts/vault_cli.py export "群名" --format markdown --output ./chat.md
 python3 {{SKILL_DIR}}/scripts/vault_cli.py favorites --type article --query "关键词" --format text
@@ -99,16 +102,21 @@ python3 {{SKILL_DIR}}/scripts/vault_cli.py moments --name "联系人" --start "2
 
 消息类型过滤支持：`text`、`image`、`voice`、`video`、`sticker`、`location`、`link`、`file`、`call`、`system`。
 
+`images` 对私聊和群聊通用：列出图片消息及本地附件状态（高清/原图/缩略图）；`--decode` 把最清晰的一份解码到私密缓存（默认 vault 的 `cache/images/`，目录 700、文件 600，含明文图片），`--ocr` 再用本机 Vision（精确模式）或 Tesseract 识字。附件按消息 `packed_info_data` 里的哈希精确匹配 `msg/attach/<md5(会话)>/<月份>/Img/<哈希>[_t|_h].dat`；消息 XML 里的 `md5` 是 CDN 内容摘要，与文件名对不上，不能拿来找附件。状态为 `missing` 表示本地没下载或已清理，`scan-gap` 表示扫描受阻、不能判定没有；`gaps` 非空时如实报告。输出默认隐藏账号标识，不给 `.dat` 源路径。
+
 `search` 会解开压缩存储的长文本、文件、链接、引用和合并转发，按可读文字（文件名、链接标题等）匹配；`--chat` 覆盖整个会话历史，不只最新几十条。只命中“[文件]”“[图片]”这类标签不算匹配。`history --media` 按消息记录的文件大小核对本地文件，能认出微信给同名文件自动改名的 `name(1).ext`；大小对不上时不给路径，避免指向别的会话的同名文件。
 
 ### 转账记录
 
 `history`、`search`、`export` 把转账显示为“[转账] ￥88.00（备注：定金） · 发出/已收款/已退还”。要按时间段汇总，用 `transfers`：
 
-- 每笔转账一行：发起时间、转入/转出、对方、金额、备注、状态（已收款、已退还、超时退还、已过期未收、待收款）和收款或退还时间；文本报告开头给转入已收、转出被收、净额、待收合计。
-- `--chat` 可重复，不填为全部会话；`--start-time`/`--end-time` 按发起时间筛选，会多读 3 天以找到窗口外的收款或退还。
-- 只统计聊天里留下的转账消息：删掉的聊天、扫码付款、红包和商户付款都不在内；完整流水以微信支付账单为准。只有收款或退还消息、缺少发起消息的转账不列出，数量写在 `gaps`。
-- 账号标识默认隐藏；结果含金额和备注，回复里只给用户问到的部分。
+- 每个有效转账 ID 一行：发起时间、转入/转出、对方、金额、备注、状态和收款或退还时间；缺 ID 的发起消息逐条保留为“状态未知”，不能猜测匹配回执。本人或交易双方不明时显示“方向未知”，本人给本人的转账不计为收入。
+- 同 ID 重复发起使用最早一条的完整字段；字段冲突或同 ID 跨会话出现（无法区分镜像与碰撞），合并为一条异常记录，列出 `source_chats`，不计入收支。跨会话检查仅覆盖本次选中的聊天，不承诺检测未选聊天的 ID 碰撞。异常原因在每行 `issues` 中。
+- 金额必须完整匹配明确币种的正数，最多两位小数、严格千分位；支持 CNY/RMB/人民币/￥/元、USD/US$、HKD/HK$、EUR/€、GBP/£、JPY（整额）。单独的 `$`、`¥`、纯数字或夹杂订单号等文字不猜币种或金额，未识别项不计入合计。`by_currency`、`net_by_currency` 和文本合计按币种分开，不做汇率换算。
+- `--chat` 可重复，不填为全部可定位会话；`--start-time`/`--end-time` 按最早发起时间筛选。为防重复发起改变归属，会核对更早的发起消息；回执最多读到结束时间后 3 天，且绝不超过解密 manifest 的数据截止。无结束时间时读到数据截止；`status_until` 是本次状态核对的实际截止，不代表查询之后的实时状态。
+- 状态取截止前的最新回执；同秒矛盾或未知状态显示“状态未知”。已收款后又退还显示“已退还”，不继续计算为收入。只有未见收款且退款不早于明确失效时间时才标“超时退还”；无退款回执的“已过期未收”只是截至状态核对时间的推断。
+- 只统计聊天里留下的转账消息：删掉的聊天、扫码付款、红包和商户付款都不在内；完整流水以微信支付账单为准。只有回执、XML 无法解析或窗口外发起的冲突记录不列出，数量写在 `gaps`。无 manifest 时仅按查询时钟限制读取，并明确提示新鲜度无法确认。
+- 账号标识默认隐藏；`--include-identifiers` 只开放结构化账号字段，备注里的已知交易 ID、参与人 ID、凭据及嵌入 XML 仍隐藏。结果含金额和备注，不是自动匿名化的分享稿，回复里只给用户问到的部分。
 
 ### 漏看/待回复检查
 
@@ -242,7 +250,7 @@ python3 {{SKILL_DIR}}/scripts/export_chat.py --chat-id "contact_username" --sinc
 7. 图片内容默认不可见；如果 `imgs/{message_id}.txt` 存在，才把其中描述用于摘要。否则只能写“图片内容不可见，根据上下文推断到这里围绕一张图片讨论”，不要编造画面。
 8. 摘要确认完成后，再更新群目录下的 `history.json` 和 `history-digests.jsonl`；用户要求“从上次继续”依赖这些文件。
 
-授权范围内的群图片需要本地识字时，使用 `scripts/group_image_media.py` 的 `AttachmentFinder`、`image_key_candidates`、`decode_image_dat_to_preview` 和 `ocr_image_with_local_engine`。调用方须先核对账号绑定、按范围过滤消息，并把解码文件放在私有目录；该模块只处理本地附件，不查询消息库、不操作微信界面或调用网络 OCR。附件查找只在当前群的哈希目录中精确匹配图片 MD5；扫描超时或失败要读取 `finder.gaps`，不能当作“图片无字”。不要为群图识字导入外部 sidecar 或其他业务项目的附件查找代码。识字文字只是候选，重要事实须看原图核对。
+授权范围内的群图片需要本地识字时，优先用 `vault_cli.py images "群名" --start-time ... --ocr`；需要批量定制时再调用 `scripts/group_image_media.py` 的 `AttachmentFinder`、`extract_image_md5`、`image_key_candidates`、`decode_image_dat_to_preview` 和 `ocr_image_with_local_engine`。调用方须先核对账号绑定、按范围过滤消息，并把解码文件放在私有目录；该模块只处理本地附件，不查询消息库、不操作微信界面或调用网络 OCR。附件查找只在当前会话的哈希目录中，用 `extract_image_md5(packed_info_data)` 得到的哈希精确匹配，不用 XML 里的 `md5`；扫描超时或失败要读取 `finder.gaps`，不能当作“图片无字”。不要为群图识字导入外部 sidecar 或其他业务项目的附件查找代码。识字文字只是候选，重要事实须看原图核对。
 
 ## 输出原则
 
@@ -256,6 +264,7 @@ python3 {{SKILL_DIR}}/scripts/export_chat.py --chat-id "contact_username" --sinc
 - `scripts/vault_cli.py`：统一本地查询入口，保留 Mac 命令（含 `pending` 漏看/待回复检查和 `transfers` 转账记录）并路由 Windows `snapshot` 子命令。
 - `scripts/snapshot_reader.py`：有边界的 Windows 离线明文快照查询/导出后端。
 - `scripts/wechat_schema.py`：两种来源共用的消息表名和字段别名；来源验证与解码策略分别保留。
+- `scripts/group_image_media.py`：私聊/群聊图片的本地附件定位、解码和本机识字；不查询消息库，由 `vault_cli.py images` 调用。
 - `scripts/message_display.py`：查询、会话摘要和聊天导出共用的消息展示与字段脱敏；不读配置、不访问客户端、不改写源库。
 - `scripts/extract_keys.py`：本机 key 捕获、复用和匹配。
 - `scripts/decrypt_all_dbs.py`：全量/增量解密，写入私密 vault，并生成 manifest；日志和 manifest 里的账号目录（以 wxid 命名）显示为 `<账号目录>`。

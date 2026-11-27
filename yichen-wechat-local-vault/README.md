@@ -34,6 +34,7 @@ python3 scripts/vault_cli.py status --format text
 python3 scripts/vault_cli.py sessions --format text
 python3 scripts/vault_cli.py pending --since 48h --format text
 python3 scripts/vault_cli.py history "联系人或群名" --format text
+python3 scripts/vault_cli.py images "联系人或群名" --local-id 123 --ocr --format text
 python3 scripts/vault_cli.py search "关键词" --format text
 python3 scripts/vault_cli.py stats "群名" --format text
 python3 scripts/vault_cli.py favorites --format text
@@ -53,9 +54,10 @@ python3 scripts/export_chat.py --chat-id "contact_username" --since "2025-01-01"
 - `status`：检查明文库是否齐全。
 - `sessions` / `unread` / `new-messages`：最近会话、未读和增量新消息。
 - `pending`：漏看/待回复候选，含已读未回的私聊、群里 @我/引用我/提到我/@所有人、待收或超时退回的转账、私聊红包和未接来电；`--previous` + `--since last` 接续上次检查，`--output` 写入权限 600 的私密文件。
-- `transfers`：转账记录，每笔给出转入/转出、对方、金额、备注和状态，并合计转入、转出和待收；`history`/`export` 里的转账也显示金额和状态。只含聊天里的转账消息，不是微信支付账单。
+- `transfers`：转账记录，每笔给出方向、对方、金额、备注和截至快照的状态，按币种合计转入、转出和待收；身份不明、缺 ID 或同 ID 冲突的记录明确标注，不纳入确定收支。跨会话相同 ID 在所选聊天范围内合并为一条异常记录，避免镜像重复计数。`history`/`export` 里的转账也显示金额和状态。只含聊天里的转账消息，不是微信支付账单。
 - `contacts` / `members`：联系人、群聊和群成员。
 - `history` / `search`：按聊天对象、关键词、时间、消息类型查询；`search` 同样覆盖压缩存储的长文本、文件名和链接标题。
+- `images`：私聊/群聊图片，按消息 `packed_info_data` 中的哈希定位本地附件；`--decode` 解码到私密缓存（含明文图片），`--ocr` 本机识字。
 - `stats`：消息总数、类型分布、发言排行、24 小时分布。
 - `export`：Markdown 或 txt 导出。
 - `favorites`：收藏夹，支持 text/image/article/card/video。

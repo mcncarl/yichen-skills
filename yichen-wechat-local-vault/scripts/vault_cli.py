@@ -13,7 +13,7 @@ import argparse
 from collections import Counter
 from contextvars import ContextVar
 from datetime import datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 import hashlib
 import html
 import json
@@ -27,7 +27,7 @@ from xml.etree import ElementTree as ET
 
 from wechat_schema import message_columns as shared_message_columns
 from wechat_schema import message_table as shared_message_table
-from message_display import ENVELOPE, HIDDEN_ID, PLACEHOLDER_TYPES, file_attachment_size, format_message_content, public_value, redact_text
+from message_display import ENVELOPE, HIDDEN_ID, PLACEHOLDER_TYPES, file_attachment_size, format_message_content, public_value, redact_text, transfer_fields, transfer_text
 
 try:
     import zstandard as zstd
@@ -784,6 +784,188 @@ def render_messages_text(rows: list[dict]) -> str:
     return "\n".join(lines)
 
 
+IMAGE_CACHE_DIR = DEFAULT_VAULT_DIR / "cache/images"
+# Clearest copy first: HD for reading text, then the original, then the thumbnail.
+IMAGE_ASSET_ORDER = ("high-resolution", "original", "thumbnail")
+IMAGE_ASSET_LABELS = {"high-resolution": "高清", "original": "原图", "thumbnail": "缩略图"}
+IMAGE_STATUS_LABELS = {
+    "found": "本地有附件",
+    "missing": "本地没有附件（未下载或已清理）",
+    "no-hash": "消息里没有附件文件名",
+    "scan-gap": "附件目录扫描受阻，不能判定没有",
+    "no-attach-dir": "未找到本账号附件目录",
+}
+
+
+def image_asset_level(path: Path) -> str:
+    name = path.name.lower()
+    if name.endswith("_h.dat"):
+        return "high-resolution"
+    if name.endswith("_t.dat"):
+        return "thumbnail"
+    return "original"
+
+
+def image_file_hash(con: sqlite3.Connection, table: str, cols: dict[str, str], local_id, has_packed: bool) -> str | None:
+    """Attachment file name of an image message.
+
+    WeChat 4.x names msg/attach/<md5(chat)>/<YYYY-MM>/Img/<hash>[_t|_h].dat after the
+    hash stored in packed_info_data. The md5 attribute in the message XML is the CDN
+    content digest and never matches these file names, so it is not a fallback.
+    """
+    import group_image_media as media
+
+    if not has_packed or not cols.get("local_id"):
+        return None
+    row = con.execute(f"SELECT packed_info_data FROM [{table}] WHERE {cols['local_id']} = ?", (local_id,)).fetchone()
+    data = row["packed_info_data"] if row else None
+    if isinstance(data, str):
+        data = data.encode("utf-8", errors="ignore")
+    return media.extract_image_md5(bytes(data)) if data else None
+
+
+def collect_image_messages(decrypted_dir: Path, chat: dict, start_ts: int | None, end_ts: int | None, limit: int, local_ids: set[int] | None) -> list[dict]:
+    contacts, _ = load_contacts(decrypted_dir)
+    rows = []
+    for db_path, table in find_chat_tables(decrypted_dir, chat):
+        with connect(db_path) as con:
+            cols = message_columns(con, table)
+            has_packed = "packed_info_data" in table_columns(con, table)
+            # A local_id lookup must reach images older than the newest page.
+            sql, params = build_select_sql(table, cols, start_ts, end_ts, None, "image", None if local_ids else limit, 0)
+            name2id = load_name2id(con)
+            for row in con.execute(sql, params):
+                if local_ids and row["local_id"] not in local_ids:
+                    continue
+                msg = row_to_message(row, db_path.name, table, chat, contacts, name2id)
+                msg["file_hash"] = image_file_hash(con, table, cols, row["local_id"], has_packed)
+                rows.append(msg)
+    rows.sort(key=lambda item: (item["timestamp"], str(item["local_id"])), reverse=True)
+    page = rows[:limit]
+    page.sort(key=lambda item: (item["timestamp"], str(item["local_id"])))
+    return page
+
+
+def decode_chat_image(media, paths: list[Path], keys: list[dict], context: dict, cache_dir: Path) -> dict:
+    """Decode the clearest local copy; a key that worked is tried first next time."""
+    errors = []
+    for path in sorted(paths, key=lambda p: IMAGE_ASSET_ORDER.index(image_asset_level(p))):
+        for key in list(keys):
+            try:
+                preview = media.decode_image_dat_to_preview(path, key, context, cache_dir)
+            except ValueError as error:
+                # A wrong key fails the padding check, or rarely passes it and yields no known format.
+                if str(error) in ("invalid image key", "invalid image layout", "unknown image format"):
+                    continue
+                errors.append(f"{image_asset_level(path)}: {error}")
+                break
+            except Exception as error:  # ffmpeg, missing crypto library, unreadable file
+                errors.append(f"{image_asset_level(path)}: {type(error).__name__}")
+                break
+            keys.remove(key)
+            keys.insert(0, key)
+            return {"preview_path": preview["previewPath"], "asset_level": preview["assetLevel"]}
+        else:
+            errors.append(f"{image_asset_level(path)}: 没有可用的图片密钥")
+    return {"decode_error": "；".join(errors) or "没有可解码的附件"}
+
+
+def command_images(args: argparse.Namespace) -> None:
+    import group_image_media as media
+
+    if args.limit < 1:
+        raise SystemExit("--limit 至少为 1")
+    decrypted_dir = resolve_decrypted_dir(args.decrypted_dir)
+    contacts, _ = load_contacts(decrypted_dir)
+    chat = resolve_chat(args.chat, contacts)
+    if not chat:
+        raise SystemExit(f"找不到聊天对象: {args.chat}")
+    local_ids = set(args.local_id or []) or None
+    rows = collect_image_messages(
+        decrypted_dir, chat, parse_time(args.start_time), parse_time(args.end_time, end_of_day=True), args.limit, local_ids,
+    )
+    decode = args.decode or args.ocr
+    gaps: list[str] = []
+    db_dir = resolve_db_dir()
+    attach_root = db_dir.parent / "msg/attach" if db_dir else None
+    finder = media.AttachmentFinder(attach_root) if attach_root and attach_root.is_dir() else None
+    if not finder:
+        gaps.append("未找到本账号的附件目录（检查 db_base_path/wxid 配置），无法定位图片文件")
+    keys: list[dict] = []
+    if decode and finder:
+        try:
+            keys = media.image_key_candidates(CONFIG_FILE, db_dir)
+        except (OSError, ValueError) as error:
+            gaps.append(f"读取图片密钥候选失败: {type(error).__name__}")
+        if not keys:
+            gaps.append("没有找到图片密钥候选（kvcomm 目录为空或不可读），只能列出附件状态")
+    cache_dir = Path(args.cache_dir).expanduser() if args.cache_dir else IMAGE_CACHE_DIR
+    if decode and keys:
+        cache_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        os.chmod(cache_dir, 0o700)
+
+    images = []
+    for row in rows:
+        item = {key: row[key] for key in ("db", "table", "local_id", "time", "timestamp", "sender", "sender_username")}
+        paths: list[Path] = []
+        if not finder:
+            item["status"] = "no-attach-dir"
+        elif not row["file_hash"]:
+            item["status"] = "no-hash"
+        else:
+            paths = finder.find(chat["username"], row["file_hash"])
+            if paths:
+                item["status"] = "found"
+            else:
+                item["status"] = "scan-gap" if finder.scan_failed(chat["username"]) else "missing"
+        item["assets"] = sorted({image_asset_level(path) for path in paths}, key=IMAGE_ASSET_ORDER.index)
+        if decode and paths and keys:
+            context = {"chatKey": f"{row['db']}/{row['table']}", "messageLocalId": row["local_id"]}
+            item.update(decode_chat_image(media, paths, keys, context, cache_dir))
+            if args.ocr and item.get("preview_path"):
+                item["ocr"] = media.ocr_image_with_local_engine(Path(item["preview_path"]))
+        images.append(item)
+    if finder:
+        gaps.extend(f"附件目录扫描受阻: {gap['reason']}" for gap in finder.gaps)
+    statuses = Counter(item["status"] for item in images)
+    data = {
+        "chat": chat["display_name"],
+        "username": chat["username"],
+        "count": len(images),
+        "found": statuses.get("found", 0),
+        "decoded": sum(1 for item in images if item.get("preview_path")),
+        "cache_dir": str(cache_dir) if decode else "",
+        "gaps": gaps,
+        "images": images,
+    }
+    output(data, args.format, render_images_text)
+
+
+def render_images_text(data: dict) -> str:
+    lines = [f"{data['chat']} 图片 {data['count']} 张，本地有附件 {data['found']} 张"]
+    if data.get("cache_dir"):
+        lines[0] += f"，已解码 {data['decoded']} 张（私密缓存：{data['cache_dir']}，含明文图片）"
+    for gap in data.get("gaps") or []:
+        lines.append(f"缺口: {gap}")
+    for item in data["images"]:
+        sender = f"{item['sender']}: " if item.get("sender") else ""
+        assets = "/".join(IMAGE_ASSET_LABELS[level] for level in item.get("assets") or [])
+        status = IMAGE_STATUS_LABELS.get(item["status"], item["status"])
+        line = f"[{item['time']}] {sender}[图片] {item['db']}#{item['local_id']} {status}"
+        if assets:
+            line += f"（{assets}）"
+        lines.append(line)
+        if item.get("preview_path"):
+            lines.append(f"  预览（{IMAGE_ASSET_LABELS.get(item['asset_level'], item['asset_level'])}）: {item['preview_path']}")
+        if item.get("decode_error"):
+            lines.append(f"  解码失败: {item['decode_error']}")
+        ocr = item.get("ocr")
+        if ocr:
+            text = ocr.get("text") or ""
+            lines.append(f"  识字（{ocr.get('engine')}，仅供参考）: " + (text.replace("\n", " / ")[:300] if text else f"未识别出文字 {ocr.get('error') or ''}".rstrip()))
+    return "\n".join(lines)
+
+
 def search_table(con: sqlite3.Connection, db_name: str, table: str, chat: dict, contacts: dict[str, dict], name2id: dict[int, str], keyword: str, start_ts: int | None, end_ts: int | None, type_name: str | None, limit: int) -> list[dict]:
     """Newest-first messages of one table whose readable text contains keyword.
 
@@ -1452,7 +1634,7 @@ class PendingScan:
             "source": decode_value(row["source"], row["source_flag"]),
         }
 
-    def identify_self(self, tails: dict[str, list[dict]]) -> None:
+    def identify_self(self, tails: dict[str, list[dict]], *, allow_unknown: bool = False) -> None:
         """Find the account owner: the one speaker besides the partner in private chats.
 
         A private chat holds only the partner, the owner and sender-less notices, so the
@@ -1468,14 +1650,19 @@ class PendingScan:
         if configured and (configured in speakers or not speakers):
             self.me = configured
         elif speakers:
-            self.me = speakers.most_common(1)[0][0]
+            ranked = speakers.most_common()
+            if allow_unknown and len(ranked) > 1 and ranked[0][1] == ranked[1][1]:
+                return
+            self.me = ranked[0][0]
         else:
+            if allow_unknown:
+                return
             raise SystemExit("无法确认本账号：最近私聊里没有本人发言，配置的账号也不在联系人库中")
         contact = self.contacts.get(self.me, {})
         self.my_names = {name for name in (contact.get("nick_name"), contact.get("remark")) if name and len(name) >= 2}
 
     def name_of(self, username: str, fallback: str = "未知成员") -> str:
-        if username == self.me:
+        if username and self.me and username == self.me:
             return "我"
         name = self.contacts.get(username, {}).get("display_name") or ""
         if not name or name == username:
@@ -1908,19 +2095,33 @@ def render_pending_text(data: dict) -> str:
     return "\n".join(lines).rstrip()
 
 
-# transfers: every transfer in a period, one row per transferid. The payer's message
+# transfers: one row per transferid (unlinked messages stay separate). The payer's message
 # (paysubtype 1) names the parties, amount and memo; 3 is the receipt, 4 the return.
 TRANSFER_SETTLE_DAYS = 3  # a receipt or return can land after the window that holds the payment
 TRANSFER_OWNER_SESSIONS = 50
-TRANSFER_DIRECTIONS = {"in": "转入", "out": "转出", "others": "他人之间"}
+TRANSFER_DIRECTIONS = {"in": "转入", "out": "转出", "others": "他人之间", "unknown": "方向未知", "self": "本人之间"}
+TRANSFER_CURRENCIES = {"￥": "CNY", "CNY": "CNY", "RMB": "CNY", "人民币": "CNY", "元": "CNY",
+                       "USD": "USD", "US$": "USD", "HKD": "HKD", "HK$": "HKD",
+                       "EUR": "EUR", "€": "EUR", "GBP": "GBP", "£": "GBP", "JPY": "JPY"}
+TRANSFER_NUMBER = r"(?:[0-9]{1,12}|[0-9]{1,3}(?:,[0-9]{3}){1,3})(?:\.[0-9]{1,2})?"
+
+
+def transfer_money(text: str) -> tuple[Decimal | None, str | None]:
+    currencies = "|".join(re.escape(c) for c in TRANSFER_CURRENCIES)
+    match = re.fullmatch(rf"\s*(?:({currencies})\s*({TRANSFER_NUMBER})|({TRANSFER_NUMBER})\s*({currencies}))\s*", text or "")
+    if not match:
+        return None, None
+    currency = TRANSFER_CURRENCIES[match[1] or match[4]]
+    value = Decimal((match[2] or match[3]).replace(",", ""))
+    if value <= 0 or (currency == "JPY" and value != value.to_integral_value()):
+        return None, None
+    return value, currency
 
 
 def transfer_amount(text: str) -> Decimal | None:
-    match = re.search(r"\d[\d,]*(?:\.\d+)?", text or "")
-    try:
-        return Decimal(match.group(0).replace(",", "")) if match else None
-    except InvalidOperation:
-        return None
+    # Legacy callers request yuan, so foreign or unspecified currencies fail closed.
+    value, currency = transfer_money(text)
+    return value if currency == "CNY" else None
 
 
 def yuan(value: Decimal) -> str:
@@ -1929,40 +2130,72 @@ def yuan(value: Decimal) -> str:
 
 def transfer_status(entry: dict, until: int) -> tuple[str, int]:
     states, invalid = entry["states"], entry["invalid"]
-    if "3" in states:
-        return "已收款", states["3"]["ts"]
-    if "4" in states:
-        refund = states["4"]
-        # The receiver returns a transfer before its deadline; one that runs out comes back by itself.
-        returned = refund["sender"] == entry["receiver"] and not (invalid and refund["ts"] >= invalid)
-        return ("已退还" if returned else "超时退还"), refund["ts"]
-    if invalid and invalid < until:
+    if entry.get("conflict") or entry.get("missing_id") or len(entry.get("usernames", ())) > 1:
+        return "状态未知", 0
+    sent = states["1"]["ts"]
+    events = [(event["ts"], state) for state, event in states.items() if state != "1" and sent <= event["ts"] <= until]
+    if events:
+        latest = max(ts for ts, _ in events)
+        latest_states = {state for ts, state in events if ts == latest}
+        if len(latest_states) != 1:
+            return "状态未知", latest
+        state = latest_states.pop()
+        if state == "3":
+            return "已收款", latest
+        if state == "4":
+            # A return after acceptance is not evidence of an unclaimed timeout.
+            accepted = any(state == "3" for _, state in events)
+            return ("超时退还" if invalid and latest >= invalid and not accepted else "已退还"), latest
+        return "状态未知", latest
+    if invalid and invalid <= until:
         return "已过期未收", 0
     return "待收款", 0
 
 
 def collect_transfers(scan: PendingScan, usernames: list[str], start: int | None, end: int | None, until: int) -> tuple[list[dict], int]:
     margin = TRANSFER_SETTLE_DAYS * 86400
-    fetch_start = start - margin if start is not None else None
-    fetch_end = end + margin if end is not None else None
-    entries: dict[str, dict] = {}
-    for username in usernames:
-        for msg in scan.fetch(username, start=fetch_start, end=fetch_end, local_type=TRANSFER_TYPE):
-            body = msg["body"]
-            tid = xml_field(body, "transferid") or f"{chat_key(username)}-{msg['ts']}"
-            entry = entries.setdefault(tid, {"username": username, "states": {}, "invalid": 0})
-            state = xml_field(body, "paysubtype")
-            entry["states"].setdefault(state, {"ts": msg["ts"], "sender": msg["sender"]})
+    fetch_end = min(end + margin, until) if end is not None else until
+    entries: dict[tuple, dict] = {}
+    malformed = 0
+    for username in sorted(set(usernames)):
+        # Read earlier initiations too: a repeated payment must not move into a later date filter.
+        messages = scan.fetch(username, end=fetch_end, local_type=TRANSFER_TYPE)
+        messages.sort(key=lambda msg: (msg["ts"], msg.get("db", 0), msg.get("local_id", 0), msg["body"]))
+        for index, msg in enumerate(messages):
+            if msg["ts"] > fetch_end:
+                continue
+            fields = transfer_fields(msg["body"])
+            if fields is None:
+                malformed += int((start is None or msg["ts"] >= start) and (end is None or msg["ts"] <= end))
+                continue
+            tid = fields["transferid"]
+            key = ("id", tid) if tid else ("unlinked", username, index)
+            entry = entries.setdefault(key, {"username": username, "states": {}, "invalid": 0,
+                                             "missing_id": not tid, "conflict": False, "identifiers": {tid},
+                                             "usernames": set(), "initiated_at": []})
+            entry["usernames"].add(username)
+            state = fields["paysubtype"]
+            entry["identifiers"].update((username, fields["payer_username"], fields["receiver_username"], msg["sender"]))
             if state == "1":
-                invalid = xml_field(body, "invalidtime")
-                entry.update({
-                    "payer": xml_field(body, "payer_username") or msg["sender"],
-                    "receiver": xml_field(body, "receiver_username"),
-                    "amount": xml_field(body, "feedesc"),
-                    "memo": xml_field(body, "pay_memo"),
-                    "invalid": int(invalid) if invalid.isdigit() else 0,
-                })
-    rows, unmatched = [], 0
+                entry["initiated_at"].append(msg["ts"])
+                invalid = fields["invalidtime"]
+                initiating = {
+                    "payer": fields["payer_username"] or msg["sender"],
+                    "receiver": fields["receiver_username"],
+                    "amount": fields["feedesc"],
+                    "memo": fields["pay_memo"],
+                    "invalid": int(invalid) if re.fullmatch(r"[0-9]{1,10}", invalid) else 0,
+                }
+                if "1" in entry["states"]:
+                    entry["conflict"] |= any(entry[k] != v for k, v in initiating.items())
+                    if msg["ts"] >= entry["states"]["1"]["ts"]:
+                        continue
+                entry.update(initiating)
+                entry["username"] = username
+            elif state in entry["states"] and msg["ts"] < entry["states"][state]["ts"]:
+                continue
+            entry["states"][state] = {"ts": msg["ts"], "sender": msg["sender"]}
+    rows, unmatched = [], malformed
     for entry in entries.values():
         states = entry["states"]
         first = min(item["ts"] for item in states.values())
@@ -1973,26 +2206,54 @@ def collect_transfers(scan: PendingScan, usernames: list[str], start: int | None
             continue
         sent = states["1"]["ts"]
         if (start is not None and sent < start) or (end is not None and sent > end):
+            if entry["conflict"] or len(entry["usernames"]) > 1:
+                unmatched += int(any((start is None or ts >= start) and (end is None or ts <= end)
+                                     for ts in entry["initiated_at"]))
             continue
-        if entry["receiver"] == scan.me:
+        cross_chat = len(entry["usernames"]) > 1
+        payer, receiver = entry["payer"], entry["receiver"]
+        if entry["conflict"] or cross_chat or not scan.me or not payer or not receiver:
+            direction, other = "unknown", ""
+        elif payer == receiver == scan.me:
+            direction, other = "self", scan.me
+        elif receiver == scan.me:
             direction, other = "in", entry["payer"]
-        elif entry["payer"] == scan.me:
+        elif payer == scan.me:
             direction, other = "out", entry["receiver"]
         else:
             direction, other = "others", ""
-        status, settled = transfer_status(entry, until)
-        amount = transfer_amount(entry["amount"])
+        status, settled = transfer_status(entry, fetch_end)
+        amount, currency = transfer_money(entry["amount"])
+        issues = []
+        if entry["missing_id"]:
+            issues.append("缺少转账 ID，无法关联收款或退款")
+        if entry["conflict"]:
+            issues.append("同 ID 发起内容冲突，仅展示最早发起内容，不计入合计")
+        if cross_chat:
+            issues.append("跨会话 ID 重复，无法确认镜像或碰撞，仅展示最早发起内容，不计入合计")
+        if direction == "unknown":
+            issues.append("本人或交易双方身份不明，不计入合计")
+        if amount is None:
+            issues.append("金额或币种无法确认，不计入合计")
+        if status == "状态未知" and not entry["missing_id"] and not entry["conflict"] and not cross_chat:
+            issues.append("回执状态未知或同秒冲突，不计入合计")
+        safe = lambda text: clip(transfer_text(text, entry["identifiers"]), 120)
         rows.append({
             "ts": sent,
             "time": fmt_minute(sent),
-            "chat": scan.name_of(entry["username"], "未知会话"),
+            "chat": "、".join(scan.name_of(username, "未知会话") for username in sorted(entry["usernames"])),
             "username": entry["username"],
+            "source_chats": [{"username": username, "chat": scan.name_of(username, "未知会话")}
+                             for username in sorted(entry["usernames"])],
             "direction": TRANSFER_DIRECTIONS[direction],
-            "counterpart": scan.name_of(other, "对方") if other else f"{scan.name_of(entry['payer'], '某人')} → {scan.name_of(entry['receiver'], '某人')}",
-            "amount": display_text(entry["amount"]) or "金额未知",
+            "counterpart": scan.name_of(other, "对方") if other else f"{scan.name_of(payer, '某人') if payer else '某人'} → {scan.name_of(receiver, '某人') if receiver else '某人'}",
+            "amount": safe(entry["amount"]) or "金额未知",
             "amount_value": str(amount) if amount is not None else None,
-            "memo": display_text(entry["memo"], 120),
+            "currency": currency,
+            "memo": safe(entry["memo"]),
             "status": status,
+            "status_until": fmt_minute(fetch_end),
+            "issues": issues,
             "settled_at": fmt_minute(settled),
             "expires": fmt_minute(entry["invalid"]) if status == "待收款" and entry["invalid"] else "",
         })
@@ -2005,16 +2266,36 @@ def transfer_totals(rows: list[dict]) -> dict:
         "received": ("转入", "已收款"), "paid": ("转出", "已收款"),
         "pending_in": ("转入", "待收款"), "pending_out": ("转出", "待收款"),
     }
-    totals = {}
+    totals, sums = {}, {}
     for key, (direction, status) in buckets.items():
         picked = [row for row in rows if row["direction"] == direction and row["status"] == status]
-        values = [Decimal(row["amount_value"]) for row in picked if row["amount_value"] is not None]
-        totals[key] = {"count": len(picked), "amount": yuan(sum(values, Decimal(0))), "unknown_amount": len(picked) - len(values)}
-    received = sum((Decimal(row["amount_value"]) for row in rows if row["direction"] == "转入" and row["status"] == "已收款" and row["amount_value"]), Decimal(0))
-    paid = sum((Decimal(row["amount_value"]) for row in rows if row["direction"] == "转出" and row["status"] == "已收款" and row["amount_value"]), Decimal(0))
-    totals["net"] = ("+" if received >= paid else "-") + yuan(abs(received - paid))
+        values: dict[str, Decimal] = {}
+        unknown = 0
+        for row in picked:
+            if row["amount_value"] is None or not row["currency"]:
+                unknown += 1
+                continue
+            currency = row["currency"]
+            values[currency] = values.get(currency, Decimal(0)) + Decimal(row["amount_value"])
+        sums[key] = values
+        totals[key] = {"count": len(picked), "amount": transfer_total_text(values), "unknown_amount": unknown,
+                       "by_currency": {c: f"{v:.2f}" for c, v in sorted(values.items())}}
+    net = {c: sums["received"].get(c, Decimal(0)) - sums["paid"].get(c, Decimal(0))
+           for c in sums["received"].keys() | sums["paid"].keys()}
+    totals["net"] = transfer_total_text(net, signed=True)
+    totals["net_by_currency"] = {c: f"{v:.2f}" for c, v in sorted(net.items())}
+    totals["unclassified"] = sum(row["direction"] not in ("转入", "转出") or row["status"] == "状态未知" for row in rows)
     totals["returned"] = sum(1 for row in rows if row["status"] in ("已退还", "超时退还", "已过期未收"))
     return totals
+
+
+def transfer_total_text(values: dict[str, Decimal], *, signed: bool = False) -> str:
+    parts = []
+    for currency, value in sorted(values.items() or [("CNY", Decimal(0))]):
+        sign = ("+" if value >= 0 else "-") if signed else ""
+        amount = yuan(abs(value)) if currency == "CNY" else f"{currency} {abs(value):,.2f}"
+        parts.append(sign + amount)
+    return " / ".join(parts)
 
 
 def command_transfers(args: argparse.Namespace) -> None:
@@ -2029,7 +2310,9 @@ def command_transfers(args: argparse.Namespace) -> None:
     scan = PendingScan(decrypted_dir)
     try:
         private = [s["username"] for s in sessions if is_private_chat(s["username"])][:TRANSFER_OWNER_SESSIONS]
-        scan.identify_self({username: scan.fetch(username, end=until, last=PENDING_PRIVATE_TAIL) for username in private})
+        scan.identify_self({username: scan.fetch(username, end=until, last=PENDING_PRIVATE_TAIL) for username in private}, allow_unknown=True)
+        if not scan.me:
+            manifest["gaps"].append("无法确认本账号，所有转账方向未知，未计入收支合计")
         if args.chat:
             chats = []
             for query in args.chat:
@@ -2049,11 +2332,12 @@ def command_transfers(args: argparse.Namespace) -> None:
     finally:
         scan.close()
     if unmatched:
-        manifest["gaps"].append(f"{unmatched} 笔只有收款或退还消息、缺少发起消息，金额和双方未知，未列出")
+        manifest["gaps"].append(f"{unmatched} 组消息无法解析、缺少发起消息或关联冲突的最早发起在窗口外，未列出；缺 ID 的回执逐条计数")
     data = {
         "range": {"start": fmt_minute(start) if start else "最早", "end": fmt_minute(end) if end else "最新"},
         "chats": "全部会话" if not args.chat else "、".join(scan.name_of(username, "未知会话") for username in dict.fromkeys(chats)),
         "data_until": fmt_minute(until),
+        "status_until": fmt_minute(min(end + TRANSFER_SETTLE_DAYS * 86400, until) if end is not None else until),
         "count": len(rows),
         "totals": transfer_totals(rows),
         "gaps": manifest["gaps"],
@@ -2066,15 +2350,17 @@ def render_transfers_text(data: dict) -> str:
     totals = data["totals"]
     lines = [
         f"# 微信转账（{data['range']['start']} → {data['range']['end']}，{data['chats']}）",
-        f"数据截至 {data['data_until']}，共 {data['count']} 笔",
+        f"数据截至 {data['data_until']}，状态核对截至 {data['status_until']}，共 {data['count']} 笔",
         f"转入已收 {totals['received']['count']} 笔 {totals['received']['amount']}"
         f"｜转出被收 {totals['paid']['count']} 笔 {totals['paid']['amount']}｜净额 {totals['net']}",
         f"待我收 {totals['pending_in']['count']} 笔 {totals['pending_in']['amount']}"
         f"｜待对方收 {totals['pending_out']['count']} 笔 {totals['pending_out']['amount']}｜退还或过期 {totals['returned']} 笔",
     ]
-    unknown = sum(item["unknown_amount"] for key, item in totals.items() if isinstance(item, dict))
+    unknown = sum(item.get("unknown_amount", 0) for item in totals.values() if isinstance(item, dict))
     if unknown:
         lines.append(f"{unknown} 笔金额无法识别，未计入合计")
+    if totals["unclassified"]:
+        lines.append(f"{totals['unclassified']} 笔方向或状态不适用收支合计，未计入")
     for gap in data["gaps"]:
         lines.append(f"⚠ {gap}")
     lines.append("")
@@ -2083,6 +2369,8 @@ def render_transfers_text(data: dict) -> str:
         memo = f"（备注：{row['memo']}）" if row["memo"] else ""
         status = row["status"] + (f" {row['settled_at']}" if row["settled_at"] else "") + (f"，{row['expires']} 过期" if row["expires"] else "")
         lines.append(f"- {row['time']} {row['direction']} {row['counterpart']}{where} {row['amount']}{memo} · {status}")
+        if row["issues"]:
+            lines.append("  注意：" + "；".join(row["issues"]))
     if not data["transfers"]:
         lines.append("这段时间没有转账")
     return "\n".join(lines).rstrip()
@@ -2151,6 +2439,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--media", action="store_true", help="尝试附带本地文件路径提示")
     p.add_argument("--format", choices=["json", "text"], default="json")
     p.set_defaults(func=command_history)
+
+    p = sub.add_parser("images", help="私聊或群聊的图片：定位本地附件，可解码到私密缓存并本地识字")
+    p.add_argument("chat")
+    p.add_argument("--limit", type=int, default=20, help="最多列出最近多少张")
+    p.add_argument("--local-id", type=int, action="append", help="只处理这条图片消息，可重复")
+    p.add_argument("--start-time", default="")
+    p.add_argument("--end-time", default="")
+    p.add_argument("--decode", action="store_true", help="解码为可查看的图片，写入私密缓存（权限 600）")
+    p.add_argument("--ocr", action="store_true", help="解码后用本机 Vision/Tesseract 识字；隐含 --decode")
+    p.add_argument("--cache-dir", help=f"解码输出目录，默认 {IMAGE_CACHE_DIR}")
+    p.add_argument("--format", choices=["json", "text"], default="json")
+    p.set_defaults(func=command_images)
 
     p = sub.add_parser("search", help="全局或指定会话搜索")
     p.add_argument("keyword")

@@ -22,6 +22,7 @@ PLACEHOLDER_TYPES = frozenset({3, 34, 42, 43, 47, 48, 50})
 IDENTIFIER_FIELDS = {
     "username", "sender_username", "chat_username", "owner_username",
     "account_username", "last_msg_sender", "wxid", "alias",
+    "payer_username", "receiver_username", "transferid",
 }
 SECRET_NAMES = (
     r"(?:newformat)?aeskey|(?:newformat)?fileid|cdn(?:attach|thumb|video|midimg|bigimg|smallimg)?url|"
@@ -212,12 +213,44 @@ def _forwarded(app: ET.Element) -> str:
 TRANSFER_STATES = {"1": "发出", "3": "已收款", "4": "已退还"}
 
 
+def transfer_fields(content: str) -> dict[str, str] | None:
+    """Read only direct payment fields, never tags embedded in a memo or title."""
+    root = _parse(_xml_body(content))
+    if root is None:
+        return None
+    apps = [root] if _name(root) == "appmsg" else [n for n in root if _name(n) == "appmsg"]
+    if len(apps) != 1:
+        return None
+    payments = [n for n in apps[0] if _name(n) == "wcpayinfo"]
+    if len(payments) != 1:
+        return None
+    fields = {}
+    for name in ("paysubtype", "transferid", "payer_username", "receiver_username", "feedesc", "pay_memo", "invalidtime"):
+        nodes = [n for n in payments[0] if _name(n) == name]
+        if len(nodes) > 1 or (nodes and len(nodes[0])):
+            return None
+        fields[name] = html.unescape((nodes[0].text or "").strip()) if nodes else ""
+    return fields
+
+
+def transfer_text(text: str, identifiers=()) -> str:
+    """Payment prose may contain raw XML or IDs, including non-wxid aliases."""
+    decoded = html.unescape(text)
+    if MARKUP.search(decoded) or re.search(r"&(?:amp;)*(?:lt|#0*60|#x0*3c);", decoded, re.I):
+        return "[内嵌内容已隐藏]"
+    for identifier in sorted({i for i in identifiers if i}, key=len, reverse=True):
+        decoded = decoded.replace(identifier, HIDDEN_ID)
+    return redact_text(decoded)
+
+
 def _transfer(app: ET.Element) -> str:
-    pay = _find(app, "wcpayinfo")
+    pay = _child(app, "wcpayinfo")
     if pay is None:
         return "[转账]"
-    amount = _leaf(_child(pay, "feedesc")) or "金额未知"
-    memo = _leaf(_child(pay, "pay_memo"))
+    identifiers = [(node.text or "").strip() for node in pay
+                   if _name(node) in {"transferid", "payer_username", "receiver_username"}]
+    amount = transfer_text(_leaf(_child(pay, "feedesc")), identifiers) or "金额未知"
+    memo = transfer_text(_leaf(_child(pay, "pay_memo")), identifiers)
     state = TRANSFER_STATES.get(_leaf(_child(pay, "paysubtype")), "")
     return f"[转账] {amount}" + (f"（备注：{memo}）" if memo else "") + (f" · {state}" if state else "")
 
