@@ -506,24 +506,44 @@ class WindowsLiveTests(unittest.TestCase):
 
     @unittest.skipUnless(sys.platform == "win32", "Windows native API check")
     def test_windows_private_acl_and_wrong_process_rejection(self):
-        from windows_native import profile_owner, secure_output_root, ProcessReader
+        from windows_native import profile_owner, secure_output_root, sid_text, ProcessReader
         from ctypes import wintypes as w
+
+        class AclSizeInfo(c.Structure):
+            _fields_ = [("AceCount", w.DWORD), ("AclBytesInUse", w.DWORD), ("AclBytesFree", w.DWORD)]
+
         owner = profile_owner()
         protected = secure_output_root(self.root / "private")
         api = c.WinDLL("advapi32", use_last_error=True)
-        api.GetNamedSecurityInfoW.argtypes = [w.LPWSTR, w.DWORD, w.DWORD, c.c_void_p, c.c_void_p, c.c_void_p, c.c_void_p, c.POINTER(c.c_void_p)]
+        api.GetNamedSecurityInfoW.argtypes = [w.LPWSTR, w.DWORD, w.DWORD, c.c_void_p, c.c_void_p, c.POINTER(c.c_void_p), c.c_void_p, c.POINTER(c.c_void_p)]
         api.ConvertSecurityDescriptorToStringSecurityDescriptorW.argtypes = [c.c_void_p, w.DWORD, w.DWORD, c.POINTER(w.LPWSTR), c.POINTER(w.ULONG)]
-        descriptor, text = c.c_void_p(), w.LPWSTR()
-        self.assertEqual(api.GetNamedSecurityInfoW(str(protected), 1, 4, None, None, None, None, c.byref(descriptor)), 0)
+        api.GetAclInformation.argtypes = [c.c_void_p, c.c_void_p, w.DWORD, w.DWORD]
+        api.GetAclInformation.restype = w.BOOL
+        api.GetAce.argtypes = [c.c_void_p, w.DWORD, c.POINTER(c.c_void_p)]
+        api.GetAce.restype = w.BOOL
+        descriptor, dacl, text = c.c_void_p(), c.c_void_p(), w.LPWSTR()
+        self.assertEqual(api.GetNamedSecurityInfoW(str(protected), 1, 4, None, None, c.byref(dacl), None, c.byref(descriptor)), 0)
+        self.assertTrue(bool(dacl.value))
         kernel = c.WinDLL("kernel32")
         kernel.LocalFree.argtypes = [c.c_void_p]
         try:
             self.assertTrue(api.ConvertSecurityDescriptorToStringSecurityDescriptorW(descriptor, 1, 4, c.byref(text), None))
-            self.assertTrue(text.value.startswith("D:P"))
-            self.assertEqual(text.value.count("(A;"), 2)
-            self.assertTrue(owner in text.value and ";;;SY)" in text.value)
+            self.assertTrue(text.value.startswith("D:P"), text.value)
+            self.assertEqual(text.value.count("(A;"), 2, text.value)
+            self.assertIn(";;;SY)", text.value)
+            acl_info = AclSizeInfo()
+            self.assertTrue(api.GetAclInformation(dacl, c.byref(acl_info), c.sizeof(acl_info), 2))
+            self.assertEqual(acl_info.AceCount, 2)
+            trustees = set()
+            for idx in range(acl_info.AceCount):
+                ace = c.c_void_p()
+                self.assertTrue(api.GetAce(dacl, idx, c.byref(ace)))
+                # ACCESS_ALLOWED_ACE: ACE_HEADER (4 bytes) + ACCESS_MASK (4 bytes) + SidStart at offset 8.
+                trustees.add(sid_text(c.c_void_p(ace.value + 8)))
+            self.assertEqual(trustees, {owner, "S-1-5-18"})
         finally:
-            kernel.LocalFree(text)
+            if text.value:
+                kernel.LocalFree(text)
             kernel.LocalFree(descriptor)
         with self.assertRaisesRegex(RuntimeError, "not a Windows-trusted Weixin"):
             ProcessReader(os.getpid(), owner)
