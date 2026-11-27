@@ -1,6 +1,6 @@
 ﻿# yichen-skills
 
-[English](./README.md) | 中文
+[English](./README.md) | 中文 | [Türkçe](./README.tr.md)
 
 一个面向内容创作者的技能仓库，帮助你用 Claude Code / Codex 打通“沉淀知识 + X 内容切片 + X 文章草稿上传 + 微信数字资产 + 本地解析”的完整流程。
 
