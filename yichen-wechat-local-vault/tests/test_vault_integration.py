@@ -81,7 +81,7 @@ class UnifiedVaultTests(unittest.TestCase):
             destination = self.case / "export.md"
             code, _, err = self.routed("export", chat_id, "--output", str(destination), "--confirm-external-output")
             self.assertEqual(code, 0, err)
-            self.assertIn("星河", destination.read_text())
+            self.assertIn("星河", destination.read_text(encoding="utf-8"))
         self.assertEqual(fingerprint(self.snapshot), before)
 
     def test_missing_snapshot_or_manifest_never_falls_back_to_mac(self):

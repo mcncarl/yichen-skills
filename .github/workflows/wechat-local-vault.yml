@@ -46,19 +46,24 @@ jobs:
         working-directory: yichen-wechat-local-vault
         shell: pwsh
         env:
+          PYTHONPATH: tests
           YICHEN_WECHAT_TEST_ROOT: ${{ runner.temp }}\wechat-windows-tests
         run: |
-          python -m unittest -v tests/test_windows_live.py tests/test_windows_parity.py tests/test_snapshot_reader.py tests/test_vault_integration.py tests/test_message_display.py
+          python -m unittest -v test_windows_live test_windows_parity test_snapshot_reader test_vault_integration test_message_display.SafeMessageTests
 
       - name: Verify real Windows CLI discover and Mac-command isolation
         working-directory: yichen-wechat-local-vault
-        shell: pwsh
+        shell: python
         run: |
-          $disc = python scripts/vault_cli.py windows discover
-          Write-Host "windows discover output: $disc"
-          if ($LASTEXITCODE -ne 0) { throw "windows discover failed with $LASTEXITCODE" }
-          python scripts/vault_cli.py status 2>&1 | Out-Null
-          if ($LASTEXITCODE -ne 2) { throw "Mac status should be blocked on Windows with exit 2, got $LASTEXITCODE" }
+          import json, subprocess, sys
+          disc = subprocess.run([sys.executable, "scripts/vault_cli.py", "windows", "discover"], capture_output=True, text=True, encoding="utf-8")
+          print("windows discover rc:", disc.returncode, "stdout:", disc.stdout.strip(), "stderr:", disc.stderr.strip())
+          assert disc.returncode == 0, disc.stderr
+          payload = json.loads(disc.stdout)
+          assert payload["memory_read"] is False and isinstance(payload["accounts"], list) and isinstance(payload["weixin_processes"], list)
+          mac = subprocess.run([sys.executable, "scripts/vault_cli.py", "status"], capture_output=True, text=True, encoding="utf-8")
+          print("mac status on win32 rc:", mac.returncode, "stderr:", mac.stderr.strip())
+          assert mac.returncode == 2 and "snapshot" in mac.stderr
 
   macos-contracts:
     runs-on: macos-latest

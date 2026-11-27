@@ -19,6 +19,7 @@ import struct
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest import mock
 import uuid
@@ -101,7 +102,7 @@ def build_rich_snapshot(
     now_ts: int | None = None,
     include_extra_msg: bool = False,
 ) -> dict:
-    now = int(now_ts or datetime(2026, 11, 27, 12, 0, 0).timestamp())
+    now = int(now_ts if now_ts is not None else time.time() - 600)
     captured_iso = datetime.fromtimestamp(now, tz=timezone.utc).isoformat()
     database(root / "contact/contact.db", [
         "CREATE TABLE contact(id INTEGER, username TEXT, nick_name TEXT, remark TEXT, alias TEXT, local_type INTEGER, chat_room_notify INTEGER)",
@@ -462,7 +463,7 @@ class WindowsParityTests(unittest.TestCase):
 
     def test_images_locate_and_decode_v2_and_xor_dat(self):
         attach = self.case / "attach"
-        month = attach / hashlib.md5(ALICE.encode()).hexdigest() / "2026-11/Img"
+        month = attach / hashlib.md5(ALICE.encode()).hexdigest() / datetime.fromtimestamp(self.fx["now"]).strftime("%Y-%m") / "Img"
         month.mkdir(parents=True)
         aes_key = b"0123456789abcdef"
         clear_png = b"\x89PNG\r\n\x1a\n" + b"synthetic-windows-png"

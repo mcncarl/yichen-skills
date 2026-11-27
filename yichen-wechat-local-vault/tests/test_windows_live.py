@@ -63,7 +63,18 @@ class TestAES:
 
 def reserve_database(path):
     """Use SQLite's public file-control API to reserve the real 80-byte trailer."""
-    library = str(Path(sys.executable).parent / "sqlite3.dll") if sys.platform == "win32" else ctypes.util.find_library("sqlite3")
+    if sys.platform == "win32":
+        candidates = [
+            Path(sys.executable).parent / "sqlite3.dll",
+            Path(sys.executable).parent / "DLLs" / "sqlite3.dll",
+            Path(sys.base_prefix) / "DLLs" / "sqlite3.dll",
+            Path(sys.base_prefix) / "sqlite3.dll",
+        ]
+        library = next((str(p) for p in candidates if p.is_file()), None) or ctypes.util.find_library("sqlite3")
+    else:
+        library = ctypes.util.find_library("sqlite3")
+    if not library:
+        raise RuntimeError("sqlite3 shared library not found")
     api = c.CDLL(library)
     api.sqlite3_open.argtypes = [c.c_char_p, c.POINTER(c.c_void_p)]
     api.sqlite3_file_control.argtypes = [c.c_void_p, c.c_char_p, c.c_int, c.c_void_p]
@@ -254,10 +265,10 @@ class WindowsLiveTests(unittest.TestCase):
     def test_live_profile_does_not_fabricate_optional_databases(self):
         root = self.root / "full"
         build(root, include_sns=False)
-        manifest = json.loads((root / "snapshot-manifest.json").read_text())
+        manifest = json.loads((root / "snapshot-manifest.json").read_text(encoding="utf-8"))
         self.assertFalse(reader.validate_snapshot(root)["valid"])
         manifest["profile"] = live.PROFILE
-        (root / "snapshot-manifest.json").write_text(json.dumps(manifest))
+        (root / "snapshot-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
         self.assertTrue(reader.validate_snapshot(root)["valid"])
         self.assertFalse((root / "sns/sns.db").exists())
 
@@ -451,7 +462,7 @@ class WindowsLiveTests(unittest.TestCase):
         target = self.root / "exports/chat.md"
         reader.atomic_write(reader.require_safe_output(target, True, snapshot), "first", False)
         reader.atomic_write(reader.require_safe_output(target, True, snapshot), "second", True)
-        self.assertEqual(target.read_text(), "second")
+        self.assertEqual(target.read_text(encoding="utf-8"), "second")
         self.assertEqual(before, {p: hashlib.sha256(p.read_bytes()).digest() for p in source.rglob("*.db")})
 
     def test_snapshots_alias_is_rejected_before_key_or_plaintext_access(self):
@@ -473,7 +484,7 @@ class WindowsLiveTests(unittest.TestCase):
         vault = self.root / "vault"; vault.mkdir()
         latest = vault / "latest.json"
         previous = '{"synthetic_previous_good_pointer":true}'
-        latest.write_text(previous)
+        latest.write_text(previous, encoding="utf-8")
         original_replace = os.replace
         def fail_pointer(src, dst):
             if Path(dst) == latest:
@@ -482,7 +493,7 @@ class WindowsLiveTests(unittest.TestCase):
         with mock.patch.object(live.os, "replace", side_effect=fail_pointer):
             with self.assertRaises(OSError):
                 self.run_capture_fixture(source, vault)
-        self.assertEqual(latest.read_text(), previous)
+        self.assertEqual(latest.read_text(encoding="utf-8"), previous)
         attempts = list((vault / "snapshots").iterdir())
         self.assertEqual(len(attempts), 1)
         self.assertFalse(reader.validate_snapshot(attempts[0])["valid"])

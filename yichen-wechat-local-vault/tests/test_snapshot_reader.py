@@ -64,16 +64,16 @@ class SnapshotReaderTests(unittest.TestCase):
 
     def test_index_integrity_gaps_are_visible_without_replaying_manifest_text(self):
         path = self.root / "snapshot-manifest.json"
-        manifest = json.loads(path.read_text())
+        manifest = json.loads(path.read_text(encoding="utf-8"))
         manifest["integrity_gaps"] = [{"database": "message/message_fts.db", "reason": "untrusted private note"}]
-        path.write_text(json.dumps(manifest))
+        path.write_text(json.dumps(manifest), encoding="utf-8")
         result = self.run_cli("validate")
         self.assertEqual(result.returncode, 0, result.stderr)
         report = json.loads(result.stdout)
         self.assertEqual(report["integrity_gaps"], [{"database": "message/message_fts.db", "check": "unverified"}])
         self.assertNotIn("untrusted private note", result.stdout)
         manifest["integrity_gaps"] = [{"database": "../outside.db"}]
-        path.write_text(json.dumps(manifest))
+        path.write_text(json.dumps(manifest), encoding="utf-8")
         report = reader.validate_snapshot(self.root)
         self.assertFalse(report["valid"])
         self.assertTrue(any("unsupported index integrity gap" in error for error in report["errors"]))
