@@ -5,8 +5,8 @@ Every fixture is synthetic; no real WeChat database, config, account, or client 
 
 from __future__ import annotations
 
-from Crypto.Cipher import AES
 from contextlib import redirect_stderr, redirect_stdout
+import ctypes as c
 from datetime import datetime, timezone
 import hashlib
 import io
@@ -16,6 +16,7 @@ from pathlib import Path
 import sqlite3
 import stat
 import struct
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -28,6 +29,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 import snapshot_reader as reader
 import snapshot_workflows as wf
 import vault_cli
+import windows_crypto
 from fixture_factory import ACCOUNT, ALICE, BOB, GROUP, database, fixture_chat_id
 
 ARTIFACT_ROOT = Path(
@@ -63,10 +65,31 @@ def _transfer_xml(
     )
 
 
+def _aes_ecb_encrypt(key: bytes, data: bytes) -> bytes:
+    if sys.platform == "win32":
+        from ctypes import wintypes as w
+        aes = windows_crypto.CngAES(key, chaining_mode="ChainingModeECB")
+        try:
+            api = aes.api.BCryptEncrypt
+            api.argtypes = aes.api.BCryptDecrypt.argtypes
+            api.restype = w.LONG
+            src = c.create_string_buffer(data, len(data))
+            out = c.create_string_buffer(len(data))
+            written = w.ULONG()
+            windows_crypto.CngAES._check(api(aes.key, src, len(data), None, None, 0, out, len(data), c.byref(written), 0))
+            if written.value != len(data):
+                raise ValueError("Incomplete synthetic ECB encryption")
+            return out.raw
+        finally:
+            aes.close()
+    from Crypto.Cipher import AES
+    return AES.new(key, AES.MODE_ECB).encrypt(data)
+
+
 def _encrypted_v2_dat(clear: bytes, aes_key: bytes, xor_key: int) -> bytes:
     head, middle, tail = clear[:8], clear[8:-2], clear[-2:]
     payload = b"\x07\x08V2\x08\x07" + struct.pack("<I", 8) + struct.pack("<I", 2) + b"\x00"
-    return payload + AES.new(aes_key, AES.MODE_ECB).encrypt(head + bytes([8]) * 8) + middle + bytes(v ^ xor_key for v in tail)
+    return payload + _aes_ecb_encrypt(aes_key, head + bytes([8]) * 8) + middle + bytes(v ^ xor_key for v in tail)
 
 
 def build_rich_snapshot(
@@ -373,7 +396,8 @@ class WindowsParityTests(unittest.TestCase):
             "pending", "--since", "48h", "--output", str(out_file), "--confirm-external-output", snap=inferred_snap
         )
         self.assertEqual(code, 0, err)
-        self.assertEqual(stat.S_IMODE(out_file.stat().st_mode), 0o600)
+        if sys.platform != "win32":
+            self.assertEqual(stat.S_IMODE(out_file.stat().st_mode), 0o600)
         data = json.loads(out_file.read_text(encoding="utf-8"))
         self.assertEqual(data["owner_source"], "inferred_from_private_chats")
         self.assertEqual(data["trust"], "untrusted_snapshot_data")
@@ -470,6 +494,33 @@ class WindowsParityTests(unittest.TestCase):
         source = (ROOT / "scripts/snapshot_workflows.py").read_text(encoding="utf-8").casefold()
         for forbidden in ("openprocess", "readprocessmemory", "dpapi", "sqlcipher", "frida", "wx-cli"):
             self.assertNotIn(forbidden, source)
+
+    def test_real_subprocess_e2e_all_parity_subcommands_under_cp1252(self):
+        env = os.environ.copy()
+        env["PYTHONIOENCODING"] = "cp1252"
+        base_cmd = [sys.executable, str(ROOT / "scripts/vault_cli.py"), "snapshot", "--snapshot", str(self.snap)]
+        cases = [
+            ["validate"],
+            ["status", "--format", "text"],
+            ["sessions", "--format", "text"],
+            ["unread", "--format", "text"],
+            ["chats", "--query", "客户"],
+            ["contacts", "--query", "客户", "--format", "text"],
+            ["members", self.fx["group_id"], "--format", "text"],
+            ["history", self.fx["alice_id"], "--type", "file", "--format", "text"],
+            ["search", "--all", "明早发布", "--format", "text"],
+            ["stats", self.fx["group_id"], "--format", "text"],
+            ["favorites", "--format", "text"],
+            ["moments", "--all", "--format", "text"],
+            ["pending", "--since", "48h", "--format", "text"],
+            ["transfers", "--format", "text"],
+        ]
+        for sub_args in cases:
+            with self.subTest(cmd=sub_args[0]):
+                proc = subprocess.run(base_cmd + sub_args, capture_output=True, text=True, encoding="utf-8", env=env)
+                self.assertEqual(proc.returncode, 0, f"{sub_args}: stderr={proc.stderr}")
+                self.assertTrue(proc.stdout.strip(), f"{sub_args}: empty stdout")
+                self.assertNotIn("wxid_", proc.stdout)
 
 
 if __name__ == "__main__":

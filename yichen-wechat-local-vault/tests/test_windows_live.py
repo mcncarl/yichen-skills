@@ -125,6 +125,21 @@ class WindowsLiveTests(unittest.TestCase):
         finally:
             cipher.close()
 
+    def test_known_aes128_ecb_vector(self):
+        # FIPS-197 Appendix C.1 AES-128 known answer test.
+        key = bytes.fromhex("000102030405060708090a0b0c0d0e0f")
+        ciphertext = bytes.fromhex("69c4e0d86a7b0430d8cdb78070b4c55a")
+        expected = bytes.fromhex("00112233445566778899aabbccddeeff")
+        if sys.platform == "win32":
+            cipher = crypto.CngAES(key, chaining_mode="ChainingModeECB")
+            try:
+                self.assertEqual(cipher.decrypt(None, ciphertext), expected)
+            finally:
+                cipher.close()
+        else:
+            from Crypto.Cipher import AES
+            self.assertEqual(AES.new(key, AES.MODE_ECB).decrypt(ciphertext), expected)
+
     def encrypted_fixture(self):
         path = self.root / "synthetic.db"
         reserve_database(path)
